@@ -98,14 +98,17 @@ React/Svelte/Solid, só o adapter é reescrito"*. Então não há contradição 
 escolha em aberto, com um custo concreto de cada lado:
 
 - **Continuar vanilla**: o projeto mantém **zero dependências de runtime** (hoje
-  só `vite`, `vitest`, `typescript`, `jsdom` em devDependencies). Preço: formulários,
+  só `vite`, `vitest`, `typescript`, `jsdom`, `@types/node` em devDependencies). Preço: formulários,
   dialogs, toasts e estados de loading/erro escritos à mão — precisamente o
   trabalho que a ADR 0003 queria evitar.
 - **Adotar a ADR 0003**: ganha shadcn/ui e TanStack Query prontos. Preço:
   reescrever o adapter DOM em React e trazer React + Tailwind + Router + Query
   para um projeto que hoje não tem nenhuma dependência de runtime.
 
-Decidir antes da Fase 2, que é quando as telas de formulário aparecem.
+Decidir antes da Fase 2, que é quando as telas de formulário aparecem. A
+[ADR 0006](adrs/0006-modularizacao-frontend.md) **não** toma essa decisão — ela
+só garante que tomá-la depois não obrigue a remexer no core: cada módulo tem seu
+próprio `ui/`, e o contrato de montagem está isolado em `shared/dom-shell.ts`.
 
 ### 2. Alvo de execução
 
@@ -120,7 +123,7 @@ port `SecretStore` que falta).
 Lacuna que só existe por causa do dailly, e que se soma às da auditoria.
 
 O `toMarkdown()` **normaliza**. Isto está verificado em
-`ui/tests/serialize.test.ts`, não inferido:
+`app/src/capabilities/whiteboard/core/serialize.test.ts`, não inferido:
 
 | Entrada do usuário | Vira |
 |---|---|

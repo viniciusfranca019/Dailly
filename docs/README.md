@@ -13,6 +13,6 @@ código que já está aqui.
 | [`mvp.md`](mvp.md) | Comportamentos esperados, em BDD/Gherkin |
 | [`auditoria-lacunas.md`](auditoria-lacunas.md) | O que ainda **não** está decidido. Leia antes de codar |
 | [`roadmap.md`](roadmap.md) | Ordem de implementação, fases e dependências |
-| [`adrs/`](adrs/) | Decisões de arquitetura (0001 geral · 0002 dados · 0003 UI · 0004 BYOK · 0005 backup) |
+| [`adrs/`](adrs/) | Decisões de arquitetura (0001 geral · 0002 dados · 0003 UI · 0004 BYOK · 0005 backup · 0006 modularização) |
 
 O código do whiteboard está documentado no [README da raiz](../README.md).
