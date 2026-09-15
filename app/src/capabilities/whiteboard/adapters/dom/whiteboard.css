@@ -1,0 +1,68 @@
+/**
+ * The DOM adapter's own stylesheet — it travels with the adapter, not with the
+ * page that hosts it. Imported from `dom.ts`, so any consumer of
+ * `@whiteboard/dom` gets a styled board without copying rules around.
+ *
+ * Every value is a `var(--wb-*, fallback)`: the board renders correctly on a
+ * bare page, and a host that wants to theme it overrides the token instead of
+ * overriding the rule.
+ */
+
+.wb-block { margin: 1px 0; }
+.wb-row { display: flex; align-items: flex-start; gap: 2px; }
+.wb-children { margin-left: 24px; }
+
+.wb-arrow {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--wb-muted, #9b9a97);
+  font-size: 10px;
+  line-height: 24px;
+  cursor: pointer;
+  border-radius: 3px;
+}
+.wb-arrow:hover { background: var(--wb-hover, rgba(55, 53, 47, 0.08)); }
+.wb-arrow--empty { cursor: default; }
+
+.wb-heading { margin: 8px 0 2px; line-height: 1.3; }
+.wb-heading--1 { font-size: 26px; }
+.wb-heading--2 { font-size: 21px; }
+.wb-heading--3 { font-size: 17px; }
+.wb-heading--4 { font-size: 15px; }
+
+.wb-todo { display: flex; align-items: flex-start; gap: 8px; line-height: 24px; cursor: pointer; }
+.wb-checkbox { margin: 5px 0 0; accent-color: var(--wb-accent, #2383e2); cursor: pointer; }
+.wb-todo--checked .wb-text { color: var(--wb-muted, #9b9a97); text-decoration: line-through; }
+
+.wb-list { display: flex; gap: 8px; line-height: 24px; }
+.wb-marker { flex: 0 0 auto; min-width: 16px; color: var(--wb-fg, #37352f); }
+
+.wb-paragraph { margin: 2px 0; line-height: 24px; }
+.wb-text {
+  flex: 1 1 auto;
+  display: block;
+  min-height: 24px;
+  /* load-bearing: with `normal`, Chrome turns the trailing space of `# `
+     into an NBSP, and that space is what arms the markdown shortcut. */
+  white-space: pre-wrap;
+  outline: none;
+  word-break: break-word;
+}
+
+/* Placeholder on the empty block you are standing in, like Notion. */
+.wb-block--paragraph .wb-text:empty:focus::before {
+  content: 'Escreva algo — ou use #, -, 1., [] ou > seguido de espaço';
+  color: var(--wb-muted, #9b9a97);
+  pointer-events: none;
+}
+
+.wb-block--heading .wb-text:empty::after,
+.wb-block--paragraph .wb-text:empty::after {
+  /* keeps an empty line clickable */
+  content: '';
+  display: inline-block;
+}
