@@ -18,7 +18,7 @@ test: ## Roda os testes
 test-watch: ## Testes em watch
 	cd app && pnpm test:watch
 
-build: ## Builda o ui (só os módulos prontos)
+build: ## Builda o app (só os módulos prontos)
 	cd app && pnpm build
 
 build-all: ## Builda com todos os módulos ligados por flag
