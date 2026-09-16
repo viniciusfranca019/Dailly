@@ -3,3 +3,9 @@ packages:
   - ui
   - server
   - desktop
+
+# O postinstall do electron baixa o binário; sem isto o pnpm o ignora e
+# `electron .` não acha o que executar. O better-sqlite3 entra aqui pelo mesmo
+# motivo (compilação nativa) quando a Fase 1 chegar na unidade do server.
+allowBuilds:
+  electron: true
