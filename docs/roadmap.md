@@ -13,7 +13,7 @@ A alternativa horizontal (todos os ports, depois todos os adapters, depois toda 
 ### Fase 1 — Esqueleto vertical
 
 - **Entrega:** o app abre, o usuário cria uma entrada e ela persiste entre execuções.
-- **Unidades:** shell Tauri (`src-tauri`) com `tauri-plugin-sql`; runner de migrations via `user_version` com a tabela `entries`; tipo `Entry`; port `EntryRepository`; `SqliteEntryRepository` e `InMemoryEntryRepository`; use-cases `createEntry` e `queryEntries`; composition root; shell de UI (routing + TanStack Query); UI Daily Log mínima (editor markdown + timeline); build AppImage.
+- **Unidades:** workspace (`packages/domain`, `packages/periods`, `api/`, `app/`); API Fastify local com driver SQLite; runner de migrations via `user_version` com a tabela `entries`; tipo `Entry`; port `EntryRepository`; `SqliteEntryRepository` (na API) e `InMemoryEntryRepository`; use-cases `createEntry` e `queryEntries`; `Clock`; `HttpEntryRepository` no app; composition root dos dois lados; timeline no Daily Log; empacotamento da API como sidecar. **O editor já existe** — ver `adaptacao-dailly.md`. Ver [ADR 0007](adrs/0007-api-local-e-tempo.md).
 - **Depende de:** nada.
 - **Pronto quando:** um AppImage gerado do zero abre, aceita uma entrada nova e a exibe na timeline após reiniciar o app.
 
@@ -78,7 +78,7 @@ graph TD
 
 ## Pontos abertos
 
-- **Contrato do `Clock`:** aparece no diagrama do ADR0001 mas nunca é definido. Decidir antes da Fase 1, porque `createEntry` precisa de uma fonte de tempo.
+- ~~**Contrato do `Clock`**~~ — fechado pela [ADR 0007](adrs/0007-api-local-e-tempo.md): devolve um instante em UTC e **não conhece fuso**; a conversão instante → dia mora em `packages/periods`.
 - **`StorageProvider` no ADR0001:** listado junto dos ports de domínio sem marca de post-MVP, o que contradiz o ADR0005. Tratado aqui como fora do MVP; confirmar antes da Fase 1 para não entrar no composition root.
 - **Formalização do `Processor`:** descrito apenas narrativamente no ADR0001, sem interface. Decidir antes da Fase 4 se é port formal ou convenção de use-case.
 - **Ordem interna do Daily Log:** nenhum documento fixa prioridade entre labels, propriedades e filtros. Decidir na decomposição da Fase 2; é escolha de decomposição, não imposição arquitetural.

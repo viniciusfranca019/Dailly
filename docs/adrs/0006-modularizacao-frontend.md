@@ -1,6 +1,8 @@
 # ADR 0006 — Modularização do frontend
 
-- **Status:** Aceito
+- **Status:** Aceito · a decisão "pacote único" foi **superseded** pela
+  [ADR 0007](0007-api-local-e-tempo.md), que traz o workspace por um gatilho
+  diferente do previsto: dois runtimes compartilhando domain
 - **Data:** 2026-09-15
 - **Decisores:** Vinicius
 - **Relaciona:** [ADR 0001 — Arquitetura Geral](0001-arquitetura-geral.md) ·

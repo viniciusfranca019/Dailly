@@ -110,13 +110,22 @@ Decidir antes da Fase 2, que é quando as telas de formulário aparecem. A
 só garante que tomá-la depois não obrigue a remexer no core: cada módulo tem seu
 próprio `ui/`, e o contrato de montagem está isolado em `shared/dom-shell.ts`.
 
-### 2. Alvo de execução
+### 2. Alvo de execução — ~~em aberto~~ decidido pela [ADR 0007](adrs/0007-api-local-e-tempo.md)
 
-Permanece **em aberto**. A ADR 0001 decide Tauri/AppImage; o dailly hoje é um app
-Vite de browser sem backend. Nada nas fases 1–2 força a decisão, mas ela precisa
-cair antes da **Fase 3**, porque a ADR 0004 guarda a chave de IA no keychain do
-SO — e no browser esse mecanismo não existe (ver `auditoria-lacunas.md` §2.2, a
-port `SecretStore` que falta).
+**Esta seção estava errada e a correção importa.** Ela dizia que nada nas fases
+1–2 forçava a decisão e que ela podia cair antes da Fase 3. Mas a primeira
+unidade da Fase 1 no `roadmap.md` era o próprio shell Tauri, com AppImage no
+critério de pronto — os dois documentos não podiam estar certos, e quem seguisse
+esta seção começaria pelo caminho errado.
+
+A ADR 0007 resolve: o SQLite passa a ser acessado por uma **API local em
+Fastify/TypeScript**, rodando em `127.0.0.1` na máquina do usuário. Isso reverte
+a rejeição explícita a backend HTTP da ADR 0001 e preserva o local-first — os
+dados continuam no arquivo do usuário.
+
+O alvo de distribuição (Tauri/AppImage) **continua herdado da ADR 0001** e não
+foi re-decidido; é o que torna o empacotamento não-trivial, porque o runtime
+Node precisa ir como sidecar.
 
 ### 3. Normalização vs. `updated_at`
 

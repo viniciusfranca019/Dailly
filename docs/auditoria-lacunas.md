@@ -5,6 +5,10 @@
 - **Pergunta respondida:** as decisões e comportamentos estão definidos a ponto de
   alguém que não participou das decisões implementar sem adivinhar?
 
+> **Atualização 2026-09-15:** as lacunas §1.1 (fuso), §1.2 (quadrimestre),
+> §1.3 (início da semana) e §1.4 (`occurredAt` vs `createdAt`) foram fechadas
+> pela [ADR 0007](adrs/0007-api-local-e-tempo.md). O restante segue aberto.
+
 ## Veredito
 
 **Não para quem pega frio; sim para quem escreveu.** A base é sólida — camadas,
