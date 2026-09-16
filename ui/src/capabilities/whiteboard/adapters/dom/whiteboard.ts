@@ -6,7 +6,7 @@
  * click listener that maps `data-wb-action` onto the document store.
  */
 
-import { isCollapsible, parse, type Block, type WhiteboardDocument } from '../../core/index.js'
+import { isCollapsible, parse, type Block, type WhiteboardDocument } from '@dailly/whiteboard-core'
 import { ACTION_ATTR, BLOCK_ID_ATTR, TEXT_ATTR, actionAttrs, type BlockAction } from './actions.js'
 import { getCaretOffset, hasSelection, insertTextAtCaret, setCaret } from './caret.js'
 import { el } from './dom.js'

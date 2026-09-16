@@ -1,6 +1,17 @@
 /**
  * Framework-agnostic whiteboard core: markdown in, interactive block tree out,
- * markdown back. Contains no DOM access — pick an adapter from `src/adapters`.
+ * markdown back.
+ *
+ * It lives in `packages/` rather than in `ui/` because two runtimes need the
+ * same model: the renderer edits it, and `createEntry` normalizes markdown on
+ * the way in (ADR 0007, Emenda 1). It contains no DOM access and no framework —
+ * `tsconfig.json` drops the DOM lib so that stays true. The rendering adapter
+ * is a consumer, not a part: `ui/src/capabilities/whiteboard/dom`.
+ *
+ * The seam with the product is markdown, and it already exists:
+ *
+ *   const body = doc.toMarkdown()   // persist
+ *   doc.setMarkdown(entry.body)     // restore
  */
 
 export type {

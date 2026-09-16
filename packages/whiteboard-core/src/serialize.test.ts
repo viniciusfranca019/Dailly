@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { parse } from '@capabilities/whiteboard'
-import { serialize } from '@capabilities/whiteboard'
+import { parse } from './index.js'
+import { serialize } from './index.js'
 
 const roundTrip = (md: string) => serialize(parse(md))
 

@@ -4,8 +4,8 @@ import type {
   NumberedListBlock,
   ParagraphBlock,
   TodoBlock,
-} from '../../../core/index.js'
-import { ordinalOf } from '../../../core/index.js'
+} from '@dailly/whiteboard-core'
+import { ordinalOf } from '@dailly/whiteboard-core'
 import { TEXT_ATTR, actionAttrs } from '../actions.js'
 import { el } from '../dom.js'
 import { RendererRegistry, type BlockRenderer, type RenderContext } from '../registry.js'

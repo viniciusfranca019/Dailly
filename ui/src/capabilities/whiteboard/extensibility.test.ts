@@ -9,7 +9,7 @@ import {
   createDefaultRegistry,
   type BlockBase,
   type BlockDefinition,
-} from '@capabilities/whiteboard'
+} from '@dailly/whiteboard-core'
 import {
   createDefaultRendererRegistry,
   el,

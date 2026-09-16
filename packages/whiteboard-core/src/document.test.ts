@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { WhiteboardDocument } from '@capabilities/whiteboard'
-import type { TodoBlock } from '@capabilities/whiteboard'
+import { WhiteboardDocument } from './index.js'
+import type { TodoBlock } from './index.js'
 
 const SOURCE = ['## Morning', '  [] stand up', '    - with the team', '  [x] coffee'].join('\n')
 

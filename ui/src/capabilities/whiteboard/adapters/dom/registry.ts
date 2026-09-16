@@ -7,7 +7,7 @@
  * to React/Svelte means reimplementing only this half.
  */
 
-import type { Block, BlockLike } from '../../core/index.js'
+import type { Block, BlockLike } from '@dailly/whiteboard-core'
 
 export interface RenderContext {
   readonly doc: Document

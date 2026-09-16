@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { parse } from '@capabilities/whiteboard'
-import { serialize } from '@capabilities/whiteboard'
-import { isCollapsible } from '@capabilities/whiteboard'
-import type { HeadingBlock, TodoBlock } from '@capabilities/whiteboard'
+import { parse } from '../index.js'
+import { serialize } from '../index.js'
+import { isCollapsible } from '../index.js'
+import type { HeadingBlock, TodoBlock } from '../index.js'
 
 describe('headings', () => {
   it('parses h1 through h4', () => {

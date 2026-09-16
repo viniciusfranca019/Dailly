@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    // No `DOM` on purpose. The core is framework- and DOM-free, and leaving the
+    // DOM lib out makes `tsc` enforce it: touching `document` stops compiling
+    // here, which is stronger than the architecture test's regex — that one
+    // still exists for what types cannot see (a string, a dynamic access).
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["vitest/globals"],
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": false,
+
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "skipLibCheck": true
+  },
+  "include": ["src", "vitest.config.ts"]
+}

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest'
-import { WhiteboardDocument } from '@capabilities/whiteboard'
+import { WhiteboardDocument } from '@dailly/whiteboard-core'
 import { mountWhiteboard } from '@capabilities/whiteboard/dom'
 
 const SOURCE = [

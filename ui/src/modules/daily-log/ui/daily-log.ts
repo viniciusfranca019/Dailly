@@ -1,5 +1,5 @@
 import type { ModuleHandle } from '@shared'
-import { WhiteboardDocument } from '@capabilities/whiteboard'
+import { WhiteboardDocument } from '@dailly/whiteboard-core'
 import { mountWhiteboard } from '@capabilities/whiteboard/dom'
 
 const PLACEHOLDER = ['# Hoje', '', '[] primeira entrada'].join('\n')

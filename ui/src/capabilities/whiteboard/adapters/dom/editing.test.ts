@@ -4,10 +4,10 @@
  * so everything dispatches with `bubbles: true`.
  */
 import { beforeEach, describe, expect, it } from 'vitest'
-import { WhiteboardDocument } from '@capabilities/whiteboard'
+import { WhiteboardDocument } from '@dailly/whiteboard-core'
 import { BLOCK_ID_ATTR, TEXT_ATTR, getCaretOffset, mountWhiteboard } from '@capabilities/whiteboard/dom'
 import type { WhiteboardHandle } from '@capabilities/whiteboard/dom'
-import type { TodoBlock } from '@capabilities/whiteboard'
+import type { TodoBlock } from '@dailly/whiteboard-core'
 
 let container: HTMLElement
 let store: WhiteboardDocument

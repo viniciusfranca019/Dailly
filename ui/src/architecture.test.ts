@@ -54,8 +54,9 @@ describe('the arrow only points downwards', () => {
   it('a capability never imports a product module', () => {
     // The rule the whole layout exists to protect, and it holds for the layer,
     // not just for the whiteboard: the moment a capability knows about Entry it
-    // stops being a capability, and the markdown seam in adaptacao-dailly.md
-    // stops being a seam. (The shell is covered by its own rule below.)
+    // stops being a capability. (The shell is covered by its own rule below;
+    // the model this adapter renders is a package now, and `architecture.test.ts`
+    // at the workspace root guards *its* arrows.)
     expect(
       violations('capabilities/', (specifier) => specifier.startsWith('@modules')),
     ).toEqual([])
@@ -94,16 +95,16 @@ describe('the arrow only points downwards', () => {
   })
 
   it('nothing reaches into a capability past its public entry points', () => {
-    // `@capabilities/whiteboard` and `@capabilities/whiteboard/dom` are the
-    // surface; `@capabilities/whiteboard/core/document.js` is not. Anything
-    // deeper than <layer>/<capability>/<entry> is a bypass.
+    // `@capabilities/whiteboard/dom` is the surface;
+    // `@capabilities/whiteboard/adapters/dom/caret.js` is not. Anything deeper
+    // than <layer>/<capability>/<entry> is a bypass.
     const deep = (specifier: string) =>
       specifier.startsWith('@capabilities/') && specifier.split('/').length > 3
     expect(violations('', deep)).toEqual([])
   })
 
   it('nothing outside a capability climbs into it by relative path', () => {
-    // The alias check above cannot see `../../capabilities/whiteboard/core/x`,
+    // The alias check above cannot see `../../capabilities/whiteboard/adapters/x`,
     // so this one looks at relative specifiers only — an aliased import is the
     // supported way in and is judged by the rule above, not by this one.
     const found = FILES.filter((file) => !file.path.startsWith('capabilities/')).flatMap((file) =>
@@ -114,27 +115,5 @@ describe('the arrow only points downwards', () => {
         .map((specifier) => `${file.path} → ${specifier}`),
     )
     expect(found).toEqual([])
-  })
-})
-
-describe('the whiteboard core is DOM-free', () => {
-  it('touches no DOM global or DOM type', () => {
-    // The README claims this; without a test it is only a claim, and it is the
-    // property that lets the core survive a move to React untouched.
-    const banned = /\b(?:document|window|navigator|HTMLElement|HTMLDivElement|Range|Selection)\b/
-    const found = under('capabilities/whiteboard/core/')
-      .map((file) => {
-        // Import specifiers legitimately contain the word "document".
-        const code = stripComments(file.code).replaceAll(/['"][^'"]*['"]/g, "''")
-        const match = banned.exec(code)
-        return match ? `${file.path} → ${match[0]}` : undefined
-      })
-      .filter(Boolean)
-    expect(found).toEqual([])
-  })
-
-  it('the public core entry point pulls in no DOM adapter', () => {
-    const entry = FILES.find((file) => file.path === 'capabilities/whiteboard/index.ts')!
-    expect(importsOf(entry.code).some((specifier) => specifier.includes('adapters'))).toBe(false)
   })
 })

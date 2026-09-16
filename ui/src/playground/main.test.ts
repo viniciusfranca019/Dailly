@@ -4,7 +4,7 @@
  * real rather than only build-checked.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { WhiteboardDocument } from '@capabilities/whiteboard'
+import type { WhiteboardDocument } from '@dailly/whiteboard-core'
 
 async function loadDemo() {
   document.body.innerHTML = '<div id="whiteboard"></div>'

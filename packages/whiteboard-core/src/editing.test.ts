@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { WhiteboardDocument } from '@capabilities/whiteboard'
-import type { HeadingBlock, TodoBlock } from '@capabilities/whiteboard'
+import { WhiteboardDocument } from './index.js'
+import type { HeadingBlock, TodoBlock } from './index.js'
 
 describe('splitBlock', () => {
   it('moves the text after the caret into a new sibling', () => {
