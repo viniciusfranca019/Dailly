@@ -84,9 +84,12 @@ SQLite") continua válido sem mudança.
 
 ---
 
-## Decisões novas exigidas (nenhuma tomada ainda)
+## Decisões novas exigidas — **as três estão tomadas** (2026-09-16)
 
-### 1. Qual adapter renderiza as telas que não são o whiteboard
+Ficam registradas com o raciocínio original acima de cada uma, e a decisão no
+fim: quem lê daqui a seis meses precisa do "por quê", não só do "o quê".
+
+### 1. Qual adapter renderiza as telas que não são o whiteboard — ~~em aberto~~ decidido pela [ADR 0010](adrs/0010-vue-no-renderer.md)
 
 O whiteboard tem seu adapter DOM vanilla. Mas o produto precisa de **timeline,
 filtros, gestão de labels e propriedades, Settings e Analyse** — telas de
@@ -105,10 +108,17 @@ escolha em aberto, com um custo concreto de cada lado:
   reescrever o adapter DOM em React e trazer React + Tailwind + Router + Query
   para um projeto que hoje não tem nenhuma dependência de runtime.
 
-Decidir antes da Fase 2, que é quando as telas de formulário aparecem. A
-[ADR 0006](adrs/0006-modularizacao-frontend.md) **não** toma essa decisão — ela
-só garante que tomá-la depois não obrigue a remexer no core: cada módulo tem seu
-próprio `ui/`, e o contrato de montagem está isolado em `shared/dom-shell.ts`.
+~~Decidir antes da Fase 2, que é quando as telas de formulário aparecem.~~
+**Decidido em 2026-09-16, dentro do prazo: [ADR 0010](adrs/0010-vue-no-renderer.md)
+escolhe Vue**, e nenhum dos dois custos acima é o que se paga — o terceiro
+caminho. O whiteboard **não** é reescrito: o adapter DOM continua vanilla e é
+montado como ilha dentro de um componente Vue. O que se perde é o "zero
+dependências de runtime"; o que não se ganha é shadcn/ui, que é React.
+
+A [ADR 0006](adrs/0006-modularizacao-frontend.md) **não** tomou essa decisão —
+ela só garantiu que tomá-la depois não obrigasse a remexer no core: cada módulo
+tem seu próprio `ui/`, e o contrato de montagem está isolado em
+`shared/dom-shell.ts`. Foi exatamente o que aconteceu.
 
 ### 2. Alvo de execução — ~~em aberto~~ decidido pela [ADR 0007](adrs/0007-api-local-e-tempo.md)
 
@@ -134,7 +144,7 @@ contra o Chrome.
 Lacuna que só existe por causa do dailly, e que se soma às da auditoria.
 
 O `toMarkdown()` **normaliza**. Isto está verificado em
-`ui/src/capabilities/whiteboard/core/serialize.test.ts`, não inferido:
+`packages/whiteboard-core/src/serialize.test.ts`, não inferido:
 
 | Entrada do usuário | Vira |
 |---|---|
@@ -149,11 +159,20 @@ normalizada. A idempotência testada (`serialize(parse(md)) === md`) vale para
 fonte **já normalizada**; a primeira serialização de uma fonte crua altera o
 texto.
 
-Isso é observável e não está decidido: **abrir uma entrada e salvá-la sem editar
-nada pode alterar o `body` e, portanto, bater o `updated_at`.** O `mvp.md` diz
-que editar atualiza `updated_at`, mas não diz o que conta como edição. Duas
-saídas: normalizar na entrada (uma vez, na criação, e aí salvar é no-op) ou
-comparar markdown normalizado antes de gravar.
+Isso é observável: **abrir uma entrada e salvá-la sem editar nada pode alterar o
+`body` e, portanto, bater o `updated_at`.** O `mvp.md` diz que editar atualiza
+`updated_at`, mas não diz o que conta como edição. Havia duas saídas: normalizar
+na entrada (uma vez, na criação, e aí salvar é no-op) ou comparar markdown
+normalizado antes de gravar.
+
+**Decidido em 2026-09-16: normalizar na criação.** `createEntry` passa o corpo
+por `parse` + `serialize` antes de persistir, então o que está no banco já é a
+forma normalizada e um save sem edição é no-op de verdade. A alternativa —
+comparar a cada gravação — paga o mesmo custo toda vez, e para sempre.
+
+Consequência estrutural, registrada como [Emenda 1 da ADR 0007](adrs/0007-api-local-e-tempo.md):
+isso põe `parse` e `serialize` dentro do domain, então o core do whiteboard
+virou `packages/whiteboard-core`. Só o core — o adapter DOM fica na `ui/`.
 
 ---
 

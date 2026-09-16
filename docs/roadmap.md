@@ -79,6 +79,8 @@ graph TD
 ## Pontos abertos
 
 - ~~**Contrato do `Clock`**~~ — fechado pela [ADR 0007](adrs/0007-api-local-e-tempo.md): devolve um instante em UTC e **não conhece fuso**; a conversão instante → dia mora em `packages/periods`.
-- **`StorageProvider` no ADR0001:** listado junto dos ports de domínio sem marca de post-MVP, o que contradiz o ADR0005. Tratado aqui como fora do MVP; confirmar antes da Fase 1 para não entrar no composition root.
+- ~~**`StorageProvider` no ADR0001:**~~ **Confirmado em 2026-09-16: fora do MVP**, como o ADR0005 diz. Não entra em nenhum composition root — port sem adapter na raiz é peso morto, e o ADR0005 ainda está em status Proposto.
 - **Formalização do `Processor`:** descrito apenas narrativamente no ADR0001, sem interface. Decidir antes da Fase 4 se é port formal ou convenção de use-case.
 - **Ordem interna do Daily Log:** nenhum documento fixa prioridade entre labels, propriedades e filtros. Decidir na decomposição da Fase 2; é escolha de decomposição, não imposição arquitetural.
+- ~~**Framework do renderer:**~~ **Fechado pela [ADR 0010](adrs/0010-vue-no-renderer.md):** Vue, com o whiteboard como ilha vanilla. A timeline da Fase 1 já nasce em Vue.
+- ~~**Normalização vs. `updated_at`:**~~ **Fechado:** normalizar na criação (`adaptacao-dailly.md` §3).

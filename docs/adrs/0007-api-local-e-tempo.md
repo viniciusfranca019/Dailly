@@ -124,8 +124,9 @@ havia um runtime só. A ADR 0006 previu a graduação e nomeou o gatilho; o gati
 que disparou não é o que ela imaginou (um consumidor externo do whiteboard) e
 sim outro: dois processos precisando do mesmo código.
 
-**O whiteboard não vira pacote.** Só o app o consome, e o gatilho da ADR 0006
-para ele continua não tendo disparado. Ele fica em `ui/src/capabilities/`.
+~~**O whiteboard não vira pacote.** Só o app o consome, e o gatilho da ADR 0006
+para ele continua não tendo disparado. Ele fica em `ui/src/capabilities/`.~~
+**Emendado em 2026-09-16 — ver Emendas, ao fim.**
 
 A regra de dependência da ADR 0006 sobrevive e ganha um andar: `packages/` não
 importa de `server/` nem de `ui/`; `server/` e `ui/` importam `packages/`, nunca um
@@ -184,3 +185,34 @@ ao outro. O teste de arquitetura passa a cobrar isso.
   persiste ficaria espalhada. `ISODateTime` é o que a ADR 0002 já grava.
 - **`Clock` conhecendo a zona** — pareceria conveniente e espalharia a zona por
   todo chamador de hora. Rejeitado: um ponto de conversão, não N.
+
+## Emendas
+
+### Emenda 1 (2026-09-16) — o core do whiteboard vira pacote; o adapter não
+
+A decisão acima dizia que o whiteboard não vira pacote, porque só o app o
+consumia. Isso deixou de ser verdade por uma consequência desta própria ADR.
+
+Esta ADR pôs markdown na entrada do domain: `createEntry` recebe o corpo, e a
+decisão de **normalizar na criação** (`adaptacao-dailly.md` §3, fechada hoje)
+coloca `parse` e `serialize` dentro do use-case. Com o core em
+`ui/src/capabilities/`, `packages/domain` teria de importar do renderer — a seta
+que a regra de dependência desta mesma seção proíbe.
+
+A emenda é cirúrgica, e a fronteira é a que já existia:
+
+- **`packages/whiteboard-core`** — modelo, parser, serializer, operações de
+  edição. Sem DOM e sem framework, agora por compilador: o `tsconfig` do pacote
+  não carrega a lib DOM.
+- **`ui/src/capabilities/whiteboard/`** — o adapter DOM, que continua vanilla
+  ([ADR 0010](0010-vue-no-renderer.md)) e continua na `ui/`, porque renderer é
+  exatamente o que não se compartilha entre processos.
+
+O `index.ts` que reexportava o core foi removido em vez de virar fachada: duas
+portas para o mesmo modelo não são policiáveis por teste de arquitetura. Hoje
+`@dailly/whiteboard-core` é o modelo e `@capabilities/whiteboard/dom` é o
+renderer, e cada import diz em que camada entra.
+
+A regra de dependência desta seção ganhou o teste que ela pedia:
+`architecture.test.ts` na raiz do workspace, verificado quebrando de propósito —
+`packages/` não importa de `ui/` nem de `server/`, e os dois não se importam.

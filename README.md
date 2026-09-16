@@ -1,13 +1,20 @@
 # dailly
 
 Whiteboard que renderiza markdown com blocos interativos e editáveis, no estilo
-do Notion. TypeScript, sem framework de UI.
+do Notion. TypeScript; o editor em si não usa framework.
 
 ```
-ui/src/capabilities/  código autocontido que os módulos consomem (whiteboard, …)
-ui/src/modules/      os módulos de produto (Daily Log, Analyse, …)
-ui/src/playground/   harness do whiteboard
+packages/whiteboard-core/  o modelo: markdown → blocos → markdown. Sem DOM, sem framework
+ui/src/capabilities/       adapters que os módulos consomem (o renderer DOM do whiteboard, …)
+ui/src/modules/            os módulos de produto (Daily Log, Analyse, …)
+ui/src/playground/         harness do whiteboard
 ```
+
+O core mora em `packages/` porque dois runtimes precisam do mesmo modelo: o
+renderer edita, e `createEntry` normaliza markdown na entrada
+([ADR 0007, Emenda 1](docs/adrs/0007-api-local-e-tempo.md)). O renderer do
+produto será Vue ([ADR 0010](docs/adrs/0010-vue-no-renderer.md)); o adapter do
+whiteboard continua vanilla e é montado como ilha.
 
 Não há backend: o documento vive em memória no browser. Quando houver
 persistência, o encaixe já está pronto — o modelo **é** markdown, então
@@ -114,11 +121,18 @@ Não confunda com o outro nível de composição: `BlockRegistry` e
 
 ### A fronteira é testada, não combinada
 
-`ui/src/architecture.test.ts` varre o source e falha nomeando o
-arquivo culpado quando o whiteboard importa um módulo, quando um módulo fura
-outro por caminho profundo em vez do index público, quando alguém escala para
-`capabilities/whiteboard/core` em vez de usar a superfície pública, ou quando
-entra DOM no core.
+Três testes varrem o source e falham nomeando o arquivo culpado, cada um onde a
+regra é verificável:
+
+- `ui/src/architecture.test.ts` — as camadas da `ui/`: o whiteboard importando um
+  módulo, um módulo furando outro por caminho profundo em vez do index público,
+  alguém entrando no `shell/`.
+- `packages/whiteboard-core/src/architecture.test.ts` — DOM no core. O
+  `tsconfig` do pacote já não carrega a lib DOM, então o compilador pega o caso
+  tipado; o teste pega o que tipo não vê.
+- `architecture.test.ts` na raiz — as setas **entre** projetos, que nenhum
+  projeto sozinho enxerga: `packages/` não importa de `ui/` nem de `server/`, e
+  os dois não se importam ([ADR 0007](docs/adrs/0007-api-local-e-tempo.md)).
 
 ### O fluxo
 
@@ -307,16 +321,16 @@ make test
 
 Cada teste mora ao lado do que testa, então o módulo carrega a própria suíte:
 
-- `capabilities/whiteboard/core/parser/index.test.ts` — sintaxe de cada bloco e aninhamento
-- `capabilities/whiteboard/core/serialize.test.ts` — normalização e idempotência do round-trip
-- `capabilities/whiteboard/core/document.test.ts` — interações e imutabilidade da árvore
-- `capabilities/whiteboard/core/editing.test.ts` — split/merge/indent/outdent/transform na árvore pura
-- `capabilities/whiteboard/adapters/dom/whiteboard.test.ts` — render + clique real (jsdom) voltando pro markdown
-- `capabilities/whiteboard/adapters/dom/editing.test.ts` — digitação, atalhos, Enter/Backspace/Tab/setas e paste
-- `capabilities/whiteboard/extensibility.test.ts` — bloco novo registrado de fora do core
-- `shell/composition.test.ts` — o manifest real monta o Daily Log real
-- `playground/main.test.ts` — o playground renderiza e edita de verdade
-- `architecture.test.ts` — as fronteiras entre camadas (transversal, não é de módulo nenhum)
+- `packages/whiteboard-core/src/parser/index.test.ts` — sintaxe de cada bloco e aninhamento
+- `packages/whiteboard-core/src/serialize.test.ts` — normalização e idempotência do round-trip
+- `packages/whiteboard-core/src/document.test.ts` — interações e imutabilidade da árvore
+- `packages/whiteboard-core/src/editing.test.ts` — split/merge/indent/outdent/transform na árvore pura
+- `ui/src/capabilities/whiteboard/adapters/dom/whiteboard.test.ts` — render + clique real (jsdom) voltando pro markdown
+- `ui/src/capabilities/whiteboard/adapters/dom/editing.test.ts` — digitação, atalhos, Enter/Backspace/Tab/setas e paste
+- `ui/src/capabilities/whiteboard/extensibility.test.ts` — bloco novo registrado de fora do core
+- `ui/src/shell/composition.test.ts` — o manifest real monta o Daily Log real
+- `ui/src/playground/main.test.ts` — o playground renderiza e edita de verdade
+- os três `architecture.test.ts` — as fronteiras (ver acima); transversais, não são de módulo nenhum
 
 ## Licença
 
