@@ -4,9 +4,9 @@ Whiteboard que renderiza markdown com blocos interativos e editáveis, no estilo
 do Notion. TypeScript, sem framework de UI.
 
 ```
-app/src/capabilities/  código autocontido que os módulos consomem (whiteboard, …)
-app/src/modules/      os módulos de produto (Daily Log, Analyse, …)
-app/src/playground/   harness do whiteboard
+ui/src/capabilities/  código autocontido que os módulos consomem (whiteboard, …)
+ui/src/modules/      os módulos de produto (Daily Log, Analyse, …)
+ui/src/playground/   harness do whiteboard
 ```
 
 Não há backend: o documento vive em memória no browser. Quando houver
@@ -36,7 +36,7 @@ Quando você escolher React/Svelte/Solid, só o adapter é reescrito — parser,
 modelo de blocos e serializer continuam iguais.
 
 ```
-app/src/
+ui/src/
   capabilities/            ← CAPACIDADES: sem ports, sem produto, sem Entry
     whiteboard/
       index.ts             superfície pública, livre de DOM (`@capabilities/whiteboard`)
@@ -86,7 +86,7 @@ em voz alta no lugar de uso.
 ### Módulos e flags
 
 A shell não conhece módulo nenhum pelo nome: ela lê o manifest em
-`src/app/modules.ts` e monta o que estiver lá. Um módulo entra ou sai por flag
+`src/shell/modules.ts` e monta o que estiver lá. Um módulo entra ou sai por flag
 de build.
 
 ```ts
@@ -114,7 +114,7 @@ Não confunda com o outro nível de composição: `BlockRegistry` e
 
 ### A fronteira é testada, não combinada
 
-`app/src/architecture.test.ts` varre o source e falha nomeando o
+`ui/src/architecture.test.ts` varre o source e falha nomeando o
 arquivo culpado quando o whiteboard importa um módulo, quando um módulo fura
 outro por caminho profundo em vez do index público, quando alguém escala para
 `capabilities/whiteboard/core` em vez de usar a superfície pública, ou quando
@@ -297,7 +297,7 @@ mountWhiteboard(container, doc, {
 
 Aninhamento, colapso e round-trip funcionam de graça. Sintaxe e aparência são
 registries separados de propósito: dá para trocar uma sem tocar na outra.
-`app/src/capabilities/whiteboard/extensibility.test.ts` é exatamente esse exemplo, rodando.
+`ui/src/capabilities/whiteboard/extensibility.test.ts` é exatamente esse exemplo, rodando.
 
 ## Testes
 
@@ -314,6 +314,6 @@ Cada teste mora ao lado do que testa, então o módulo carrega a própria suíte
 - `capabilities/whiteboard/adapters/dom/whiteboard.test.ts` — render + clique real (jsdom) voltando pro markdown
 - `capabilities/whiteboard/adapters/dom/editing.test.ts` — digitação, atalhos, Enter/Backspace/Tab/setas e paste
 - `capabilities/whiteboard/extensibility.test.ts` — bloco novo registrado de fora do core
-- `app/composition.test.ts` — o manifest real monta o Daily Log real
+- `shell/composition.test.ts` — o manifest real monta o Daily Log real
 - `playground/main.test.ts` — o playground renderiza e edita de verdade
 - `architecture.test.ts` — as fronteiras entre camadas (transversal, não é de módulo nenhum)

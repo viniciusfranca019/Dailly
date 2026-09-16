@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { mountShell } from '@app/shell.js'
+import { mountShell } from './mount.js'
 import type { ModuleDescriptor, MountableModule } from '@shared'
 
 let host: HTMLElement

@@ -8,8 +8,7 @@
       "@capabilities/*": ["./src/capabilities/*"],
       "@modules/*": ["./src/modules/*"],
       "@shared": ["./src/shared/index.ts"],
-      "@shared/*": ["./src/shared/*"],
-      "@app/*": ["./src/app/*"]
+      "@shared/*": ["./src/shared/*"]
     },
     "types": ["vitest/globals", "node"],
 

@@ -1,6 +1,9 @@
 # ADR 0006 — Modularização do frontend
 
-- **Status:** Aceito · a decisão "pacote único" foi **superseded** pela
+- **Status:** Aceito · duas decisões **superseded**:
+  - os nomes de diretório (`app/`, `src/app/`, alias `@app`) →
+    [ADR 0009](0009-topologia-do-workspace.md)
+  - a decisão "pacote único" foi **superseded** pela
   [ADR 0007](0007-api-local-e-tempo.md), que traz o workspace por um gatilho
   diferente do previsto: dois runtimes compartilhando domain
 - **Data:** 2026-09-15

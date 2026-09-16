@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest'
-import { MODULES } from '@app/modules.js'
-import { mountShell } from '@app/shell.js'
+import { MODULES } from './modules.js'
+import { mountShell } from './mount.js'
 import { assertManifest } from '@shared'
 
 let host: HTMLElement

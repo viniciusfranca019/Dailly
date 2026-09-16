@@ -51,16 +51,13 @@ describe('the arrow only points downwards', () => {
     expect(under('modules/').length).toBeGreaterThan(1)
   })
 
-  it('a capability never imports a product module or the composition root', () => {
+  it('a capability never imports a product module', () => {
     // The rule the whole layout exists to protect, and it holds for the layer,
     // not just for the whiteboard: the moment a capability knows about Entry it
     // stops being a capability, and the markdown seam in adaptacao-dailly.md
-    // stops being a seam.
+    // stops being a seam. (The shell is covered by its own rule below.)
     expect(
-      violations(
-        'capabilities/',
-        (specifier) => specifier.startsWith('@modules') || specifier.startsWith('@app'),
-      ),
+      violations('capabilities/', (specifier) => specifier.startsWith('@modules')),
     ).toEqual([])
   })
 
@@ -71,23 +68,29 @@ describe('the arrow only points downwards', () => {
       violations(
         'shared/',
         (specifier) =>
-          specifier.startsWith('@modules') ||
-          specifier.startsWith('@app') ||
-          specifier.startsWith('@capabilities'),
+          specifier.startsWith('@modules') || specifier.startsWith('@capabilities'),
       ),
     ).toEqual([])
   })
 
-  it('a module never imports the composition root', () => {
-    expect(violations('modules/', (specifier) => specifier.startsWith('@app'))).toEqual([])
+  it('nothing outside the shell imports the composition root', () => {
+    // `shell/` wires the app together; everything it touches must be able to
+    // exist without it. There is no `@shell` alias on purpose — nobody outside
+    // should be importing it at all, so the rule looks for any path into it,
+    // which also catches the relative climb an alias check would miss.
+    const found = FILES.filter((file) => !file.path.startsWith('shell/')).flatMap((file) =>
+      importsOf(file.code)
+        .filter((specifier) => /(^|\/)shell\//.test(specifier))
+        .map((specifier) => `${file.path} → ${specifier}`),
+    )
+    expect(found).toEqual([])
   })
 
   it('a module reaches another module only through its public index', () => {
     // `@modules/analyse` is the surface; `@modules/analyse/ui/thing.js` is not.
     const deep = (specifier: string) =>
       specifier.startsWith('@modules/') && specifier.split('/').length > 2
-    expect(violations('modules/', deep)).toEqual([])
-    expect(violations('app/', deep)).toEqual([])
+    expect(violations('', deep)).toEqual([])
   })
 
   it('nothing reaches into a capability past its public entry points', () => {

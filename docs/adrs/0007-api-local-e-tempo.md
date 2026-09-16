@@ -114,8 +114,9 @@ dailly/
   packages/
     domain/      Entry · Label · PropertyDef · ports · use-cases
     periods/     instante + zona → dia/semana/mês/quadrimestre
-  api/           Fastify · SqliteEntryRepository · composition root do servidor
-  app/           UI · HttpEntryRepository · whiteboard
+  server/        Fastify · SqliteEntryRepository · composition root do servidor
+  ui/            renderer · HttpEntryRepository · whiteboard
+  desktop/       Electron main (ADR 0008)
 ```
 
 Isto **supersede a decisão "pacote único" da ADR 0006**, que valia enquanto
@@ -124,10 +125,10 @@ que disparou não é o que ela imaginou (um consumidor externo do whiteboard) e
 sim outro: dois processos precisando do mesmo código.
 
 **O whiteboard não vira pacote.** Só o app o consome, e o gatilho da ADR 0006
-para ele continua não tendo disparado. Ele fica em `app/src/capabilities/`.
+para ele continua não tendo disparado. Ele fica em `ui/src/capabilities/`.
 
 A regra de dependência da ADR 0006 sobrevive e ganha um andar: `packages/` não
-importa de `api/` nem de `app/`; `api/` e `app/` importam `packages/`, nunca um
+importa de `server/` nem de `ui/`; `server/` e `ui/` importam `packages/`, nunca um
 ao outro. O teste de arquitetura passa a cobrar isso.
 
 ## Consequências

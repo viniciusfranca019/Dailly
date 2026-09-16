@@ -1,4 +1,4 @@
-import { mountShell } from './shell.js'
+import { mountShell } from './mount.js'
 import { MODULES } from './modules.js'
 import './styles.css'
 

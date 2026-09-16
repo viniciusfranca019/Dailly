@@ -134,7 +134,7 @@ contra o Chrome.
 Lacuna que só existe por causa do dailly, e que se soma às da auditoria.
 
 O `toMarkdown()` **normaliza**. Isto está verificado em
-`app/src/capabilities/whiteboard/core/serialize.test.ts`, não inferido:
+`ui/src/capabilities/whiteboard/core/serialize.test.ts`, não inferido:
 
 | Entrada do usuário | Vira |
 |---|---|

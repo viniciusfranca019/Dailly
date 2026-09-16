@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url'
 
-/** Resolve a path relative to the `app/` root. */
+/** Resolve a path relative to the `ui/` root. */
 export const at = (path: string) => fileURLToPath(new URL(`./${path}`, import.meta.url))
 
 /**
@@ -14,5 +14,4 @@ export const alias = [
   { find: '@capabilities', replacement: at('src/capabilities') },
   { find: '@modules', replacement: at('src/modules') },
   { find: '@shared', replacement: at('src/shared') },
-  { find: '@app', replacement: at('src/app') },
 ]
