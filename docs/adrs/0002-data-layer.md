@@ -36,7 +36,7 @@ export interface EntryFilter {
 }
 
 export interface EntryRepository {
-  create(input: NewEntry): Promise<Entry>;
+  create(input: NewEntry): Promise<Entry>; // ← ver Emenda 1, ao fim
   update(id: string, patch: Partial<NewEntry>): Promise<Entry>;
   delete(id: string): Promise<void>;
   getById(id: string): Promise<Entry | null>;
@@ -214,3 +214,36 @@ escopo. O backup é "último upload vence"; ver ADR 0005.
   tipos; mitigado por incentivo da UI a registrar defs.
 - Backup por arquivo inteiro não suporta uso concorrente em dois dispositivos
   (último upload sobrescreve) — limitação assumida do modelo single-device.
+
+## Emendas
+
+### Emenda 1 (2026-09-16) — `create` recebe uma `Entry` pronta, não uma `NewEntry`
+
+A interface acima foi escrita quando o repositório era `tauri-plugin-sql`
+rodando dentro do próprio app: uma chamada de função, um processo, um adapter.
+A [ADR 0007](0007-api-local-e-tempo.md) pôs uma fronteira HTTP no meio, e os
+use-cases ficaram do lado do renderer — o `HttpEntryRepository` que o roadmap
+lista na `ui/` só faz sentido assim, e o §6 desta ADR já dizia "`id` = UUID
+gerado no cliente".
+
+Com `create(input: NewEntry)`, **todo adapter** teria de cunhar id e carimbar
+`createdAt`/`updatedAt`. Ou essa lógica se duplica por adapter, ou ela migra
+para o servidor — e aí o id deixa de ser gerado no cliente, contrariando o §6.
+
+Então a assinatura implementada é:
+
+```ts
+create(entry: Entry): Promise<Entry>
+```
+
+O use-case `createEntry` monta o registro inteiro — id, os dois timestamps, e o
+corpo já normalizado — e o repositório guarda. O que atravessa o fio é uma
+`Entry` completa.
+
+**O que o servidor ainda deve:** validação. Ele é alcançável de fora do domínio,
+então rejeita corpo vazio, timestamp malformado e id que não é UUID, com 400.
+Guardar a loja não é refazer o domínio.
+
+O resto desta ADR fica de pé: entidades, schema, `json_extract`, `user_version`,
+UUID e a razão de o port existir. `NewEntry` continua existindo — é o que o
+**chamador** entrega ao use-case, e está definido em `packages/domain`.
