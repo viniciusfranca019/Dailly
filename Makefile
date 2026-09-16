@@ -30,11 +30,11 @@ build: ## Builda o app (só os módulos prontos)
 build-all: ## Builda com todos os módulos ligados por flag
 	VITE_ANALYSE=true pnpm --filter @dailly/ui build
 
-desktop: ## Abre o app no Electron (builda a UI antes)
+desktop: ## Abre o app completo no Electron (API dentro, banco de verdade)
 	$(MAKE) build
 	pnpm --filter @dailly/desktop start
 
-desktop-dev: ## Abre o Electron apontado para o vite (rode `make dev` em outro terminal)
+desktop-dev: ## Electron apontado para o vite (rode `make dev` em outro terminal)
 	pnpm --filter @dailly/desktop build
 	cd desktop && DAILLY_DEV_URL=http://localhost:5173 pnpm exec electron .
 

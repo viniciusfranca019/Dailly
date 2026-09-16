@@ -18,7 +18,7 @@ import './styles.css'
 const host = document.querySelector<HTMLElement>('#app')!
 
 async function boot(): Promise<void> {
-  const config = resolveApiConfig()
+  const config = await resolveApiConfig()
   const entries = httpEntryRepository({ config })
 
   // The zone belongs to the API process (ADR 0007), so the renderer asks rather

@@ -2,8 +2,8 @@
   "compilerOptions": {
     "target": "ES2023",
     "lib": ["ES2023"],
-    "module": "NodeNext",
-    "moduleResolution": "nodenext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "types": ["node"],
 
     "strict": true,
@@ -14,9 +14,7 @@
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
     "skipLibCheck": true,
-
-    "outDir": "dist",
-    "rootDir": "src"
+    "noEmit": true
   },
-  "include": ["src"]
+  "include": ["src", "vite.config.ts"]
 }

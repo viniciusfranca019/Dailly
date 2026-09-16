@@ -20,11 +20,18 @@ export interface ApiConfig {
 
 /** What the preload script exposes, when there is one. */
 interface DaillyBridge {
-  readonly api?: ApiConfig
+  apiConfig?: () => Promise<ApiConfig>
 }
 
-export function resolveApiConfig(): ApiConfig {
+/**
+ * Async because the shell hands the token over on request, through IPC, rather
+ * than leaving it somewhere the renderer could read synchronously — which in
+ * practice would mean `process.argv` or a URL, and both are readable by other
+ * processes on this machine.
+ */
+export async function resolveApiConfig(): Promise<ApiConfig> {
   const bridge = (globalThis as { dailly?: DaillyBridge }).dailly
-  // The shell is authoritative when present; `/api` is the dev fallback.
-  return bridge?.api ?? { baseUrl: '/api' }
+  // The shell is authoritative when present; `/api` is the dev fallback, where
+  // vite proxies to the API on its fixed port and there is no token at all.
+  return (await bridge?.apiConfig?.()) ?? { baseUrl: '/api' }
 }

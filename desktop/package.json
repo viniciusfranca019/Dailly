@@ -6,13 +6,18 @@
   "type": "module",
   "main": "dist/main.js",
   "scripts": {
-    "build": "tsc",
+    "build": "vite build",
     "start": "pnpm build && electron .",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/node": "^26.5.1",
     "electron": "^40.0.0",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vite": "^8.3.0"
+  },
+  "dependencies": {
+    "@dailly/server": "workspace:*",
+    "better-sqlite3": "^13.0.0"
   }
 }

@@ -1,27 +1,35 @@
-import { app, BrowserWindow, shell } from 'electron'
+import { randomBytes } from 'node:crypto'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createServer, type RunningServer } from '@dailly/server'
+import { BrowserWindow, app, ipcMain, shell } from 'electron'
 
 /**
- * The Electron main process — for now, a window and nothing else.
+ * The Electron main process: the window, and the API inside it.
  *
- * Fase 1 builds this in two steps on purpose. Today it opens the renderer so
- * the editor can be seen in the engine it will actually ship on (ADR 0008 §2:
- * the `contenteditable` workaround was written against Chrome and had never run
- * outside jsdom). The Fastify API moves in here later, as an import, in the
- * unit that gives it something to serve.
+ * ADR 0008 chose Electron partly because this is all it takes — the main
+ * process *is* Node, so Fastify runs here as an import. There is no sidecar to
+ * package, no second binary to ship, no handshake between two processes and no
+ * orphan when one of them dies.
  */
 
 /** Set by `make desktop-dev`; absent in a built app. */
 const DEV_URL = process.env['DAILLY_DEV_URL']
 
-/**
- * Where the built renderer lives, relative to `desktop/dist/main.js`.
- *
- * This is the un-packaged layout. `electron-builder` relocates both sides into
- * the asar, so the packaging unit revisits it — with `app.isPackaged` as the
- * discriminator, not another env var.
- */
 const RENDERER_INDEX = fileURLToPath(new URL('../../ui/dist/index.html', import.meta.url))
+const PRELOAD = fileURLToPath(new URL('../preload.cjs', import.meta.url))
+
+let server: RunningServer | undefined
+
+/**
+ * A fresh secret per run, never persisted.
+ *
+ * ADR 0008 wrote this into Fase 1 rather than leaving it for later: the API
+ * listens on `127.0.0.1`, which every other process on this machine can reach.
+ * Without a token, any program running as this user reads the diary. The port
+ * is ephemeral for the same reason — there is no well-known door to knock on.
+ */
+const token = randomBytes(32).toString('hex')
 
 function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
@@ -37,6 +45,7 @@ function createWindow(): BrowserWindow {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      preload: PRELOAD,
     },
   })
 
@@ -64,7 +73,24 @@ function createWindow(): BrowserWindow {
   return window
 }
 
-void app.whenReady().then(() => {
+void app.whenReady().then(async () => {
+  // `userData` is Electron's per-app directory for the OS — `~/.config/dailly`
+  // on Linux. The database is the user's, in a place the OS already agreed is
+  // theirs, and ADR 0005's backup story is "copy this file".
+  const databaseFile = join(app.getPath('userData'), 'dailly.sqlite')
+
+  server = await createServer({
+    databaseFile,
+    token,
+    // Port 0: the OS picks. Nothing on this machine can guess where to knock.
+    port: 0,
+    ...(process.env['DAILLY_TZ'] ? { zone: process.env['DAILLY_TZ'] } : {}),
+  })
+
+  // The renderer asks for this; it is never pushed, never in argv, never in a
+  // URL. See `preload.cjs` for why.
+  ipcMain.handle('dailly:api-config', () => ({ baseUrl: server?.url, token }))
+
   createWindow()
 
   // macOS keeps the process alive with no windows; clicking the dock icon is
@@ -76,4 +102,14 @@ void app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
+})
+
+// Close the database and release the port with the app, so a restart never
+// races the previous run's listener.
+app.on('will-quit', (event) => {
+  if (!server) return
+  event.preventDefault()
+  const closing = server
+  server = undefined
+  void closing.close().then(() => app.quit())
 })

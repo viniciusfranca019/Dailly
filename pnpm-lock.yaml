@@ -19,6 +19,13 @@ importers:
         version: 5.0.1(@types/node@26.6.1)(jsdom@30.0.1)(vite@8.3.0(@types/node@26.6.1)(esbuild@0.28.2)(tsx@4.23.13))
 
   desktop:
+    dependencies:
+      '@dailly/server':
+        specifier: workspace:*
+        version: link:../server
+      better-sqlite3:
+        specifier: ^13.0.0
+        version: 13.0.3
     devDependencies:
       '@types/node':
         specifier: ^26.5.1
@@ -29,6 +36,9 @@ importers:
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
+      vite:
+        specifier: ^8.3.0
+        version: 8.3.0(@types/node@26.6.1)(esbuild@0.28.2)(tsx@4.23.13)
 
   packages/domain:
     dependencies:
