@@ -317,3 +317,9 @@ Cada teste mora ao lado do que testa, então o módulo carrega a própria suíte
 - `shell/composition.test.ts` — o manifest real monta o Daily Log real
 - `playground/main.test.ts` — o playground renderiza e edita de verdade
 - `architecture.test.ts` — as fronteiras entre camadas (transversal, não é de módulo nenhum)
+
+## Licença
+
+Copyright 2026 Vinicius França (@viniciusfranca019)
+
+Apache License 2.0 — o texto completo está em [`LICENSE`](LICENSE).
