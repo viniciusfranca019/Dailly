@@ -9,3 +9,4 @@ packages:
 # motivo (compilação nativa) quando a Fase 1 chegar na unidade do server.
 allowBuilds:
   electron: true
+  better-sqlite3: true

@@ -11,6 +11,7 @@ export default defineConfig({
   test: {
     projects: [
       'packages/*',
+      'server',
       'ui',
       // The rules *between* projects have no project of their own, so they run
       // from the root: no single package can see the arrows it is part of.
