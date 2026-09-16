@@ -7,7 +7,10 @@
 
 > **Atualização 2026-09-15:** as lacunas §1.1 (fuso), §1.2 (quadrimestre),
 > §1.3 (início da semana) e §1.4 (`occurredAt` vs `createdAt`) foram fechadas
-> pela [ADR 0007](adrs/0007-api-local-e-tempo.md). O restante segue aberto.
+> pela [ADR 0007](adrs/0007-api-local-e-tempo.md). A §2.2 (`SecretStore`)
+> muda de forma com a [ADR 0008](adrs/0008-electron-como-shell.md): não há
+> plugin de keychain do Tauri, então o mecanismo é outro — decisão da Fase 3.
+> O restante segue aberto.
 
 ## Veredito
 

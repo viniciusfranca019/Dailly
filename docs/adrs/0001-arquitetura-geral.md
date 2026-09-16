@@ -1,6 +1,11 @@
 # ADR 0001 — Arquitetura Geral
 
-- **Status:** Aceito
+- **Status:** Aceito, com duas decisões **superseded** no mesmo dia:
+  - a proibição de backend HTTP → [ADR 0007](0007-api-local-e-tempo.md)
+  - o shell Tauri e a rejeição do Electron → [ADR 0008](0008-electron-como-shell.md)
+
+  O que segue valendo: local-first, ports & adapters, Processor, monorepo e
+  AppImage como alvo — tudo que nunca dependeu do shell.
 - **Data:** 2026-07-24
 - **Decisores:** Vinicius
 

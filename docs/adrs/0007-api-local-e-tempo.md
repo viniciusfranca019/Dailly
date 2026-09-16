@@ -1,6 +1,8 @@
 # ADR 0007 — API local, fuso e o contrato do tempo
 
-- **Status:** Aceito
+- **Status:** Aceito · a seção de empacotamento foi **superseded** pela
+  [ADR 0008](0008-electron-como-shell.md), que troca Tauri por Electron e
+  elimina o sidecar
 - **Data:** 2026-09-15
 - **Decisores:** Vinicius
 - **Relaciona:** [ADR 0001](0001-arquitetura-geral.md) (reverte em parte) ·
@@ -141,9 +143,10 @@ ao outro. O teste de arquitetura passa a cobrar isso.
 
 **Negativas / trade-offs**
 
-- **Empacotamento.** O AppImage deixa de ser um binário só: o runtime Node vai
-  como sidecar do Tauri (ou compilado com `bun build`/`pkg`). É precisamente o
-  custo que a ADR 0001 usou para rejeitar um servidor, e agora é aceito.
+- ~~**Empacotamento.** O runtime Node vai como sidecar do Tauri.~~
+  **Superseded pela [ADR 0008](0008-electron-como-shell.md):** com Electron o
+  processo principal já é Node, o Fastify roda dentro dele e não há sidecar. O
+  AppImage volta a ser um artefato só.
 - **Ciclo de vida.** Porta livre, subir e derrubar o processo junto do app, e o
   que fazer se a porta estiver ocupada. Nada disso existia antes.
 - **Erro de rede onde não havia.** O que era chamada de função vira HTTP. A
@@ -159,9 +162,8 @@ ao outro. O teste de arquitetura passa a cobrar isso.
 
 ## Pendências
 
-- **O alvo Tauri/AppImage é herdado da ADR 0001 e não foi re-decidido aqui.** É
-  o que torna o empacotamento não-trivial; se o alvo mudar, a seção de
-  empacotamento acima muda junto.
+- ~~O alvo Tauri/AppImage é herdado da ADR 0001.~~ **Fechado pela
+  [ADR 0008](0008-electron-como-shell.md):** Electron, alvo AppImage.
 - **Excluir uma `PropertyDef`** (auditoria §1.5), **reexecutar análise do mesmo
   período** (§1.6) e **combinação do `EntryFilter` entre dimensões** (§1.7)
   continuam abertas. Não são sobre tempo e não bloqueiam a Fase 1.

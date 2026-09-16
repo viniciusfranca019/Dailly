@@ -123,9 +123,11 @@ Fastify/TypeScript**, rodando em `127.0.0.1` na máquina do usuário. Isso rever
 a rejeição explícita a backend HTTP da ADR 0001 e preserva o local-first — os
 dados continuam no arquivo do usuário.
 
-O alvo de distribuição (Tauri/AppImage) **continua herdado da ADR 0001** e não
-foi re-decidido; é o que torna o empacotamento não-trivial, porque o runtime
-Node precisa ir como sidecar.
+O shell foi decidido logo depois pela [ADR 0008](adrs/0008-electron-como-shell.md):
+**Electron**, alvo AppImage. Com ele o processo principal já é Node, o Fastify
+roda dentro dele e não existe sidecar — e o motor de renderização fica fixo, o
+que importa porque o whiteboard tem um workaround de `contenteditable` escrito
+contra o Chrome.
 
 ### 3. Normalização vs. `updated_at`
 
