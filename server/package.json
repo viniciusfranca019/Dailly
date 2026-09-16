@@ -14,7 +14,8 @@
   },
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "dev": "tsx watch src/dev.ts"
   },
   "dependencies": {
     "@dailly/domain": "workspace:*",
@@ -25,6 +26,7 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^26.5.1",
+    "tsx": "^4.20.0",
     "typescript": "^7.0.2",
     "vitest": "^5.0.0"
   }

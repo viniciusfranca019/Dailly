@@ -1,4 +1,4 @@
-.PHONY: help install dev dev-all desktop desktop-dev test test-watch build build-all check clean
+.PHONY: help install dev dev-api dev-ui dev-all desktop desktop-dev test test-watch build build-all check clean
 
 help: ## Lista os alvos disponíveis
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -6,11 +6,17 @@ help: ## Lista os alvos disponíveis
 install: ## Instala dependências de todo o workspace
 	pnpm install
 
-dev: ## Sobe o app em http://localhost:5173 (playground em /playground/)
+dev: ## Sobe API + app (app em http://localhost:5173, playground em /playground/)
+	@$(MAKE) -j2 dev-api dev-ui
+
+dev-api: ## Só a API local, em http://127.0.0.1:4317
+	pnpm --filter @dailly/server dev
+
+dev-ui: ## Só o renderer. Sem a API junto, a timeline não carrega
 	pnpm --filter @dailly/ui dev
 
-dev-all: ## Sobe o app com todos os módulos ligados por flag
-	VITE_ANALYSE=true pnpm --filter @dailly/ui dev
+dev-all: ## Sobe API + app com todos os módulos ligados por flag
+	@VITE_ANALYSE=true $(MAKE) -j2 dev-api dev-ui
 
 test: ## Roda os testes de todo o workspace
 	pnpm test

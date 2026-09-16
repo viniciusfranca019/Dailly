@@ -1,3 +1,4 @@
+import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vite'
 import { alias, at } from './alias.config.js'
 
@@ -22,4 +23,18 @@ export default defineConfig({
     emptyOutDir: true,
   },
   resolve: { alias },
+  plugins: [vue()],
+  server: {
+    proxy: {
+      // The renderer only ever fetches `/api/...`, in dev and in production
+      // alike. Here that is proxied to the API running on a fixed port
+      // (`make dev-api`); in production the Electron shell hands over a base
+      // URL with the ephemeral port instead. One code path, two answers.
+      '/api': {
+        target: `http://127.0.0.1:${process.env['DAILLY_PORT'] ?? 4317}`,
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+    },
+  },
 })

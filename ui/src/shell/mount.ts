@@ -1,6 +1,7 @@
 import {
   assertManifest,
   findByRoute,
+  type ModuleDeps,
   type ModuleDescriptor,
   type ModuleHandle,
   type MountableModule,
@@ -8,6 +9,12 @@ import {
 
 export interface ShellOptions {
   readonly modules: readonly ModuleDescriptor<MountableModule>[]
+  /**
+   * Built by the composition root and passed straight through. The shell does
+   * not read them — it is a router, not a consumer — which is why a test can
+   * hand it fakes without the shell learning anything about the domain.
+   */
+  readonly deps: ModuleDeps
 }
 
 export interface ShellHandle {
@@ -25,7 +32,7 @@ export interface ShellHandle {
  * shell.
  */
 export async function mountShell(host: HTMLElement, options: ShellOptions): Promise<ShellHandle> {
-  const { modules } = options
+  const { modules, deps } = options
   assertManifest(modules)
 
   const nav = document.createElement('nav')
@@ -56,7 +63,7 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
     outlet.replaceChildren()
 
     const module = await descriptor.load()
-    mounted = module.mount(outlet)
+    mounted = module.mount(outlet, deps)
     current = route
 
     for (const [candidate, button] of buttons) {

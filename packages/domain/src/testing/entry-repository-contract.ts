@@ -20,20 +20,38 @@ export interface ContractOptions {
   readonly make: () => EntryRepository | Promise<EntryRepository>
 }
 
-const entry = (over: Partial<Entry> & Pick<Entry, 'id' | 'occurredAt'>): Entry => ({
-  body: `corpo de ${over.id}`,
-  createdAt: over.occurredAt,
-  updatedAt: over.occurredAt,
+/**
+ * A valid UUID derived from a counter.
+ *
+ * The fixtures used to carry readable ids like `'nova'`, and the end-to-end
+ * suite caught it: an implementation behind HTTP validates what it is given and
+ * rejects anything that is not a UUID — correctly, since ADR 0002 says ids are
+ * UUIDs. A contract may only assume what every implementation promises, so the
+ * ids here are real ones and the readable name lives in the body, where the
+ * assertions read it.
+ */
+let minted = 0
+const uuid = (): string => `${String(++minted).padStart(8, '0')}-0000-4000-8000-000000000000`
+
+const entry = (name: string, occurredAt: string, over: Partial<Entry> = {}): Entry => ({
+  id: uuid(),
+  body: `corpo de ${name}`,
+  occurredAt,
+  createdAt: occurredAt,
+  updatedAt: occurredAt,
   labelIds: [],
   props: {},
   ...over,
 })
 
+/** What the assertions compare on, now that ids are opaque. */
+const bodies = (entries: readonly Entry[]): string[] => entries.map((entry) => entry.body)
+
 export function entryRepositoryContract(name: string, { make }: ContractOptions): void {
   describe(`${name} honours the EntryRepository contract`, () => {
     it('stores an entry and gives it back', async () => {
       const entries = await make()
-      const written = entry({ id: 'a', occurredAt: '2026-07-24T10:00:00.000Z' })
+      const written = entry('a primeira', '2026-07-24T10:00:00.000Z')
 
       await entries.create(written)
 
@@ -44,13 +62,13 @@ export function entryRepositoryContract(name: string, { make }: ContractOptions)
       // The mvp says it in one line: "as entradas são exibidas da mais recente
       // para a mais antiga". Insertion order is deliberately not date order.
       const entries = await make()
-      await entries.create(entry({ id: 'meio', occurredAt: '2026-07-15T12:00:00.000Z' }))
-      await entries.create(entry({ id: 'velha', occurredAt: '2026-05-02T12:00:00.000Z' }))
-      await entries.create(entry({ id: 'nova', occurredAt: '2026-07-24T12:00:00.000Z' }))
+      await entries.create(entry('meio', '2026-07-15T12:00:00.000Z'))
+      await entries.create(entry('velha', '2026-05-02T12:00:00.000Z'))
+      await entries.create(entry('nova', '2026-07-24T12:00:00.000Z'))
 
       const found = await entries.list({})
 
-      expect(found.map((found) => found.id)).toEqual(['nova', 'meio', 'velha'])
+      expect(bodies(found)).toEqual(['corpo de nova', 'corpo de meio', 'corpo de velha'])
     })
 
     it('breaks a tie on occurredAt by createdAt, newest first', async () => {
@@ -58,15 +76,12 @@ export function entryRepositoryContract(name: string, { make }: ContractOptions)
       // the mvp puts a new entry *at the top* of its day.
       const entries = await make()
       const at = '2026-07-24T12:00:00.000Z'
-      await entries.create(entry({ id: 'primeira', occurredAt: at, createdAt: at }))
-      await entries.create({
-        ...entry({ id: 'segunda', occurredAt: at }),
-        createdAt: '2026-07-24T18:00:00.000Z',
-      })
+      await entries.create(entry('primeira', at))
+      await entries.create(entry('segunda', at, { createdAt: '2026-07-24T18:00:00.000Z' }))
 
       const found = await entries.list({})
 
-      expect(found.map((found) => found.id)).toEqual(['segunda', 'primeira'])
+      expect(bodies(found)).toEqual(['corpo de segunda', 'corpo de primeira'])
     })
 
     it('is empty before anything is written', async () => {
@@ -79,14 +94,14 @@ export function entryRepositoryContract(name: string, { make }: ContractOptions)
       // entradas de julho são exibidas" — and both ends are inclusive, so the
       // fixtures sit exactly on the boundaries.
       const entries = await make()
-      await entries.create(entry({ id: 'maio', occurredAt: '2026-05-31T23:00:00.000Z' }))
-      await entries.create(entry({ id: 'primeiro-de-julho', occurredAt: '2026-07-01T00:30:00.000Z' }))
-      await entries.create(entry({ id: 'ultimo-de-julho', occurredAt: '2026-07-31T23:30:00.000Z' }))
-      await entries.create(entry({ id: 'agosto', occurredAt: '2026-08-01T01:00:00.000Z' }))
+      await entries.create(entry('maio', '2026-05-31T23:00:00.000Z'))
+      await entries.create(entry('primeiro de julho', '2026-07-01T00:30:00.000Z'))
+      await entries.create(entry('último de julho', '2026-07-31T23:30:00.000Z'))
+      await entries.create(entry('agosto', '2026-08-01T01:00:00.000Z'))
 
       const found = await entries.list({ from: '2026-07-01', to: '2026-07-31' })
 
-      expect(found.map((found) => found.id)).toEqual(['ultimo-de-julho', 'primeiro-de-julho'])
+      expect(bodies(found)).toEqual(['corpo de último de julho', 'corpo de primeiro de julho'])
     })
 
     it('preserves the body exactly as written', async () => {
@@ -95,7 +110,7 @@ export function entryRepositoryContract(name: string, { make }: ContractOptions)
       // string — which is how two adapters start disagreeing.
       const entries = await make()
       const body = '# título\n\n- um\n  - aninhado\n[] tarefa'
-      await entries.create({ ...entry({ id: 'a', occurredAt: '2026-07-24T10:00:00.000Z' }), body })
+      await entries.create(entry('ignorado', '2026-07-24T10:00:00.000Z', { body }))
 
       const [found] = await entries.list({})
 

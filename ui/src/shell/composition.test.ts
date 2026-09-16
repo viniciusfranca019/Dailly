@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { MODULES } from './modules.js'
 import { mountShell } from './mount.js'
+import { testModuleDeps } from '@shared/testing.js'
 import { assertManifest } from '@shared'
 
 let host: HTMLElement
@@ -27,7 +28,7 @@ describe('the real composition', () => {
   })
 
   it('boots Daily Log with a live whiteboard inside it', async () => {
-    await mountShell(host, { modules: MODULES })
+    await mountShell(host, { modules: MODULES, deps: testModuleDeps() })
 
     expect(host.querySelector('.daily-log')).not.toBeNull()
     // Rendered blocks, not just a container: this is the seam between the
@@ -37,7 +38,7 @@ describe('the real composition', () => {
   })
 
   it('every module in the manifest mounts and unmounts without throwing', async () => {
-    const shell = await mountShell(host, { modules: MODULES })
+    const shell = await mountShell(host, { modules: MODULES, deps: testModuleDeps() })
 
     for (const module of MODULES) {
       await shell.go(module.route)

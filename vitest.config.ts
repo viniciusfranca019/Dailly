@@ -23,6 +23,17 @@ export default defineConfig({
           include: ['architecture.test.ts'],
         },
       },
+      // End-to-end lives outside every project because it must import two that
+      // are forbidden from importing each other (ADR 0007). Here no such rule
+      // applies, which is the only reason the pair can be tested together.
+      {
+        test: {
+          name: 'e2e',
+          globals: true,
+          environment: 'node',
+          include: ['e2e/**/*.test.ts'],
+        },
+      },
     ],
   },
 })

@@ -1,9 +1,12 @@
+import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vitest/config'
 import { alias } from './alias.config.js'
 
 export default defineConfig({
   resolve: { alias },
+  plugins: [vue()],
   test: {
+    name: 'ui',
     globals: true,
     // Default is node; DOM suites opt in per file with
     // `// @vitest-environment jsdom` so the pure core stays DOM-free.

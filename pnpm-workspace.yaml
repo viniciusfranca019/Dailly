@@ -4,9 +4,13 @@ packages:
   - server
   - desktop
 
-# O postinstall do electron baixa o binário; sem isto o pnpm o ignora e
-# `electron .` não acha o que executar. O better-sqlite3 entra aqui pelo mesmo
-# motivo (compilação nativa) quando a Fase 1 chegar na unidade do server.
+# Dependências autorizadas a rodar script de instalação. Sem isto o pnpm 11 as
+# ignora em silêncio, e o sintoma aparece longe da causa: o electron sem binário
+# para executar, o better-sqlite3 sem o .node compilado, o tsx sem o esbuild.
 allowBuilds:
   electron: true
   better-sqlite3: true
+  esbuild: true
+
+minimumReleaseAgeExclude:
+  - '@vue/test-utils@2.5.1'

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mountShell } from './mount.js'
+import { testModuleDeps } from '@shared/testing.js'
 import type { ModuleDescriptor, MountableModule } from '@shared'
 
 let host: HTMLElement
@@ -34,7 +35,7 @@ describe('mountShell', () => {
     const first = fakeModule('daily-log')
     const { descriptor } = descriptorFor('daily-log', '/', first.module)
 
-    const shell = await mountShell(host, { modules: [descriptor] })
+    const shell = await mountShell(host, { modules: [descriptor], deps: testModuleDeps() })
 
     expect(shell.current).toBe('/')
     expect(host.querySelector('[data-marker="daily-log"]')).not.toBeNull()
@@ -47,7 +48,7 @@ describe('mountShell', () => {
     const a = descriptorFor('daily-log', '/', fakeModule('daily-log').module)
     const b = descriptorFor('analyse', '/analyse', fakeModule('analyse').module)
 
-    const shell = await mountShell(host, { modules: [a.descriptor, b.descriptor] })
+    const shell = await mountShell(host, { modules: [a.descriptor, b.descriptor], deps: testModuleDeps() })
 
     expect(a.load).toHaveBeenCalledTimes(1)
     expect(b.load).not.toHaveBeenCalled()
@@ -62,7 +63,7 @@ describe('mountShell', () => {
     const a = descriptorFor('daily-log', '/', first.module)
     const b = descriptorFor('analyse', '/analyse', second.module)
 
-    const shell = await mountShell(host, { modules: [a.descriptor, b.descriptor] })
+    const shell = await mountShell(host, { modules: [a.descriptor, b.descriptor], deps: testModuleDeps() })
     await shell.go('/analyse')
 
     expect(first.destroy).toHaveBeenCalledTimes(1)
@@ -72,7 +73,7 @@ describe('mountShell', () => {
 
   it('ignores a route no module claims, instead of blanking the screen', async () => {
     const a = descriptorFor('daily-log', '/', fakeModule('daily-log').module)
-    const shell = await mountShell(host, { modules: [a.descriptor] })
+    const shell = await mountShell(host, { modules: [a.descriptor], deps: testModuleDeps() })
 
     await shell.go('/analyse')
 
@@ -84,7 +85,7 @@ describe('mountShell', () => {
     const a = descriptorFor('daily-log', '/', fakeModule('daily-log').module)
     const b = descriptorFor('analyse', '/analyse', fakeModule('analyse').module)
 
-    await mountShell(host, { modules: [a.descriptor, b.descriptor] })
+    await mountShell(host, { modules: [a.descriptor, b.descriptor], deps: testModuleDeps() })
 
     const routes = [...host.querySelectorAll('.shell-nav button')].map(
       (button) => (button as HTMLElement).dataset['route'],

@@ -1,35 +1,22 @@
-import type { ModuleHandle } from '@shared'
-import { WhiteboardDocument } from '@dailly/whiteboard-core'
-import { mountWhiteboard } from '@capabilities/whiteboard/dom'
-
-const PLACEHOLDER = ['# Hoje', '', '[] primeira entrada'].join('\n')
+import type { ModuleDeps, ModuleHandle } from '@shared'
+import { createApp } from 'vue'
+import DailyLog from './DailyLog.vue'
 
 /**
- * The Daily Log screen.
+ * The module's adapter to the shell: create a Vue app on the host, tear it down
+ * on destroy.
  *
- * It consumes the whiteboard through its public surface only, and the seam with
- * persistence is the one `docs/adaptacao-dailly.md` already fixed: the
- * whiteboard edits `Entry.body`, never the Entry. `EntryRepository` and the
- * use-cases land here in Phase 1 of the roadmap; this module owns that domain
- * when it does, which is why `Entry` will live under `modules/daily-log`, not
- * in a global `domain/`.
+ * This is the whole surface where Vue meets the rest of the architecture —
+ * eleven lines. The shell does not know Vue exists, and neither does the
+ * domain.
  */
-export function mountDailyLog(host: HTMLElement): ModuleHandle {
-  const section = document.createElement('section')
-  section.className = 'daily-log'
-
-  const board = document.createElement('div')
-  board.className = 'whiteboard'
-  section.append(board)
-  host.append(section)
-
-  const doc = new WhiteboardDocument(PLACEHOLDER)
-  const handle = mountWhiteboard(board, doc)
+export function mountDailyLog(host: HTMLElement, deps: ModuleDeps): ModuleHandle {
+  const app = createApp(DailyLog, { deps })
+  app.mount(host)
 
   return {
     destroy() {
-      handle.destroy()
-      section.remove()
+      app.unmount()
     },
   }
 }

@@ -2,3 +2,4 @@
 export { assertManifest, findByRoute, ManifestError } from './module.js'
 export type { ModuleDescriptor } from './module.js'
 export type { ModuleHandle, MountableModule } from './dom-shell.js'
+export type { ModuleDeps } from './deps.js'
