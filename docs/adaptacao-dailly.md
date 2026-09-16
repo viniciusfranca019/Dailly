@@ -50,7 +50,7 @@ doc.setMarkdown(entry.body)
 | Referência | Por que continua valendo |
 |---|---|
 | **ADR 0001** — camadas, ports, Processor, local-first | O dailly hoje é `core` puro + adapters; é a mesma forma. As ports entram por cima, sem conflito |
-| **ADR 0002** — data layer inteira | `Entry.body: string` markdown encaixa em `toMarkdown()` sem emenda. Schema, `json_extract`, `user_version`, UUID: tudo vale |
+| **ADR 0002** — data layer inteira | `Entry.body: string` markdown encaixa em `toMarkdown()` sem emenda. Schema, `json_extract`, `user_version`, UUID: tudo vale — com a [Emenda 1](adrs/0002-data-layer.md), que mudou a assinatura de `create` |
 | **ADR 0004** — BYOK, port `Summarizer` | Independente de UI e de editor |
 | **ADR 0005** — backup/restore | Continua pós-MVP, status inalterado |
 | **`mvp.md`** — comportamentos | Todos válidos. O editor mudou; o que o usuário observa, não |

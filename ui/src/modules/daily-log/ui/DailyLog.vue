@@ -17,8 +17,15 @@ import { formatDay, groupByDay, titleOf } from './timeline.js'
  */
 const props = defineProps<{ deps: ModuleDeps }>()
 
-const PLACEHOLDER = '# Hoje\n[] primeira entrada'
-
+/**
+ * The composer starts **empty**, not with a sample entry.
+ *
+ * It used to open with `# Hoje / [] primeira entrada`, and that is content: a
+ * click on "salvar" without typing anything would have persisted a diary entry
+ * the person never wrote. An empty document is never truly empty — the core
+ * guarantees one paragraph to put the caret in — so there is always somewhere
+ * to type.
+ */
 const boardHost = ref<HTMLElement | null>(null)
 const board = shallowRef<WhiteboardHandle | null>(null)
 const doc = shallowRef<WhiteboardDocument | null>(null)
@@ -27,6 +34,8 @@ const entries = ref<Entry[]>([])
 const loading = ref(true)
 const saving = ref(false)
 const error = ref<string | null>(null)
+/** Tracked so "salvar" is unavailable rather than failing with "corpo obrigatório". */
+const empty = ref(true)
 
 const days = computed(() => groupByDay(entries.value, props.deps.zone))
 
@@ -49,7 +58,8 @@ async function save(): Promise<void> {
   try {
     await props.deps.createEntry({ body })
     // Clearing through the document, not the DOM: the model is the source of
-    // truth and the adapter re-renders from it.
+    // truth, the adapter re-renders from its subscription, and `#commit`
+    // guarantees the emptied document still has one paragraph to type into.
     doc.value?.setMarkdown('')
     await load()
   } catch (cause) {
@@ -59,15 +69,24 @@ async function save(): Promise<void> {
   }
 }
 
+let unsubscribe: (() => void) | undefined
+
 onMounted(() => {
   const host = boardHost.value
   if (!host) return
-  doc.value = new WhiteboardDocument(PLACEHOLDER)
-  board.value = mountWhiteboard(host, doc.value)
+  const store = new WhiteboardDocument('')
+  doc.value = store
+  board.value = mountWhiteboard(host, store)
+  // Vue reacts to the island through the island's own contract: the document
+  // notifies on every mutation, and that is the only channel between them.
+  unsubscribe = store.subscribe(() => {
+    empty.value = store.toMarkdown().trim() === ''
+  })
   void load()
 })
 
 onBeforeUnmount(() => {
+  unsubscribe?.()
   board.value?.destroy()
   board.value = null
 })
@@ -90,7 +109,7 @@ onBeforeUnmount(() => {
     <div class="daily-log__composer">
       <!-- Owned by the whiteboard adapter. Vue renders nothing in here. -->
       <div ref="boardHost" class="whiteboard"></div>
-      <button type="button" class="daily-log__save" :disabled="saving" @click="save">
+      <button type="button" class="daily-log__save" :disabled="saving || empty" @click="save">
         {{ saving ? 'salvando…' : 'salvar entrada' }}
       </button>
     </div>

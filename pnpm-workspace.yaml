@@ -11,6 +11,3 @@ allowBuilds:
   electron: true
   better-sqlite3: true
   esbuild: true
-
-minimumReleaseAgeExclude:
-  - '@vue/test-utils@2.5.1'

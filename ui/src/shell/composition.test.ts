@@ -32,9 +32,12 @@ describe('the real composition', () => {
 
     expect(host.querySelector('.daily-log')).not.toBeNull()
     // Rendered blocks, not just a container: this is the seam between the
-    // product module and the capability actually carrying traffic.
-    expect(host.querySelectorAll('.wb-block').length).toBeGreaterThan(0)
-    expect(host.querySelector('.wb-text')?.textContent).toBe('Hoje')
+    // product module and the capability actually carrying traffic. The composer
+    // opens empty, so what proves the whiteboard is live is the one paragraph
+    // the core guarantees — rendered, and editable.
+    expect(host.querySelectorAll('.wb-block').length).toBe(1)
+    expect(host.querySelector('.wb-text')?.textContent).toBe('')
+    expect(host.querySelector('.wb-text')?.getAttribute('contenteditable')).not.toBeNull()
   })
 
   it('every module in the manifest mounts and unmounts without throwing', async () => {
