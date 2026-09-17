@@ -201,6 +201,124 @@ describe('the composer', () => {
   })
 })
 
+describe('choosing the day of the entry', () => {
+  /** Pick a day the way the native control reports one: value, then `change`. */
+  const pick = (host: HTMLElement, day: string) => {
+    const input = at<HTMLInputElement>(host, 'day-input')!
+    input.value = day
+    input.dispatchEvent(new Event('change', { bubbles: true }))
+  }
+
+  it('offers no day after today, counted in the configured zone', async () => {
+    // 02:00Z on the 17th is still the 16th in São Paulo. A `max` taken from the
+    // machine's own clock would let someone log to a day that has not started.
+    const { host } = mount(
+      testModuleDeps({ now: '2026-09-17T02:00:00.000Z', zone: 'America/Sao_Paulo' }),
+    )
+    await settle()
+
+    expect(at<HTMLInputElement>(host, 'day-input')?.max).toBe('2026-09-16')
+  })
+
+  it('opens with today and says nothing about it', async () => {
+    const { host } = mount()
+    await settle()
+
+    expect(at<HTMLInputElement>(host, 'day-input')?.value).toBe('2026-09-16')
+    expect(at(host, 'backdated')).toBeNull()
+  })
+
+  it('names the chosen day once it is not today', async () => {
+    // The title keeps saying today; this is what a person reads instead.
+    const { host } = mount()
+    await settle()
+
+    pick(host, '2026-09-10')
+    await settle()
+
+    expect(at(host, 'backdated')?.textContent).toContain('registrando em 10 de setembro de 2026')
+  })
+
+  it('files the entry under the chosen day, at noon', async () => {
+    // Noon and not the hour of writing: the picker gave a day, and a card
+    // reading "12:00" claims nothing about when the thing happened.
+    const { host } = mount()
+    await settle()
+    pick(host, '2026-09-10')
+    await settle()
+    type(host, '# aconteceu semana passada')
+    await settle()
+
+    at<HTMLButtonElement>(host, 'submit')!.click()
+    await settle()
+    await settle()
+
+    expect(at(host, 'day-heading')?.textContent?.trim()).toBe('10 de setembro de 2026')
+    expect(at(host, 'entry-time')?.textContent?.trim()).toBe('12:00')
+  })
+
+  it('keeps the exact moment of writing when the day is today', async () => {
+    const { host } = mount(testModuleDeps({ now: '2026-09-16T14:32:00.000Z' }))
+    await settle()
+    type(host, '# aconteceu agora')
+    await settle()
+
+    at<HTMLButtonElement>(host, 'submit')!.click()
+    await settle()
+    await settle()
+
+    expect(at(host, 'entry-time')?.textContent?.trim()).toBe('14:32')
+  })
+
+  it('ignores a future day typed into the field', async () => {
+    // `max` keeps the calendar from offering one, but a date input can be typed
+    // into and not every engine blocks that.
+    const { host } = mount()
+    await settle()
+
+    pick(host, '2026-12-25')
+    await settle()
+
+    expect(at(host, 'backdated')).toBeNull()
+    expect(at<HTMLInputElement>(host, 'day-input')?.value).toBe('2026-09-16')
+  })
+
+  it('goes back to today after registering', async () => {
+    // A badge is a mitigation, not a control: the next entry quietly landing on
+    // last Tuesday is the failure that loses writing to the wrong day.
+    const { host } = mount()
+    await settle()
+    pick(host, '2026-09-10')
+    await settle()
+    type(host, '# primeira')
+    await settle()
+
+    at<HTMLButtonElement>(host, 'submit')!.click()
+    await settle()
+    await settle()
+
+    expect(at(host, 'backdated')).toBeNull()
+    expect(at<HTMLInputElement>(host, 'day-input')?.value).toBe('2026-09-16')
+  })
+
+  it('keeps the chosen day when registering fails', async () => {
+    // They are about to try again; throwing the choice away would make them
+    // pick it twice.
+    const deps = testModuleDeps({ now: NOW })
+    const { host } = mount({ ...deps, createEntry: () => Promise.reject(new Error('sem API')) })
+    await settle()
+    pick(host, '2026-09-10')
+    await settle()
+    type(host, '# vai falhar')
+    await settle()
+
+    at<HTMLButtonElement>(host, 'submit')!.click()
+    await settle()
+
+    expect(at(host, 'backdated')?.textContent).toContain('10 de setembro')
+  })
+})
+
 describe('the timeline', () => {
   it('says it is empty rather than showing nothing', async () => {
     const { host } = mount()

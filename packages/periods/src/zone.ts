@@ -205,6 +205,19 @@ export function dayBounds(
 }
 
 /**
+ * Midday on this calendar day, in this zone.
+ *
+ * Computed as a wall-clock time and not as "start of day plus twelve hours",
+ * because those are different instants on a day that gains or loses an hour.
+ * Callers use it to mean *a day without a time* — noon is the hour that is
+ * neither the start nor the end of anything.
+ */
+export function atNoon(day: CalendarDay, zone: TimeZone): Instant {
+  const wall = parseDay(day)
+  return new Date(instantOfWallTime({ ...wall, hour: 12 }, zone)).toISOString()
+}
+
+/**
  * Turn an inclusive range of calendar days into instant bounds.
  *
  * This is the conversion `EntryFilter` needs and deliberately does not do:

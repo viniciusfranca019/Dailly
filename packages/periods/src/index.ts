@@ -10,6 +10,7 @@
 export type { CalendarDay, Instant, TimeZone } from './zone.js'
 export {
   InvalidCalendarDayError,
+  atNoon,
   InvalidInstantError,
   UTC,
   UnknownTimeZoneError,

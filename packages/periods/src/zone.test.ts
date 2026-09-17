@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   InvalidCalendarDayError,
+  atNoon,
   InvalidInstantError,
   UTC,
   UnknownTimeZoneError,
@@ -164,5 +165,34 @@ describe('timeOf', () => {
 
   it('refuses what it cannot read', () => {
     expect(() => timeOf('agora', UTC)).toThrow(InvalidInstantError)
+  })
+})
+
+describe('atNoon', () => {
+  it('is midday on the wall clock, in UTC', () => {
+    expect(atNoon('2026-07-24', UTC)).toBe('2026-07-24T12:00:00.000Z')
+  })
+
+  it('shifts with the zone', () => {
+    // Noon in São Paulo is 15:00Z year round.
+    expect(atNoon('2026-07-24', SAO_PAULO)).toBe('2026-07-24T15:00:00.000Z')
+  })
+
+  it('stays at noon on a day that loses an hour', () => {
+    // The reason this is a wall-clock computation and not "start of day plus
+    // twelve hours": on 2026-03-08 in New York those are different instants,
+    // and only one of them reads as 12:00 to the person looking at it.
+    expect(timeOf(atNoon('2026-03-08', NEW_YORK), NEW_YORK)).toBe('12:00')
+    expect(timeOf(atNoon('2026-11-01', NEW_YORK), NEW_YORK)).toBe('12:00')
+  })
+
+  it('belongs to the day it names', () => {
+    for (const zone of [UTC, SAO_PAULO, NEW_YORK]) {
+      expect(dayOf(atNoon('2026-07-24', zone), zone)).toBe('2026-07-24')
+    }
+  })
+
+  it('refuses something that is not a calendar day', () => {
+    expect(() => atNoon('24/07/2026', UTC)).toThrow(InvalidCalendarDayError)
   })
 })

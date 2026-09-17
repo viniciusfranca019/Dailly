@@ -5,7 +5,8 @@ import { computed, onMounted, ref, useTemplateRef } from 'vue'
 import Composer from './Composer.vue'
 import Timeline from './Timeline.vue'
 import { formatDay } from './timeline.js'
-import { dayOf } from '@dailly/periods'
+import { occurredAtFor } from './entry-date.js'
+import { dayOf, type CalendarDay } from '@dailly/periods'
 
 /**
  * The Daily Log: write on the left, read on the right.
@@ -24,7 +25,11 @@ const saving = ref(false)
 const error = ref<string | null>(null)
 const now = ref(props.deps.now())
 
-const title = computed(() => `Registro do Dia — ${formatDay(dayOf(now.value, props.deps.zone))}`)
+/** Today, in the configured zone — the default day and the ceiling for the picker. */
+const today = computed(() => dayOf(now.value, props.deps.zone))
+const day = ref<CalendarDay>(today.value)
+
+const title = computed(() => `Registro do Dia — ${formatDay(today.value)}`)
 
 async function load(): Promise<void> {
   loading.value = true
@@ -42,9 +47,18 @@ async function save(body: string): Promise<void> {
   saving.value = true
   error.value = null
   try {
-    await props.deps.createEntry({ body })
+    await props.deps.createEntry({
+      body,
+      occurredAt: occurredAtFor(day.value, props.deps.now(), props.deps.zone),
+    })
     composer.value?.clear()
     now.value = props.deps.now()
+    // Back to today after a successful register. The badge makes backdating
+    // visible, but a badge is a mitigation and not a control: the next entry
+    // quietly landing on last Tuesday is the failure that loses writing to the
+    // wrong day, and re-picking costs one click. On a failure the choice stays,
+    // because the person is about to try again.
+    day.value = today.value
     await load()
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : 'não consegui registrar'
@@ -66,7 +80,15 @@ onMounted(load)
 
     <div class="grid min-h-0 flex-1 grid-cols-1 gap-6 px-6 pb-6 xl:grid-cols-[minmax(0,1fr)_384px]">
       <div class="flex min-h-0 flex-col">
-        <Composer ref="composer" :title="title" :saving="saving" @submit="save" @cancel="composer?.clear()" />
+        <Composer
+          ref="composer"
+          v-model:day="day"
+          :title="title"
+          :saving="saving"
+          :max-day="today"
+          @submit="save"
+          @cancel="composer?.clear()"
+        />
         <p
           v-if="error"
           role="alert"

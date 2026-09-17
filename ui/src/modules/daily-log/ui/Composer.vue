@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { WhiteboardDocument } from '@dailly/whiteboard-core'
 import { TEXT_ATTR, mountWhiteboard, type WhiteboardHandle } from '@capabilities/whiteboard/dom'
-import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
+import type { CalendarDay } from '@dailly/periods'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
+import { formatDay } from './timeline.js'
+import { isLoggable } from './entry-date.js'
 
 /**
  * The editor card: a title, a toolbar, the whiteboard, and two buttons.
@@ -10,8 +13,41 @@ import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
  * `boardHost`; Vue never renders in there. The element is empty in the template
  * for that reason, and the click handler only redirects focus.
  */
-const props = defineProps<{ title: string; saving: boolean }>()
-const emit = defineEmits<{ submit: [body: string]; cancel: [] }>()
+const props = defineProps<{
+  title: string
+  saving: boolean
+  /** The day this entry will be logged to. */
+  day: CalendarDay
+  /** Today, in the configured zone — nothing after it may be picked. */
+  maxDay: CalendarDay
+}>()
+const emit = defineEmits<{ submit: [body: string]; cancel: []; 'update:day': [day: CalendarDay] }>()
+
+const picker = ref<HTMLInputElement | null>(null)
+
+/** Open the native calendar from the icon, which is where the design puts it. */
+function openPicker(): void {
+  const input = picker.value
+  if (!input) return
+  // `showPicker` needs a user gesture, which a click is. Where it does not
+  // exist — jsdom, older engines — focusing still gets the person to the field.
+  if ('showPicker' in input) input.showPicker()
+  else input.focus()
+}
+
+function pickDay(event: Event): void {
+  const chosen = (event.target as HTMLInputElement).value
+  // `max` keeps the calendar from offering a future day, but a date input can
+  // also be typed into, and not every engine blocks that. The rule is enforced
+  // where it cannot be walked around.
+  if (!chosen || !isLoggable(chosen, `${props.maxDay}T12:00:00.000Z`, 'UTC')) {
+    ;(event.target as HTMLInputElement).value = props.day
+    return
+  }
+  emit('update:day', chosen)
+}
+
+const backdated = computed(() => props.day !== props.maxDay)
 
 const boardHost = ref<HTMLElement | null>(null)
 const board = shallowRef<WhiteboardHandle | null>(null)
@@ -140,26 +176,65 @@ onBeforeUnmount(() => {
   >
     <h1 class="flex items-center gap-2.5 text-2xl font-bold tracking-tight text-gray-100">
       <!--
-        An icon, not the emoji the design used. This machine renders 📝 as a
-        tofu box, and an emoji's presence depends on a font the host may simply
-        not have — while an inline SVG looks the same everywhere and inherits
-        the colour around it.
+        The icon is the way in to the calendar. An icon, not the emoji the
+        design used: this machine renders 📝 as a tofu box, and an emoji depends
+        on a font the host may not have, while an inline SVG looks the same
+        everywhere and inherits the colour around it.
       -->
-      <svg
-        class="h-5 w-5 shrink-0 text-blue-500"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="1.8"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
+      <button
+        type="button"
+        class="grid h-8 w-8 shrink-0 place-items-center rounded-md text-blue-500 transition-colors hover:bg-white/5"
+        title="Escolher a data do registro"
+        aria-label="Escolher a data do registro"
+        data-testid="pick-day"
+        @click="openPicker"
       >
-        <path d="M8 2v3M16 2v3M3.5 8.5h17" />
-        <rect x="3.5" y="4.5" width="17" height="16" rx="2.5" />
-      </svg>
+        <svg
+          class="h-5 w-5"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M8 2v3M16 2v3M3.5 8.5h17" />
+          <rect x="3.5" y="4.5" width="17" height="16" rx="2.5" />
+        </svg>
+      </button>
+
+      <!--
+        The real control, kept out of the layout but not out of the page: it is
+        a focusable field with a `max`, so the keyboard and the calendar both
+        work. `sr-only` and not `hidden`, which would make `showPicker` throw.
+      -->
+      <input
+        ref="picker"
+        type="date"
+        class="sr-only"
+        :value="props.day"
+        :max="props.maxDay"
+        data-testid="day-input"
+        @change="pickDay"
+      />
+
       <span>{{ props.title }}</span>
     </h1>
+
+    <!--
+      The title keeps saying today on purpose. Someone who picked yesterday to
+      log one thing and then forgot would otherwise type today's entry under a
+      heading that looks right — so the override gets its own line, and it names
+      the day rather than just saying "backdated".
+    -->
+    <p
+      v-if="backdated"
+      class="mt-2 inline-flex w-fit items-center gap-1.5 rounded-md border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-300"
+      data-testid="backdated"
+    >
+      registrando em {{ formatDay(props.day) }}
+    </p>
 
     <div class="mt-4 flex items-center gap-1 border-b border-[#1e2638] pb-3">
       <button
