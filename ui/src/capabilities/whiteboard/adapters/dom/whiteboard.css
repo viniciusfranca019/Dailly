@@ -12,6 +12,28 @@
 .wb-row { display: flex; align-items: flex-start; gap: 2px; }
 .wb-children { margin-left: 24px; }
 
+/*
+ * The row's content child fills the row — every block type, including one
+ * registered from outside the core, which is why this selects by exclusion
+ * rather than listing `.wb-paragraph`, `.wb-heading` and friends.
+ *
+ * Load-bearing, and it took a real browser to find out: `.wb-text` carries
+ * `flex: 1 1 auto`, but `.wb-text` is not the flex item — the wrapper around it
+ * is. With text inside, the wrapper got its width from the content and nobody
+ * noticed. **Empty, it collapsed to zero width**, so an empty block had no
+ * clickable area at all: the click landed on `.wb-row`, focus never reached the
+ * editor, and the board looked broken while being perfectly functional.
+ *
+ * jsdom cannot see this — it does not lay anything out — which is exactly what
+ * the playground is for. It now opens with an empty board next to a filled one.
+ */
+.wb-row > :not(.wb-arrow) {
+  flex: 1 1 auto;
+  /* The companion to `flex: 1`: without it a long unbroken word makes the item
+     refuse to shrink and the row overflows its container. */
+  min-width: 0;
+}
+
 .wb-arrow {
   flex: 0 0 18px;
   width: 18px;
@@ -53,8 +75,17 @@
   word-break: break-word;
 }
 
-/* Placeholder on the empty block you are standing in, like Notion. */
-.wb-block--paragraph .wb-text:empty:focus::before {
+/*
+ * Placeholder on the empty block you are standing in, like Notion — and also on
+ * an empty board that nobody is standing in yet.
+ *
+ * The second case is not decoration. A board whose only block is empty renders
+ * as a blank strip: correct, clickable, and indistinguishable from nothing at
+ * all. Someone opening it for the first time has no reason to believe they can
+ * type there.
+ */
+.wb-block--paragraph .wb-text:empty:focus::before,
+.wb-block:only-child.wb-block--paragraph .wb-text:empty::before {
   content: 'Escreva algo — ou use #, -, 1., [] ou > seguido de espaço';
   color: var(--wb-muted, #9b9a97);
   pointer-events: none;

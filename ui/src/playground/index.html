@@ -10,6 +10,16 @@
     <main class="page">
       <div id="whiteboard" class="whiteboard"></div>
 
+      <!--
+        An empty board, beside the filled one, because the interesting bugs live
+        here. A block with text gets its width from its content and hides a
+        layout mistake; empty, it collapses — which is how an unclickable editor
+        shipped once. jsdom lays nothing out, so this pane is the only place the
+        naked eye can catch it.
+      -->
+      <h2 class="pane-title">vazio — deve dar para clicar e escrever</h2>
+      <div id="whiteboard-empty" class="whiteboard"></div>
+
       <footer class="hints">
         <kbd>#</kbd><kbd>espaço</kbd> título &middot;
         <kbd>-</kbd> lista &middot;

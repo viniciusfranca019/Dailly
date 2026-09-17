@@ -74,6 +74,15 @@ body {
   padding: 0.75rem;
 }
 
+/*
+ * Room to write into, and to click into. An empty board is one 24px line; a
+ * composer that small reads as a disabled field rather than an invitation.
+ */
+.daily-log__composer .whiteboard {
+  min-height: 4.5rem;
+  cursor: text;
+}
+
 .daily-log__save {
   margin-top: 0.5rem;
   padding: 0.4rem 0.9rem;

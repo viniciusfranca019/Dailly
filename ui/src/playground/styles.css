@@ -42,3 +42,13 @@ body {
 }
 
 /* The block styles travel with the adapter, in whiteboard/adapters/dom. */
+
+/* Separates the two boards in the harness; see index.html for why there are two. */
+.pane-title {
+  margin: 2rem 0 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.5;
+}

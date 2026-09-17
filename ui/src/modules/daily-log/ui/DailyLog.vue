@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Entry } from '@dailly/domain'
 import { WhiteboardDocument } from '@dailly/whiteboard-core'
-import { mountWhiteboard, type WhiteboardHandle } from '@capabilities/whiteboard/dom'
+import { TEXT_ATTR, mountWhiteboard, type WhiteboardHandle } from '@capabilities/whiteboard/dom'
 import type { ModuleDeps } from '@shared'
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import { formatDay, groupByDay, titleOf } from './timeline.js'
@@ -38,6 +38,23 @@ const error = ref<string | null>(null)
 const empty = ref(true)
 
 const days = computed(() => groupByDay(entries.value, props.deps.zone))
+
+/**
+ * Clicking the composer's empty space puts the caret in the editor.
+ *
+ * Without this, only the 24px line of the block itself is a target, and the
+ * padding around it is dead: the person clicks inside the box, nothing happens,
+ * and the app looks broken. Every editor behaves this way — the writing area is
+ * the box, not the line.
+ *
+ * Clicks that land on a block are left alone, so the adapter still owns caret
+ * placement within the text.
+ */
+function focusEditor(event: MouseEvent): void {
+  if (event.target !== event.currentTarget) return
+  const blocks = boardHost.value?.querySelectorAll<HTMLElement>(`[${TEXT_ATTR}]`)
+  blocks?.[blocks.length - 1]?.focus()
+}
 
 async function load(): Promise<void> {
   loading.value = true
@@ -107,8 +124,11 @@ onBeforeUnmount(() => {
     </header>
 
     <div class="daily-log__composer">
-      <!-- Owned by the whiteboard adapter. Vue renders nothing in here. -->
-      <div ref="boardHost" class="whiteboard"></div>
+      <!--
+        Owned by the whiteboard adapter. Vue renders nothing in here — the click
+        handler only redirects focus, it never touches the contents.
+      -->
+      <div ref="boardHost" class="whiteboard" @click="focusEditor"></div>
       <button type="button" class="daily-log__save" :disabled="saving || empty" @click="save">
         {{ saving ? 'salvando…' : 'salvar entrada' }}
       </button>

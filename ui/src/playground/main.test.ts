@@ -7,12 +7,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { WhiteboardDocument } from '@dailly/whiteboard-core'
 
 async function loadDemo() {
-  document.body.innerHTML = '<div id="whiteboard"></div>'
+  // Both panes, because the page has both: the filled sample and the empty
+  // board that exists to make layout bugs visible to the eye.
+  document.body.innerHTML = '<div id="whiteboard"></div><div id="whiteboard-empty"></div>'
   vi.resetModules()
   await import('./main.js')
 
   return {
     board: document.querySelector('#whiteboard') as HTMLElement,
+    emptyBoard: document.querySelector('#whiteboard-empty') as HTMLElement,
     store: (globalThis as { dailly?: WhiteboardDocument }).dailly!,
   }
 }
@@ -47,6 +50,18 @@ describe('demo page', () => {
   it('keeps the document reachable for the console', async () => {
     const { store } = await loadDemo()
     expect(store.toMarkdown()).toContain('# Daily 14/09')
+  })
+})
+
+describe('the empty pane', () => {
+  it('renders a block to type into even with nothing in it', async () => {
+    // jsdom cannot tell whether that block has a clickable width — only the
+    // browser can, which is what this pane is for. What a test *can* hold is
+    // that the block exists at all.
+    const { emptyBoard } = await loadDemo()
+
+    expect(emptyBoard.querySelectorAll('.wb-block')).toHaveLength(1)
+    expect(emptyBoard.querySelector('[data-wb-text]')?.textContent).toBe('')
   })
 })
 
