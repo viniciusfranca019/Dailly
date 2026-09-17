@@ -50,6 +50,18 @@
 .wb-arrow:hover { background: var(--wb-hover, rgba(55, 53, 47, 0.08)); }
 .wb-arrow--empty { cursor: default; }
 
+/*
+ * Block selection (Shift+Arrow, Ctrl+A).
+ *
+ * The highlight goes on the row, not on the block: a selected parent marks its
+ * children as selected too, and painting the wrapper would stack the colour on
+ * itself once per level of nesting.
+ */
+.wb-block--selected > .wb-row {
+  background: var(--wb-selection, rgba(35, 131, 226, 0.16));
+  border-radius: 3px;
+}
+
 .wb-heading { margin: 8px 0 2px; line-height: 1.3; }
 .wb-heading--1 { font-size: 26px; }
 .wb-heading--2 { font-size: 21px; }

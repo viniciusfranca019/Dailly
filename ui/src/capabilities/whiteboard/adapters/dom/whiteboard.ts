@@ -6,7 +6,14 @@
  * click listener that maps `data-wb-action` onto the document store.
  */
 
-import { isCollapsible, parse, type Block, type WhiteboardDocument } from '@dailly/whiteboard-core'
+import {
+  isCollapsible,
+  parse,
+  visibleBlocksInOrder,
+  walk,
+  type Block,
+  type WhiteboardDocument,
+} from '@dailly/whiteboard-core'
 import { ACTION_ATTR, BLOCK_ID_ATTR, TEXT_ATTR, actionAttrs, type BlockAction } from './actions.js'
 import { getCaretOffset, hasSelection, insertTextAtCaret, setCaret } from './caret.js'
 import { el } from './dom.js'
@@ -43,6 +50,58 @@ export function mountWhiteboard(
   // While the user types we let the DOM keep the text it already shows and
   // only push it to the store; re-rendering would destroy the caret.
   let editing = false
+
+  /**
+   * Block selection, as two ids and nothing else.
+   *
+   * Which blocks that means is *derived*, never stored: the range is everything
+   * visible between the two, in document order. Storing the resolved set would
+   * mean keeping it in step with every edit; deriving it means an edit can
+   * never leave a stale list behind. Ids survive edits — `updateSiblingsOf`
+   * rebuilds lists without minting new ones — so the selection follows the
+   * blocks when they move.
+   */
+  let selection: { anchor: string; head: string } | undefined
+
+  /** Every block currently selected, subtrees included. */
+  function selectedIds(): string[] {
+    if (!selection) return []
+    const visible = visibleBlocksInOrder(store.blocks)
+    const anchor = visible.findIndex((block) => block.id === selection!.anchor)
+    const head = visible.findIndex((block) => block.id === selection!.head)
+    // A block named by the selection can be gone — merged away, for instance.
+    if (anchor < 0 || head < 0) return []
+
+    const [from, to] = anchor <= head ? [anchor, head] : [head, anchor]
+    const ids: string[] = []
+    for (const block of visible.slice(from, to + 1)) {
+      // Subtrees come along: selecting a parent selects what it holds, whether
+      // or not the children are on screen.
+      for (const inside of walk([block])) ids.push(inside.id)
+    }
+    return ids
+  }
+
+  /**
+   * Re-apply the highlight to the blocks it belongs to.
+   *
+   * Called after every render rather than when the selection changes: `render`
+   * rebuilds the DOM from the store, so a class set by a key handler would be
+   * thrown away by the next edit — and after Alt+ArrowDown the highlight would
+   * stay on the positions the blocks just left.
+   */
+  function paintSelection(): void {
+    const selected = new Set(selectedIds())
+    for (const node of container.querySelectorAll<HTMLElement>(`[${BLOCK_ID_ATTR}]`)) {
+      node.classList.toggle('wb-block--selected', selected.has(node.getAttribute(BLOCK_ID_ATTR)!))
+    }
+  }
+
+  function clearSelection(): void {
+    if (!selection) return
+    selection = undefined
+    paintSelection()
+  }
 
   const render = () => {
     if (editing) return
@@ -116,7 +175,14 @@ export function mountWhiteboard(
 
   const onClick = (event: Event) => {
     const target = event.target as Element | null
-    const trigger = target?.closest?.(`[${ACTION_ATTR}]`)
+    if (!target || !container.contains(target)) return
+
+    // Any click on the board is a new place to work from, and whatever was
+    // selected is not it. Above the action check on purpose: most clicks land
+    // on text, which has no action and would otherwise leave the highlight up.
+    clearSelection()
+
+    const trigger = target.closest?.(`[${ACTION_ATTR}]`)
     if (!trigger || !container.contains(trigger)) return
 
     const owner = trigger.closest(`[${BLOCK_ID_ATTR}]`)
@@ -220,6 +286,15 @@ export function mountWhiteboard(
     commitText(text)
   }
 
+  /** Whether the browser's text selection already covers this block's text. */
+  function selectionSpans(text: HTMLElement): boolean {
+    const domSelection = text.ownerDocument.getSelection()
+    if (!domSelection || domSelection.rangeCount === 0) return false
+    const range = domSelection.getRangeAt(0)
+    if (!text.contains(range.startContainer)) return false
+    return range.toString().length >= (text.textContent ?? '').length
+  }
+
   const onKeyDown = (event: Event) => {
     const keyboard = event as KeyboardEvent
     if (keyboard.isComposing) return
@@ -232,6 +307,79 @@ export function mountWhiteboard(
 
     const offset = getCaretOffset(text)
     const length = (text.textContent ?? '').length
+    /** What a structural edit acts on: the selection, or the block you are in. */
+    const targets = () => (selection ? selectedIds() : [id])
+    /** Every structural edit re-renders, so the caret has to be put back. */
+    const restore = () => focusBlock(id, Math.min(offset, length))
+
+    // Shift+Arrow: grow or shrink the block selection.
+    if (keyboard.shiftKey && (keyboard.key === 'ArrowUp' || keyboard.key === 'ArrowDown')) {
+      // Deliberately before the caret-position checks the plain arrows make:
+      // block selection does not care where in the text the caret sits.
+      event.preventDefault()
+      const visible = visibleBlocksInOrder(store.blocks)
+      const current = selection ?? { anchor: id, head: id }
+      const at = visible.findIndex((block) => block.id === current.head)
+      const next = visible[at + (keyboard.key === 'ArrowDown' ? 1 : -1)]
+      if (!next) return
+
+      selection = { anchor: current.anchor, head: next.id }
+      paintSelection()
+      // Focus follows the head so the next keystroke still arrives here.
+      focusBlock(next.id, 0)
+      return
+    }
+
+    // Alt+Arrow: move blocks, the way every editor moves lines.
+    if (keyboard.altKey && (keyboard.key === 'ArrowUp' || keyboard.key === 'ArrowDown')) {
+      event.preventDefault()
+      const moved =
+        keyboard.key === 'ArrowUp' ? store.moveUp(targets()) : store.moveDown(targets())
+      if (moved) restore()
+      return
+    }
+
+    // Ctrl+D: outdent, as in vim's insert mode. Shift+Tab does the same thing;
+    // this is the spelling someone arriving from an editor reaches for first.
+    if (keyboard.ctrlKey && !keyboard.metaKey && (keyboard.key === 'd' || keyboard.key === 'D')) {
+      // Before anything else: in a browser this key is "bookmark this page".
+      event.preventDefault()
+      if (store.outdent(targets())) restore()
+      return
+    }
+
+    // Ctrl+A: the block's text first, then the whole board.
+    if ((keyboard.ctrlKey || keyboard.metaKey) && (keyboard.key === 'a' || keyboard.key === 'A')) {
+      const wholeTextTaken = length === 0 || selectionSpans(text)
+      // First press in a block with unselected text belongs to the browser:
+      // selecting the text you are editing must keep working.
+      if (!selection && !wholeTextTaken) return
+
+      event.preventDefault()
+      const visible = visibleBlocksInOrder(store.blocks)
+      const last = visible[visible.length - 1]
+      if (!visible[0] || !last) return
+      selection = { anchor: visible[0].id, head: last.id }
+      paintSelection()
+      return
+    }
+
+    if (keyboard.key === 'Escape') {
+      clearSelection()
+      return
+    }
+
+    if (keyboard.key === 'Tab') {
+      event.preventDefault()
+      const moved = keyboard.shiftKey ? store.outdent(targets()) : store.indent(targets())
+      if (moved) restore()
+      return
+    }
+
+    // Everything below is ordinary text editing, and ordinary text editing
+    // happens with no block selection: typing into a selection would leave the
+    // highlight sitting over blocks the person is no longer acting on.
+    clearSelection()
 
     switch (keyboard.key) {
       case 'Enter': {
@@ -257,13 +405,6 @@ export function mountWhiteboard(
 
         const caret = store.mergeWithPrevious(id)
         if (caret) focusBlock(caret.id, caret.offset)
-        return
-      }
-
-      case 'Tab': {
-        event.preventDefault()
-        const moved = keyboard.shiftKey ? store.outdent(id) : store.indent(id)
-        if (moved) focusBlock(id, offset)
         return
       }
 
@@ -299,8 +440,13 @@ export function mountWhiteboard(
     container.addEventListener('paste', onPaste)
   }
 
-  const unsubscribe = store.subscribe(render)
-  render()
+  const draw = () => {
+    render()
+    paintSelection()
+  }
+
+  const unsubscribe = store.subscribe(draw)
+  draw()
 
   return {
     refresh: render,

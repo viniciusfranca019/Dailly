@@ -327,6 +327,8 @@ Cada teste mora ao lado do que testa, então o módulo carrega a própria suíte
 - `packages/whiteboard-core/src/editing.test.ts` — split/merge/indent/outdent/transform na árvore pura
 - `ui/src/capabilities/whiteboard/adapters/dom/whiteboard.test.ts` — render + clique real (jsdom) voltando pro markdown
 - `ui/src/capabilities/whiteboard/adapters/dom/editing.test.ts` — digitação, atalhos, Enter/Backspace/Tab/setas e paste
+- `packages/whiteboard-core/src/selection.test.ts` — mover, indentar e desindentar um conjunto de blocos
+- `ui/src/capabilities/whiteboard/adapters/dom/selection.test.ts` — Shift/Alt/Tab/Ctrl+D/Ctrl+A e o que o destaque segue
 - `ui/src/capabilities/whiteboard/extensibility.test.ts` — bloco novo registrado de fora do core
 - `ui/src/shell/composition.test.ts` — o manifest real monta o Daily Log real
 - `ui/src/playground/main.test.ts` — o playground renderiza e edita de verdade
