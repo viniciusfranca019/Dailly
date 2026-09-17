@@ -7,7 +7,14 @@
  */
 
 import { findBlock, isCheckable, isCollapsible, mapBlock, type Block } from './blocks.js'
-import { lastVisibleDescendant, locate, updateSiblingsOf } from './tree.js'
+import {
+  contiguousRun,
+  lastVisibleDescendant,
+  locate,
+  selectionRoots,
+  updateSiblingsOf,
+  type SiblingRun,
+} from './tree.js'
 import { parse, type ParseOptions } from './parser/index.js'
 import { serialize, type SerializeOptions } from './serialize.js'
 import type { BlockRegistry } from './registry.js'
@@ -223,18 +230,29 @@ export class WhiteboardDocument {
     )
   }
 
-  /** Tab: become the last child of the previous sibling. */
-  indent(id: string): boolean {
-    const location = locate(this.#blocks, id)
-    if (!location || location.index === 0) return false
+  /**
+   * Tab: become the last child of the previous sibling.
+   *
+   * Takes one block or a whole selection. A selection is not a special case —
+   * it is a run of adjacent siblings, and one block is a run of length one, so
+   * both go through the same code.
+   */
+  indent(target: string | readonly string[]): boolean {
+    const run = this.#runOf(target)
+    // Nothing above it in its own sibling list means nothing to become a child of.
+    if (!run || run.from === 0) return false
 
-    const next = updateSiblingsOf(this.#blocks, id, (siblings, index) => {
-      const block = siblings[index]!
+    const next = updateSiblingsOf(this.#blocks, run.siblings[run.from]!.id, (siblings, index) => {
+      const moved = siblings.slice(index, index + run.to - run.from + 1)
       const host = siblings[index - 1]!
       const rebuilt = siblings.slice()
-      rebuilt.splice(index, 1)
-      // Expanding the host keeps the block the user just moved on screen.
-      rebuilt[index - 1] = { ...host, children: [...host.children, block], collapsed: false } as Block
+      rebuilt.splice(index, moved.length)
+      // Expanding the host keeps the blocks the user just moved on screen.
+      rebuilt[index - 1] = {
+        ...host,
+        children: [...host.children, ...moved],
+        collapsed: false,
+      } as Block
       return rebuilt
     })
 
@@ -244,25 +262,79 @@ export class WhiteboardDocument {
   }
 
   /**
-   * Shift+Tab: become the next sibling of the parent. Blocks that followed it
-   * stay where they are (Notion drags them along; this does not).
+   * Shift+Tab (and Ctrl+D): become the next sibling of the parent. Blocks that
+   * followed the run stay where they are (Notion drags them along; this does
+   * not) — the same rule the single-block version has always had.
    */
-  outdent(id: string): boolean {
-    const location = locate(this.#blocks, id)
-    if (!location?.parent) return false
+  outdent(target: string | readonly string[]): boolean {
+    const run = this.#runOf(target)
+    if (!run?.parent) return false
 
-    const block = location.siblings[location.index]!
-    const next = updateSiblingsOf(this.#blocks, location.parent.id, (siblings, index) => {
+    const moved = run.siblings.slice(run.from, run.to + 1)
+    const movedIds = new Set(moved.map((block) => block.id))
+
+    const next = updateSiblingsOf(this.#blocks, run.parent.id, (siblings, index) => {
       const parent = siblings[index]!
       const rebuilt = siblings.slice()
-      rebuilt[index] = { ...parent, children: parent.children.filter((c) => c.id !== id) } as Block
-      rebuilt.splice(index + 1, 0, block)
+      rebuilt[index] = {
+        ...parent,
+        children: parent.children.filter((child) => !movedIds.has(child.id)),
+      } as Block
+      rebuilt.splice(index + 1, 0, ...moved)
       return rebuilt
     })
 
     if (!next) return false
     this.#commit(next)
     return true
+  }
+
+  /**
+   * Alt+ArrowUp: swap the run with the sibling above it.
+   *
+   * Within the sibling list and nowhere else. At the top of its list this is a
+   * no-op rather than an escape into the parent's list: moving *out* of a
+   * parent is what Tab and Shift+Tab are for, and a move that silently
+   * reparents is a move nobody can predict.
+   */
+  moveUp(target: string | readonly string[]): boolean {
+    const run = this.#runOf(target)
+    if (!run || run.from === 0) return false
+    return this.#reorder(run, run.from - 1)
+  }
+
+  /** Alt+ArrowDown: swap the run with the sibling below it. */
+  moveDown(target: string | readonly string[]): boolean {
+    const run = this.#runOf(target)
+    if (!run || run.to === run.siblings.length - 1) return false
+    return this.#reorder(run, run.from + 1)
+  }
+
+  /** Lift the run out of its sibling list and put it back starting at `to`. */
+  #reorder(run: SiblingRun, to: number): boolean {
+    const next = updateSiblingsOf(this.#blocks, run.siblings[run.from]!.id, (siblings, index) => {
+      const rebuilt = siblings.slice()
+      const moved = rebuilt.splice(index, run.to - run.from + 1)
+      rebuilt.splice(to, 0, ...moved)
+      return rebuilt
+    })
+
+    if (!next) return false
+    this.#commit(next)
+    return true
+  }
+
+  /**
+   * The run a structural edit should act on, given one id or a selection.
+   *
+   * Ids that are no longer in the tree are dropped rather than refused: a
+   * selection can outlive the blocks it named — a merge deletes one — and an
+   * edit on what remains is friendlier than an exception.
+   */
+  #runOf(target: string | readonly string[]): SiblingRun | undefined {
+    const ids = typeof target === 'string' ? [target] : target
+    const present = ids.filter((id) => locate(this.#blocks, id) !== undefined)
+    return contiguousRun(this.#blocks, selectionRoots(this.#blocks, present))
   }
 
   /**

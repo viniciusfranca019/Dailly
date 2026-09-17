@@ -28,6 +28,8 @@ export type {
 } from './blocks.js'
 export { findBlock, isBlockOfType, isCheckable, isCollapsible, mapBlock, walk } from './blocks.js'
 
+export { visibleBlocksInOrder } from './tree.js'
+
 export { BlockRegistry, PARAGRAPH_PRIORITY } from './registry.js'
 export type { BlockDefinition, ParseContext, SerializeContext } from './registry.js'
 
