@@ -6,13 +6,15 @@
  * vanilla adapter today and a React/Svelte one later.
  */
 
-import { findBlock, isCheckable, isCollapsible, mapBlock, type Block } from './blocks.js'
+import { findBlock, isCheckable, isCollapsible, mapBlock, walk, type Block } from './blocks.js'
 import {
   contiguousRun,
   lastVisibleDescendant,
   locate,
+  removeBlocks,
   selectionRoots,
   updateSiblingsOf,
+  visibleBlocksInOrder,
   type SiblingRun,
 } from './tree.js'
 import { parse, type ParseOptions } from './parser/index.js'
@@ -287,6 +289,57 @@ export class WhiteboardDocument {
     if (!next) return false
     this.#commit(next)
     return true
+  }
+
+  /**
+   * Delete the selected blocks, and say where the caret should go.
+   *
+   * Returns a caret target rather than nothing because the person is still
+   * typing: after deleting a stretch of the board they expect to be *somewhere*,
+   * and the only code that knows what survived is this one. The rule is the one
+   * every editor uses — land where the deleted text used to begin, which means
+   * the end of the block just above it.
+   *
+   * Removing everything is allowed and leaves a board with one empty paragraph
+   * to type into: `#commit` guarantees a document is never truly empty, and
+   * Ctrl+A followed by Backspace is exactly how someone starts over.
+   *
+   * Unlike moving or indenting, this does not require the blocks to be
+   * adjacent: there is no structural ambiguity in deleting scattered blocks,
+   * so there is nothing to refuse.
+   */
+  remove(target: string | readonly string[]): CaretTarget | undefined {
+    const ids = typeof target === 'string' ? [target] : target
+    const present = ids.filter((id) => locate(this.#blocks, id) !== undefined)
+    const roots = selectionRoots(this.#blocks, present)
+    if (roots.length === 0) return undefined
+
+    // Every id about to disappear, subtrees included — needed to find a
+    // survivor above, not to do the removal.
+    const doomed = new Set<string>()
+    for (const root of roots) for (const block of walk([root])) doomed.add(block.id)
+
+    const visible = visibleBlocksInOrder(this.#blocks)
+    const firstGone = visible.findIndex((block) => doomed.has(block.id))
+    // Walking backwards by hand rather than with `findLast`: that one is
+    // ES2023, and this package deliberately stops at ES2022 — it is the piece
+    // both runtimes share, so it is the one whose floor should stay lowest.
+    let above: Block | undefined
+    for (let i = firstGone - 1; i >= 0; i--) {
+      const candidate = visible[i]!
+      if (!doomed.has(candidate.id)) {
+        above = candidate
+        break
+      }
+    }
+
+    this.#commit(removeBlocks(this.#blocks, new Set(roots.map((root) => root.id))))
+
+    // `above` came from the old tree; read the surviving block back out of the
+    // new one, since its children may have changed underneath it.
+    const landing = (above && this.find(above.id)) ?? this.#blocks[0]
+    if (!landing) return undefined
+    return { id: landing.id, offset: above ? landing.text.length : 0 }
   }
 
   /**

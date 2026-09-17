@@ -215,3 +215,81 @@ describe('indenting and outdenting a run', () => {
     expect(doc.blocks[0]!.children.map((block) => block.id)).toEqual(before)
   })
 })
+
+describe('deleting a selection', () => {
+  it('removes the blocks and leaves the rest alone', () => {
+    const doc = new WhiteboardDocument('- um\n- dois\n- três')
+
+    doc.remove([doc.blocks[0]!.id, doc.blocks[1]!.id])
+
+    expect(doc.toMarkdown()).toBe('- três')
+  })
+
+  it('takes the subtree with the block', () => {
+    const doc = new WhiteboardDocument(SOURCE)
+
+    doc.remove(ids(doc).manha)
+
+    expect(doc.toMarkdown()).toBe(['## Tarde', '  - revisar PR'].join('\n'))
+  })
+
+  it('puts the caret at the end of the block above what was deleted', () => {
+    // Where the deleted text used to begin — the rule every editor follows, so
+    // the person carries on typing from where they were looking.
+    const doc = new WhiteboardDocument('- antes\n- alvo\n- depois')
+
+    const caret = doc.remove(doc.blocks[1]!.id)
+
+    expect(caret).toEqual({ id: doc.blocks[0]!.id, offset: 'antes'.length })
+  })
+
+  it('lands on the first survivor when the deletion starts at the top', () => {
+    const doc = new WhiteboardDocument('- alvo\n- sobra')
+
+    const caret = doc.remove(doc.blocks[0]!.id)
+
+    expect(caret).toEqual({ id: doc.blocks[0]!.id, offset: 0 })
+    expect(doc.toMarkdown()).toBe('- sobra')
+  })
+
+  it('leaves an empty paragraph to type into when everything goes', () => {
+    // Ctrl+A then Backspace is how a person starts over, and a board with no
+    // block at all would have nowhere to put the caret.
+    const doc = new WhiteboardDocument(SOURCE)
+    const everything = visibleBlocksInOrder(doc.blocks).map((block) => block.id)
+
+    const caret = doc.remove(everything)
+
+    expect(doc.toMarkdown()).toBe('')
+    expect(doc.blocks).toHaveLength(1)
+    expect(caret).toEqual({ id: doc.blocks[0]!.id, offset: 0 })
+  })
+
+  it('deletes blocks that are not adjacent, because nothing is ambiguous about it', () => {
+    // Moving scattered blocks is refused; deleting them is not. There is only
+    // one thing "delete these" can mean.
+    const doc = new WhiteboardDocument('- um\n- dois\n- três')
+
+    doc.remove([doc.blocks[0]!.id, doc.blocks[2]!.id])
+
+    expect(doc.toMarkdown()).toBe('- dois')
+  })
+
+  it('deletes a child without touching its parent', () => {
+    const doc = new WhiteboardDocument(SOURCE)
+
+    doc.remove(ids(doc).cafe)
+
+    expect(doc.toMarkdown()).toBe(
+      ['## Manhã', '  [] daily', '    - sobre o deploy', '## Tarde', '  - revisar PR'].join('\n'),
+    )
+  })
+
+  it('does nothing, and says so, when it is given nothing that exists', () => {
+    const doc = new WhiteboardDocument('- um')
+    const before = doc.blocks
+
+    expect(doc.remove(['fantasma'])).toBeUndefined()
+    expect(doc.blocks).toBe(before)
+  })
+})

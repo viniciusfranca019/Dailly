@@ -236,6 +236,75 @@ describe('Ctrl+A', () => {
   })
 })
 
+describe('deleting a selection', () => {
+  it('Backspace removes every selected block', () => {
+    press(textOf(store.blocks[0]!.id), 'ArrowDown', { shiftKey: true })
+
+    press(focused(), 'Backspace')
+
+    expect(store.toMarkdown()).toBe('- três')
+    expect(highlighted()).toEqual([])
+  })
+
+  it('Delete does the same thing', () => {
+    press(textOf(store.blocks[0]!.id), 'ArrowDown', { shiftKey: true })
+
+    press(focused(), 'Delete')
+
+    expect(store.toMarkdown()).toBe('- três')
+  })
+
+  it('empties the board after Ctrl+A, leaving one block to type into', () => {
+    // The way a person starts over: take everything, then delete it.
+    const text = textOf(store.blocks[0]!.id)
+    // Focus first, as a person editing that block already would: without it the
+    // key lands on <body> and never reaches the board at all.
+    text.focus()
+    const range = document.createRange()
+    range.selectNodeContents(text)
+    const domSelection = document.getSelection()!
+    domSelection.removeAllRanges()
+    domSelection.addRange(range)
+    press(text, 'a', { ctrlKey: true })
+
+    press(focused(), 'Backspace')
+
+    expect(store.toMarkdown()).toBe('')
+    expect(container.querySelectorAll('.wb-block')).toHaveLength(1)
+  })
+
+  it('leaves the caret where the deleted blocks began', () => {
+    mount('- antes\n- alvo\n- fim')
+    press(textOf(store.blocks[1]!.id), 'ArrowDown', { shiftKey: true })
+
+    press(focused(), 'Backspace')
+
+    expect(store.toMarkdown()).toBe('- antes')
+    expect(focused().textContent).toBe('antes')
+  })
+
+  it('takes the key from the browser, which would otherwise navigate back', () => {
+    press(textOf(store.blocks[0]!.id), 'ArrowDown', { shiftKey: true })
+    const event = press(focused(), 'Backspace')
+
+    expect(event.defaultPrevented).toBe(true)
+  })
+
+  it('still merges into the previous block when nothing is selected', () => {
+    // The behaviour Backspace has always had, and the reason the selection
+    // branch sits above it rather than inside it. Paragraphs on purpose: on a
+    // list item the first Backspace drops the marker instead, which is its own
+    // long-standing behaviour and not what this test is about.
+    mount('um\ndois')
+    const second = textOf(store.blocks[1]!.id)
+    second.focus()
+
+    press(second, 'Backspace')
+
+    expect(store.toMarkdown()).toBe('umdois')
+  })
+})
+
 describe('letting go of a selection', () => {
   it('Escape clears it', () => {
     press(textOf(store.blocks[0]!.id), 'ArrowDown', { shiftKey: true })

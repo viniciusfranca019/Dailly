@@ -364,6 +364,17 @@ export function mountWhiteboard(
       return
     }
 
+    // Backspace or Delete on a block selection removes it. Above the ordinary
+    // Backspace on purpose: without a selection that key merges this block into
+    // the one before it, which is a different act on a different target.
+    if (selection && (keyboard.key === 'Backspace' || keyboard.key === 'Delete')) {
+      event.preventDefault()
+      const caret = store.remove(selectedIds())
+      selection = undefined
+      if (caret) focusBlock(caret.id, caret.offset)
+      return
+    }
+
     if (keyboard.key === 'Escape') {
       clearSelection()
       return

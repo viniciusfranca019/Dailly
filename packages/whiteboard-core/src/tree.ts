@@ -151,3 +151,35 @@ export function contiguousRun(
     to: indices[indices.length - 1]!,
   }
 }
+
+/**
+ * The tree without these blocks.
+ *
+ * Only the ids given are matched, and that is enough: a block holds its
+ * children, so removing a block removes its subtree with it. The caller passes
+ * selection roots, not every selected id.
+ */
+export function removeBlocks(
+  blocks: readonly Block[],
+  ids: ReadonlySet<string>,
+): readonly Block[] {
+  const kept: Block[] = []
+  let changed = false
+
+  for (const block of blocks) {
+    if (ids.has(block.id)) {
+      changed = true
+      continue
+    }
+    const children = removeBlocks(block.children, ids)
+    if (children === block.children) kept.push(block)
+    else {
+      changed = true
+      kept.push({ ...block, children } as Block)
+    }
+  }
+
+  // Returning the same array when nothing matched keeps the identity check
+  // that `#update` relies on to skip a pointless commit.
+  return changed ? kept : blocks
+}

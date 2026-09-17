@@ -50,4 +50,4 @@ export { serialize, DEFAULT_INDENT_WIDTH } from './serialize.js'
 export type { SerializeOptions } from './serialize.js'
 
 export { WhiteboardDocument } from './document.js'
-export type { DocumentListener, DocumentOptions } from './document.js'
+export type { CaretTarget, DocumentListener, DocumentOptions } from './document.js'
