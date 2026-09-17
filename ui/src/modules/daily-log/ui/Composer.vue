@@ -171,7 +171,7 @@ onBeforeUnmount(() => {
 
 <template>
   <section
-    class="flex h-full flex-col rounded-xl border border-[#1e2638] bg-[#121724] p-6"
+    class="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-[#1e2638] bg-[#121724] p-6"
     data-testid="composer"
   >
     <h1 class="flex items-center gap-2.5 text-2xl font-bold tracking-tight text-gray-100">
@@ -254,10 +254,18 @@ onBeforeUnmount(() => {
       Owned by the whiteboard adapter. The placeholder copy is set through the
       token the board exposes, so this screen says what it wants said without
       the capability learning what a diary is.
+
+      `min-h-0` is load-bearing, not tidiness. A flex item defaults to
+      `min-height: auto`, which means it refuses to shrink below its content —
+      so as blocks pile up the board grew past the card, the text ran under the
+      buttons and the last lines fell outside the rounded border. With the
+      minimum lifted, `flex-1` gives it the leftover height and `overflow-y-auto`
+      lets the writing scroll inside it, which also keeps the footer reachable
+      instead of pushing it off screen.
     -->
     <div
       ref="boardHost"
-      class="wb-composer mt-4 min-h-40 flex-1 cursor-text text-[15px] leading-relaxed"
+      class="wb-composer mt-4 min-h-0 flex-1 cursor-text overflow-y-auto text-[15px] leading-relaxed"
       data-testid="board"
       @click="focusFromBackdrop"
     ></div>
@@ -291,6 +299,9 @@ onBeforeUnmount(() => {
   /* Diz o que existe. A cópia do design pedia "/ para comandos", e não há
      comando de barra nenhum — um placeholder que promete uma tecla que não faz
      nada é a primeira coisa que alguém experimenta e a primeira que falha. */
-  --wb-placeholder: 'Escreva o que aconteceu hoje… use #, - ou [] seguido de espaço';
+  --wb-placeholder-empty: 'Escreva o que aconteceu hoje… use #, - ou [] seguido de espaço';
+  /* O bloco do meio do texto recebe só um empurrão: essa dica reaparece a cada
+     Enter, e a frase inteira piscando a cada linha nova é barulho. */
+  --wb-placeholder: 'continue…';
 }
 </style>

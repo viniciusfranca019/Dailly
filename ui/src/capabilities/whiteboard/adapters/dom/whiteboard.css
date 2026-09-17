@@ -102,11 +102,27 @@
  * all. Someone opening it for the first time has no reason to believe they can
  * type there.
  */
-.wb-block--paragraph .wb-text:empty:focus::before,
+/*
+ * Two placeholders, because they answer at two different moments.
+ *
+ * The block you are standing in gets a short nudge — it reappears every time
+ * you press Enter, and a sentence flashing on every new line is noise. The
+ * empty *board* gets the long one: that is the only moment someone needs to be
+ * told what this thing is and how to start.
+ */
+.wb-block--paragraph .wb-text:empty:focus::before {
+  content: var(--wb-placeholder, 'Escreva algo…');
+  color: var(--wb-muted, #9b9a97);
+  pointer-events: none;
+}
+
 .wb-block:only-child.wb-block--paragraph .wb-text:empty::before {
   /* Overridable like every other value here: a host that knows what the board
      is *for* can say so better than the board can. */
-  content: var(--wb-placeholder, 'Escreva algo — ou use #, -, 1., [] ou > seguido de espaço');
+  content: var(
+    --wb-placeholder-empty,
+    'Escreva algo — ou use #, -, 1., [] ou > seguido de espaço'
+  );
   color: var(--wb-muted, #9b9a97);
   pointer-events: none;
 }
