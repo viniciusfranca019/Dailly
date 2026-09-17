@@ -1,4 +1,9 @@
-.PHONY: help install dev dev-api dev-ui dev-all desktop desktop-dev test test-watch build build-all check clean
+.PHONY: help install dev dev-api dev-ui dev-all desktop desktop-dev test test-watch build build-all check clean-db clean-db-app clean
+
+# Os dois bancos, que têm riscos bem diferentes.
+DEV_DB  := server/dailly.dev.sqlite
+# Onde o Electron guarda os dados do app; ver `app.setName` em desktop/src/main.ts.
+APP_DB  := $(HOME)/.config/dailly/dailly.sqlite
 
 help: ## Lista os alvos disponíveis
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -42,5 +47,19 @@ check: ## Typecheck + testes
 	pnpm -r typecheck
 	$(MAKE) test
 
-clean:
-	rm -rf ui/dist node_modules ui/node_modules packages/*/node_modules
+clean-db: ## Apaga o banco de desenvolvimento (o que `make dev` usa)
+	@rm -f $(DEV_DB) $(DEV_DB)-wal $(DEV_DB)-shm
+	@echo "banco de dev apagado — pare a API antes, senão ela recria os arquivos"
+
+clean-db-app: ## Apaga o banco do app instalado. É o diário de verdade: pede confirmação
+	@printf 'Isto apaga em definitivo o diário em:\n  %s\nNão há backup e não há como desfazer.\nDigite "apagar" para confirmar: ' "$(APP_DB)"
+	@read -r resposta; \
+	  if [ "$$resposta" = apagar ]; then \
+	    rm -f "$(APP_DB)" "$(APP_DB)-wal" "$(APP_DB)-shm"; \
+	    echo "apagado."; \
+	  else \
+	    echo "cancelado, nada foi tocado."; \
+	  fi
+
+clean: ## Apaga build e dependências. Não toca em banco nenhum
+	rm -rf ui/dist desktop/dist node_modules ui/node_modules server/node_modules desktop/node_modules packages/*/node_modules

@@ -24,12 +24,23 @@ persistência, o encaixe já está pronto — o modelo **é** markdown, então
 
 ```bash
 make install     # deps
-make dev         # app em http://localhost:5173 · playground em /playground/
+make dev         # API + app em http://localhost:5173 · playground em /playground/
 make dev-all     # idem, com todos os módulos ligados por flag
+make desktop     # o app completo no Electron, com a API dentro
 make check       # typecheck + testes
 make build       # só os módulos prontos
 make build-all   # com todos os módulos ligados por flag
 ```
+
+Os dados vivem em dois lugares, e os comandos que os apagam são separados de
+propósito:
+
+```bash
+make clean-db      # o banco de desenvolvimento (server/dailly.dev.sqlite)
+make clean-db-app  # o diário de verdade (~/.config/dailly) — pede confirmação
+```
+
+`make clean` não toca em nenhum dos dois: ele apaga build e dependências.
 
 Duas páginas no mesmo servidor: o **app** é o produto, o **playground** é o
 harness onde o comportamento real de browser do whiteboard se confere a olho —

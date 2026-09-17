@@ -13,6 +13,17 @@ import { BrowserWindow, app, ipcMain, shell } from 'electron'
  * orphan when one of them dies.
  */
 
+/**
+ * The name decides where the user's data lives, so it is set by hand.
+ *
+ * Electron takes it from `package.json`, which here reads `@dailly/desktop` —
+ * and `app.getPath('userData')` would then be `~/.config/@dailly/desktop`, a
+ * nested directory named after an npm scope. Nobody looking for their diary
+ * would find it there. Setting it before `whenReady` puts the database at
+ * `~/.config/dailly`, which is a path a person can read.
+ */
+app.setName('dailly')
+
 /** Set by `make desktop-dev`; absent in a built app. */
 const DEV_URL = process.env['DAILLY_DEV_URL']
 
