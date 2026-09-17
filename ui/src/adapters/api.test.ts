@@ -33,6 +33,15 @@ describe('resolveApiConfig', () => {
     expect(apiConfig).toHaveBeenCalledOnce()
   })
 
+  it('falls back when the shell answers with a failure', async () => {
+    // A preload that loaded but whose IPC broke must not take the app down: a
+    // blank window says nothing, while a screen that loads and then fails to
+    // reach the API says exactly what is wrong.
+    withBridge({ apiConfig: () => Promise.reject(new Error('sem canal')) })
+
+    expect(await resolveApiConfig()).toEqual({ baseUrl: '/api' })
+  })
+
   it('falls back when a bridge exists but exposes nothing useful', async () => {
     // Defensive, and cheap: a preload that loaded but failed to expose should
     // leave the app working in dev rather than crashing at boot.

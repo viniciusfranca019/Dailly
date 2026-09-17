@@ -1,60 +1,30 @@
 <script setup lang="ts">
 import type { Entry } from '@dailly/domain'
-import { WhiteboardDocument } from '@dailly/whiteboard-core'
-import { TEXT_ATTR, mountWhiteboard, type WhiteboardHandle } from '@capabilities/whiteboard/dom'
 import type { ModuleDeps } from '@shared'
-import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
-import { formatDay, groupByDay, titleOf } from './timeline.js'
+import { computed, onMounted, ref, useTemplateRef } from 'vue'
+import Composer from './Composer.vue'
+import Timeline from './Timeline.vue'
+import { formatDay } from './timeline.js'
+import { dayOf } from '@dailly/periods'
 
 /**
- * The Daily Log: write an entry above, read the timeline below.
+ * The Daily Log: write on the left, read on the right.
  *
- * **The editor is an island.** `mountWhiteboard` owns the DOM inside
- * `boardHost`, and Vue must never render into it — the element is empty in the
- * template for exactly that reason. ADR 0010 chose this over a Vue-native
- * editor because the whiteboard leans on `contenteditable` behaviour and a
- * vdom reconciling the node under the caret fights it.
+ * It owns the state and the two calls into the domain, and nothing else — the
+ * editor card and the timeline are components because they are two screens'
+ * worth of markup and they change for different reasons.
  */
 const props = defineProps<{ deps: ModuleDeps }>()
 
-/**
- * The composer starts **empty**, not with a sample entry.
- *
- * It used to open with `# Hoje / [] primeira entrada`, and that is content: a
- * click on "salvar" without typing anything would have persisted a diary entry
- * the person never wrote. An empty document is never truly empty — the core
- * guarantees one paragraph to put the caret in — so there is always somewhere
- * to type.
- */
-const boardHost = ref<HTMLElement | null>(null)
-const board = shallowRef<WhiteboardHandle | null>(null)
-const doc = shallowRef<WhiteboardDocument | null>(null)
+const composer = useTemplateRef<InstanceType<typeof Composer>>('composer')
 
 const entries = ref<Entry[]>([])
 const loading = ref(true)
 const saving = ref(false)
 const error = ref<string | null>(null)
-/** Tracked so "salvar" is unavailable rather than failing with "corpo obrigatório". */
-const empty = ref(true)
+const now = ref(props.deps.now())
 
-const days = computed(() => groupByDay(entries.value, props.deps.zone))
-
-/**
- * Clicking the composer's empty space puts the caret in the editor.
- *
- * Without this, only the 24px line of the block itself is a target, and the
- * padding around it is dead: the person clicks inside the box, nothing happens,
- * and the app looks broken. Every editor behaves this way — the writing area is
- * the box, not the line.
- *
- * Clicks that land on a block are left alone, so the adapter still owns caret
- * placement within the text.
- */
-function focusEditor(event: MouseEvent): void {
-  if (event.target !== event.currentTarget) return
-  const blocks = boardHost.value?.querySelectorAll<HTMLElement>(`[${TEXT_ATTR}]`)
-  blocks?.[blocks.length - 1]?.focus()
-}
+const title = computed(() => `Registro do Dia — ${formatDay(dayOf(now.value, props.deps.zone))}`)
 
 async function load(): Promise<void> {
   loading.value = true
@@ -68,87 +38,48 @@ async function load(): Promise<void> {
   }
 }
 
-async function save(): Promise<void> {
-  const body = doc.value?.toMarkdown() ?? ''
+async function save(body: string): Promise<void> {
   saving.value = true
   error.value = null
   try {
     await props.deps.createEntry({ body })
-    // Clearing through the document, not the DOM: the model is the source of
-    // truth, the adapter re-renders from its subscription, and `#commit`
-    // guarantees the emptied document still has one paragraph to type into.
-    doc.value?.setMarkdown('')
+    composer.value?.clear()
+    now.value = props.deps.now()
     await load()
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : 'não consegui salvar a entrada'
+    error.value = cause instanceof Error ? cause.message : 'não consegui registrar'
   } finally {
     saving.value = false
   }
 }
 
-let unsubscribe: (() => void) | undefined
-
-onMounted(() => {
-  const host = boardHost.value
-  if (!host) return
-  const store = new WhiteboardDocument('')
-  doc.value = store
-  board.value = mountWhiteboard(host, store)
-  // Vue reacts to the island through the island's own contract: the document
-  // notifies on every mutation, and that is the only channel between them.
-  unsubscribe = store.subscribe(() => {
-    empty.value = store.toMarkdown().trim() === ''
-  })
-  void load()
-})
-
-onBeforeUnmount(() => {
-  unsubscribe?.()
-  board.value?.destroy()
-  board.value = null
-})
+onMounted(load)
 </script>
 
 <template>
-  <section class="daily-log">
-    <header class="daily-log__header">
-      <h1>Daily Log</h1>
-      <!--
-        ADR 0007 requires this to be visible always, not tucked into Settings:
-        every calendar boundary in the product is built on it, so hiding it
-        hides the reason a day looks the way it does.
-      -->
-      <span class="daily-log__zone" :title="'Fuso em uso pela API local'">
-        fuso: {{ deps.zone }}
-      </span>
-    </header>
+  <div class="flex h-full min-h-0 flex-col" data-testid="daily-log">
+    <nav class="flex items-center gap-2 px-6 py-4 text-sm text-[#747e8f]">
+      <span>Diários</span>
+      <span class="text-[#1e2638]">/</span>
+      <span class="text-gray-300">Novo Registro</span>
+    </nav>
 
-    <div class="daily-log__composer">
-      <!--
-        Owned by the whiteboard adapter. Vue renders nothing in here — the click
-        handler only redirects focus, it never touches the contents.
-      -->
-      <div ref="boardHost" class="whiteboard" @click="focusEditor"></div>
-      <button type="button" class="daily-log__save" :disabled="saving || empty" @click="save">
-        {{ saving ? 'salvando…' : 'salvar entrada' }}
-      </button>
+    <div class="grid min-h-0 flex-1 grid-cols-1 gap-6 px-6 pb-6 xl:grid-cols-[minmax(0,1fr)_384px]">
+      <div class="flex min-h-0 flex-col">
+        <Composer ref="composer" :title="title" :saving="saving" @submit="save" @cancel="composer?.clear()" />
+        <p
+          v-if="error"
+          role="alert"
+          data-testid="error"
+          class="mt-3 rounded-md border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-300"
+        >
+          {{ error }}
+        </p>
+      </div>
+
+      <aside class="min-h-0 border-t border-[#1e2638] pt-6 xl:border-l xl:border-t-0 xl:pl-6 xl:pt-0">
+        <Timeline :entries="entries" :zone="props.deps.zone" :now="now" :loading="loading" />
+      </aside>
     </div>
-
-    <p v-if="error" class="daily-log__error" role="alert">{{ error }}</p>
-
-    <section class="daily-log__timeline">
-      <p v-if="loading" class="daily-log__status">carregando…</p>
-      <p v-else-if="days.length === 0" class="daily-log__status">
-        nada por aqui ainda. escreva acima e salve.
-      </p>
-      <article v-for="day in days" :key="day.day" class="daily-log__day">
-        <h2>{{ formatDay(day.day) }}</h2>
-        <ul>
-          <li v-for="entry in day.entries" :key="entry.id" class="daily-log__entry">
-            {{ titleOf(entry.body) }}
-          </li>
-        </ul>
-      </article>
-    </section>
-  </section>
+  </div>
 </template>

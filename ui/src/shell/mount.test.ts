@@ -87,7 +87,7 @@ describe('mountShell', () => {
 
     await mountShell(host, { modules: [a.descriptor, b.descriptor], deps: testModuleDeps() })
 
-    const routes = [...host.querySelectorAll('.shell-nav button')].map(
+    const routes = [...host.querySelectorAll('[data-testid="nav"] button')].map(
       (button) => (button as HTMLElement).dataset['route'],
     )
     expect(routes).toEqual(['/', '/analyse'])

@@ -103,6 +103,35 @@ que a ADR 0006 já isolou atrás de `shared/dom-shell.ts`.
   adapter não mudam; a pergunta só aparece quando existir componente Vue com
   comportamento próprio.
 
+## Emendas
+
+### Emenda 1 (2026-09-17) — Tailwind entra; a pendência de componentes continua
+
+A decisão acima matou **React, React Router e shadcn/ui**. Não disse nada sobre
+o Tailwind, que na ADR 0003 vinha no mesmo pacote — e a diferença importa: o
+shadcn é acoplado ao React, o Tailwind não é acoplado a nada.
+
+Entra o **Tailwind 4**, via `@tailwindcss/vite`, sem arquivo de config (a versão
+4 é CSS-first). O gatilho foi um pedido de design escrito inteiro no vocabulário
+dele, mas a razão de aceitar é outra: as telas deste produto são dark, densas e
+cheias de valores repetidos, e o alternativa era reinventar tokens de espaçamento
+e cor à mão em CSS.
+
+**O whiteboard não é tematizado por utilitário.** Ele continua com a própria
+folha de estilo e os próprios `var(--wb-*)`; o tema escuro é uma definição
+desses tokens em `shell/styles.css`, e o adapter não sabe que o Tailwind existe.
+Isso é exatamente o que o docblock daquela folha prometia que os tokens serviam
+para fazer.
+
+Um efeito colateral encontrado e corrigido na hora: o *preflight* do Tailwind
+zera `font-weight` de `h1`–`h6`, e o negrito dos títulos do whiteboard vinha da
+folha padrão do navegador. Passou a ser explícito — um board que promete
+renderizar certo numa página nua também precisa sobreviver ao reset do hospedeiro.
+
+**A pendência de biblioteca de componentes continua aberta.** Tailwind não é
+uma: não há diálogo, toast nem combobox saindo dele. A Fase 2 ainda vai decidir
+entre escrever à mão ou adotar algo do ecossistema Vue.
+
 ## Alternativas consideradas
 
 - **Manter a ADR 0003 (React + shadcn/ui)** — a única alternativa com biblioteca

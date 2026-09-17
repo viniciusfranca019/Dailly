@@ -8,6 +8,7 @@ import {
   dayOf,
   isSupportedTimeZone,
   rangeBounds,
+  timeOf,
 } from './zone.js'
 
 const SAO_PAULO = 'America/Sao_Paulo'
@@ -135,5 +136,33 @@ describe('isSupportedTimeZone', () => {
     expect(isSupportedTimeZone(UTC)).toBe(true)
     expect(isSupportedTimeZone(SAO_PAULO)).toBe(true)
     expect(isSupportedTimeZone('Mars/Olympus')).toBe(false)
+  })
+})
+
+describe('timeOf', () => {
+  it('reads the clock on the wall, in 24 hours', () => {
+    expect(timeOf('2026-07-24T18:15:00.000Z', UTC)).toBe('18:15')
+  })
+
+  it('shifts with the zone, like everything else here', () => {
+    // The timeline groups by day in the configured zone; labelling the same
+    // entry with a UTC time would put "21:00" under the heading for a day that
+    // ended three hours earlier.
+    expect(timeOf('2026-07-25T00:00:00.000Z', SAO_PAULO)).toBe('21:00')
+  })
+
+  it('pads both halves, so a column of times lines up', () => {
+    expect(timeOf('2026-07-24T09:05:00.000Z', UTC)).toBe('09:05')
+    expect(timeOf('2026-07-24T00:00:00.000Z', UTC)).toBe('00:00')
+  })
+
+  it('says 00:00 at midnight rather than 24:00', () => {
+    // The `hourCycle: h23` choice, made visible: the other cycle would push
+    // midnight into the previous day's last minute.
+    expect(timeOf('2026-07-24T03:00:00.000Z', SAO_PAULO)).toBe('00:00')
+  })
+
+  it('refuses what it cannot read', () => {
+    expect(() => timeOf('agora', UTC)).toThrow(InvalidInstantError)
   })
 })

@@ -1,10 +1,11 @@
+import tailwind from '@tailwindcss/vite'
 import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vitest/config'
 import { alias } from './alias.config.js'
 
 export default defineConfig({
   resolve: { alias },
-  plugins: [vue()],
+  plugins: [vue(), tailwind()],
   test: {
     name: 'ui',
     globals: true,

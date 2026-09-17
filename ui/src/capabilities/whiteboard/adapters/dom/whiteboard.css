@@ -62,7 +62,13 @@
   border-radius: 3px;
 }
 
-.wb-heading { margin: 8px 0 2px; line-height: 1.3; }
+/*
+ * `font-weight` spelled out because a heading's boldness used to come from the
+ * browser's own stylesheet — and a CSS reset (Tailwind's preflight, for one)
+ * takes that away. The docblock above promises this board renders correctly on
+ * a bare page; that promise has to survive the host's reset too.
+ */
+.wb-heading { margin: 8px 0 2px; line-height: 1.3; font-weight: 600; }
 .wb-heading--1 { font-size: 26px; }
 .wb-heading--2 { font-size: 21px; }
 .wb-heading--3 { font-size: 17px; }
@@ -98,7 +104,9 @@
  */
 .wb-block--paragraph .wb-text:empty:focus::before,
 .wb-block:only-child.wb-block--paragraph .wb-text:empty::before {
-  content: 'Escreva algo — ou use #, -, 1., [] ou > seguido de espaço';
+  /* Overridable like every other value here: a host that knows what the board
+     is *for* can say so better than the board can. */
+  content: var(--wb-placeholder, 'Escreva algo — ou use #, -, 1., [] ou > seguido de espaço');
   color: var(--wb-muted, #9b9a97);
   pointer-events: none;
 }

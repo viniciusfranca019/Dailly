@@ -1,3 +1,4 @@
+import tailwind from '@tailwindcss/vite'
 import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vite'
 import { alias, at } from './alias.config.js'
@@ -23,7 +24,7 @@ export default defineConfig({
     emptyOutDir: true,
   },
   resolve: { alias },
-  plugins: [vue()],
+  plugins: [vue(), tailwind()],
   server: {
     proxy: {
       // The renderer only ever fetches `/api/...`, in dev and in production

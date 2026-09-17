@@ -31,7 +31,14 @@ interface DaillyBridge {
  */
 export async function resolveApiConfig(): Promise<ApiConfig> {
   const bridge = (globalThis as { dailly?: DaillyBridge }).dailly
-  // The shell is authoritative when present; `/api` is the dev fallback, where
-  // vite proxies to the API on its fixed port and there is no token at all.
-  return (await bridge?.apiConfig?.()) ?? { baseUrl: '/api' }
+  try {
+    // The shell is authoritative when present; `/api` is the dev fallback, where
+    // vite proxies to the API on its fixed port and there is no token at all.
+    return (await bridge?.apiConfig?.()) ?? { baseUrl: '/api' }
+  } catch {
+    // A preload that loaded but whose IPC failed must not take the whole app
+    // down with it. Falling back leaves the screen up and lets the first
+    // request fail visibly, which is a error someone can read.
+    return { baseUrl: '/api' }
+  }
 }

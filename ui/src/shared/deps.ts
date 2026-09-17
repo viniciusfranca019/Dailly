@@ -1,4 +1,4 @@
-import type { Entry, EntryFilter, NewEntry } from '@dailly/domain'
+import type { Entry, EntryFilter, ISODateTime, NewEntry } from '@dailly/domain'
 import type { TimeZone } from '@dailly/periods'
 
 /**
@@ -16,4 +16,12 @@ export interface ModuleDeps {
   createEntry(input: NewEntry): Promise<Entry>
   queryEntries(filter?: EntryFilter): Promise<Entry[]>
   readonly zone: TimeZone
+  /**
+   * The current instant, from the composition root rather than from `Date`.
+   *
+   * A screen that says "Hoje" has to know what today is, and a screen that
+   * reads the clock itself cannot be tested on any day but the one the test
+   * runs. Same reason `createEntry` takes a `Clock`.
+   */
+  now(): ISODateTime
 }

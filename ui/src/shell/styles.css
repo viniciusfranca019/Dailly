@@ -1,138 +1,46 @@
+@import 'tailwindcss';
+
+/*
+ * The app's own stylesheet: the theme tokens, and nothing else.
+ *
+ * Everything that used to live here as `.daily-log__*` rules is now Tailwind
+ * utilities on the markup itself. What cannot be a utility stays: the
+ * `--wb-*` tokens the whiteboard reads. That indirection is the reason the
+ * board turns dark without a single edit to the adapter — exactly what its
+ * stylesheet's docblock promised the tokens were for.
+ */
+
 :root {
-  color-scheme: light dark;
-  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color-scheme: dark;
+
+  /* Linear-ish slate. Named by role, not by shade, so a second theme is a
+     matter of redefining six values. */
+  --app-bg: #0c101b;
+  --app-sidebar: #0a0d16;
+  --app-panel: #121724;
+  --app-border: #1e2638;
+  --app-text: #f3f4f6;
+  --app-muted: #747e8f;
+
+  /* The whiteboard, themed from outside. */
+  --wb-fg: var(--app-text);
+  --wb-muted: var(--app-muted);
+  --wb-hover: rgba(148, 163, 184, 0.1);
+  --wb-accent: #2563eb;
+  --wb-selection: rgba(37, 99, 235, 0.22);
+}
+
+html,
+body,
+#app {
+  height: 100%;
 }
 
 body {
   margin: 0;
-}
-
-#app {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-}
-
-.shell-nav {
-  display: flex;
-  gap: 0.25rem;
-  padding: 0.5rem 1rem;
-  border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent);
-}
-
-.shell-nav button {
-  padding: 0.35rem 0.75rem;
-  border: 0;
-  border-radius: 0.375rem;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-}
-
-.shell-nav button.is-active {
-  background: color-mix(in srgb, currentColor 12%, transparent);
-  font-weight: 600;
-}
-
-.shell-outlet {
-  flex: 1;
-  padding: 1.5rem;
-}
-
-.daily-log {
-  max-width: 720px;
-  margin: 0 auto;
-  color: #37352f;
-}
-
-.daily-log__header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.daily-log__header h1 {
-  font-size: 1.35rem;
-  margin: 0 0 1rem;
-}
-
-/*
- * The zone indicator is quiet but never hidden — ADR 0007 asks for it to be
- * always visible, and every date on this screen is derived from it.
- */
-.daily-log__zone {
-  font-size: 0.75rem;
-  opacity: 0.6;
-  font-variant-numeric: tabular-nums;
-}
-
-.daily-log__composer {
-  border: 1px solid color-mix(in srgb, currentColor 15%, transparent);
-  border-radius: 0.5rem;
-  padding: 0.75rem;
-}
-
-/*
- * Room to write into, and to click into. An empty board is one 24px line; a
- * composer that small reads as a disabled field rather than an invitation.
- */
-.daily-log__composer .whiteboard {
-  min-height: 4.5rem;
-  cursor: text;
-}
-
-.daily-log__save {
-  margin-top: 0.5rem;
-  padding: 0.4rem 0.9rem;
-  border: 0;
-  border-radius: 0.375rem;
-  background: #37352f;
-  color: #fff;
-  font: inherit;
-  cursor: pointer;
-}
-
-.daily-log__save:disabled {
-  opacity: 0.5;
-  cursor: progress;
-}
-
-.daily-log__error {
-  margin: 0.75rem 0 0;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.375rem;
-  background: color-mix(in srgb, #d93025 12%, transparent);
-  color: #a52117;
-  font-size: 0.875rem;
-}
-
-.daily-log__timeline {
-  margin-top: 2rem;
-}
-
-.daily-log__status {
-  opacity: 0.55;
-  font-size: 0.9rem;
-}
-
-.daily-log__day h2 {
-  font-size: 0.8rem;
-  font-weight: 600;
-  text-transform: lowercase;
-  letter-spacing: 0.02em;
-  opacity: 0.55;
-  margin: 1.5rem 0 0.5rem;
-}
-
-.daily-log__day ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.daily-log__entry {
-  padding: 0.5rem 0;
-  border-bottom: 1px solid color-mix(in srgb, currentColor 10%, transparent);
+  background: var(--app-bg);
+  color: var(--app-text);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  letter-spacing: -0.011em;
+  -webkit-font-smoothing: antialiased;
 }

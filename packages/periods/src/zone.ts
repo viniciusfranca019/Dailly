@@ -164,6 +164,19 @@ export function dayOf(instant: Instant, zone: TimeZone): CalendarDay {
 }
 
 /**
+ * The time of day this instant reads as, in this zone: `HH:MM`, 24-hour.
+ *
+ * The same conversion `dayOf` does, stopping one field later. It is here and
+ * not in the component for the reason the whole package exists: a timeline that
+ * groups by one zone and labels by another is the timezone bug wearing a
+ * disguise.
+ */
+export function timeOf(instant: Instant, zone: TimeZone): string {
+  const wall = wallTimeAt(parseInstant(instant), zone)
+  return `${pad(wall.hour)}:${pad(wall.minute)}`
+}
+
+/**
  * The instants that bound a calendar day in this zone.
  *
  * `endExclusive` and not "last instant": a half-open interval compares the same

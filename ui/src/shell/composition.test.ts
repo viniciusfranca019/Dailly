@@ -30,7 +30,7 @@ describe('the real composition', () => {
   it('boots Daily Log with a live whiteboard inside it', async () => {
     await mountShell(host, { modules: MODULES, deps: testModuleDeps() })
 
-    expect(host.querySelector('.daily-log')).not.toBeNull()
+    expect(host.querySelector('[data-testid="daily-log"]')).not.toBeNull()
     // Rendered blocks, not just a container: this is the seam between the
     // product module and the capability actually carrying traffic. The composer
     // opens empty, so what proves the whiteboard is live is the one paragraph
@@ -38,6 +38,17 @@ describe('the real composition', () => {
     expect(host.querySelectorAll('.wb-block').length).toBe(1)
     expect(host.querySelector('.wb-text')?.textContent).toBe('')
     expect(host.querySelector('.wb-text')?.getAttribute('contenteditable')).not.toBeNull()
+  })
+
+  it('keeps the zone on screen, where ADR 0007 says it has to be', async () => {
+    // Not in Settings, not on hover: every date the app shows is derived from
+    // it, so hiding it hides the reason a day looks the way it does.
+    await mountShell(host, {
+      modules: MODULES,
+      deps: testModuleDeps({ zone: 'America/Sao_Paulo' }),
+    })
+
+    expect(host.querySelector('[data-testid="zone"]')?.textContent).toContain('America/Sao_Paulo')
   })
 
   it('every module in the manifest mounts and unmounts without throwing', async () => {

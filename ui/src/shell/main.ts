@@ -40,6 +40,7 @@ async function boot(): Promise<void> {
       createEntry: createEntry({ entries, clock: systemClock, ids: uuidIds }),
       queryEntries: queryEntries({ entries }),
       zone,
+      now: systemClock.now,
     },
   })
 }

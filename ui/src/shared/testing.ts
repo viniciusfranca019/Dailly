@@ -41,12 +41,10 @@ export function testModuleDeps(
   options: { seed?: readonly Entry[]; zone?: TimeZone; now?: string } = {},
 ): ModuleDeps {
   const entries = inMemoryEntryRepository(options.seed ?? [])
+  const clock = advancingClock(options.now)
   return {
-    createEntry: createEntry({
-      entries,
-      clock: advancingClock(options.now),
-      ids: sequentialIds(),
-    }),
+    createEntry: createEntry({ entries, clock, ids: sequentialIds() }),
+    now: () => options.now ?? '2026-09-16T12:00:00.000Z',
     queryEntries: queryEntries({ entries }),
     zone: options.zone ?? UTC,
   }

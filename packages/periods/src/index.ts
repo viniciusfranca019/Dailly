@@ -17,4 +17,5 @@ export {
   dayOf,
   isSupportedTimeZone,
   rangeBounds,
+  timeOf,
 } from './zone.js'
