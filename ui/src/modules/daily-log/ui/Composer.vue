@@ -80,6 +80,29 @@ function submit(): void {
   emit('submit', doc.value?.toMarkdown() ?? '')
 }
 
+/**
+ * Ctrl+S (Cmd+S) registers, as it would in anything else that holds text.
+ *
+ * On `window` and not on the card: the caret is usually inside the whiteboard,
+ * but it can also be in the search box or nowhere at all, and a shortcut that
+ * works only while a particular element has focus is a shortcut people stop
+ * trusting. The listener lives and dies with this component, so it cannot fire
+ * for a module that is not on screen.
+ *
+ * It does **not** live in the whiteboard. That capability knows nothing about
+ * an Entry — saving one is this screen's business, and pushing the shortcut
+ * down there would make the editor know what it is being used for.
+ */
+function onShortcut(event: KeyboardEvent): void {
+  if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 's') return
+
+  // Always taken from the browser, even when there is nothing to register: in
+  // a desktop shell this key opens a "save page" dialog over the app.
+  event.preventDefault()
+  if (empty.value || props.saving) return
+  submit()
+}
+
 /** Emptying through the document: the model is the source of truth. */
 function clear(): void {
   doc.value?.setMarkdown('')
@@ -90,6 +113,8 @@ defineExpose({ clear })
 let unsubscribe: (() => void) | undefined
 
 onMounted(() => {
+  window.addEventListener('keydown', onShortcut)
+
   const host = boardHost.value
   if (!host) return
   const store = new WhiteboardDocument('')
@@ -101,6 +126,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onShortcut)
   unsubscribe?.()
   board.value?.destroy()
   board.value = null
@@ -174,6 +200,7 @@ onBeforeUnmount(() => {
         type="button"
         class="rounded-md bg-blue-600 px-5 py-2 text-sm font-medium text-white shadow-lg shadow-blue-500/10 transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
         :disabled="props.saving || empty"
+        title="Ctrl+S"
         data-testid="submit"
         @click="submit"
       >

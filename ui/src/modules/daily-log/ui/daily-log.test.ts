@@ -116,6 +116,76 @@ describe('the composer', () => {
     expect(host.querySelector('.wb-block--heading')).not.toBeNull()
   })
 
+  it('Ctrl+S registers what is written', async () => {
+    const deps = testModuleDeps({ now: NOW })
+    const { host } = mount(deps)
+    await settle()
+    type(host, '# salvo pelo atalho')
+    await settle()
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true, cancelable: true }))
+    await settle()
+    await settle()
+
+    expect((await deps.queryEntries()).map((entry) => entry.body)).toEqual(['# salvo pelo atalho'])
+  })
+
+  it('Cmd+S does the same, because on macOS that is the key', async () => {
+    const deps = testModuleDeps({ now: NOW })
+    const { host } = mount(deps)
+    await settle()
+    type(host, '# salvo no mac')
+    await settle()
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 's', metaKey: true, cancelable: true }))
+    await settle()
+    await settle()
+
+    expect(await deps.queryEntries()).toHaveLength(1)
+  })
+
+  it('takes the key from the browser, which would offer to save the page', async () => {
+    const { host } = mount()
+    await settle()
+    type(host, 'qualquer coisa')
+    await settle()
+
+    const event = new KeyboardEvent('keydown', { key: 's', ctrlKey: true, cancelable: true })
+    window.dispatchEvent(event)
+
+    expect(event.defaultPrevented).toBe(true)
+  })
+
+  it('registers nothing when there is nothing written', async () => {
+    // The same rule the disabled button follows; an empty body would be
+    // refused by `createEntry` anyway, and refusing it here means the person
+    // never sees an error for a key they pressed by habit.
+    const deps = testModuleDeps({ now: NOW })
+    mount(deps)
+    await settle()
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true, cancelable: true }))
+    await settle()
+
+    expect(await deps.queryEntries()).toEqual([])
+  })
+
+  it('stops listening once the module is gone', async () => {
+    // A window listener outliving its component is how a shortcut starts
+    // firing for a screen nobody is looking at.
+    const deps = testModuleDeps({ now: NOW })
+    const { host, handle } = mount(deps)
+    await settle()
+    type(host, '# escrito antes de sair')
+    await settle()
+
+    handle.destroy()
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true, cancelable: true }))
+    await settle()
+
+    expect(await deps.queryEntries()).toEqual([])
+  })
+
   it('Cancelar empties the composer without writing anything', async () => {
     const deps = testModuleDeps({ now: NOW })
     const { host } = mount(deps)
