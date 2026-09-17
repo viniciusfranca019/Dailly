@@ -10,7 +10,13 @@ A alternativa horizontal (todos os ports, depois todos os adapters, depois toda 
 
 ## Fases
 
-### Fase 1 — Esqueleto vertical
+### Fase 1 — Esqueleto vertical ✅ **concluída em 2026-09-17** (menos o empacotamento)
+
+Verificada como a fase pedia, numa volta só e no app real: abriu com a timeline
+vazia, aceitou uma entrada, e depois de fechar e reabrir — processo novo — a
+entrada continuava na timeline e no arquivo SQLite. Falta só a unidade de
+empacotamento, em stand-by por decisão do autor.
+
 
 - **Entrega:** o app abre, o usuário cria uma entrada e ela persiste entre execuções.
 - **Unidades:** workspace (`packages/domain`, `packages/periods`, `server/`, `ui/`, `desktop/` — ver [ADR 0009](adrs/0009-topologia-do-workspace.md)); API Fastify local com driver SQLite; runner de migrations via `user_version` com a tabela `entries`; tipo `Entry`; port `EntryRepository`; `SqliteEntryRepository` (na API) e `InMemoryEntryRepository`; use-cases `createEntry` e `queryEntries`; `Clock`; `HttpEntryRepository` na `ui/`; teste de integração que sobe o `server/` sem Electron; composition root dos dois lados; timeline no Daily Log; shell Electron e AppImage via `electron-builder`. **O editor já existe** — ver `adaptacao-dailly.md`. Ver [ADR 0007](adrs/0007-api-local-e-tempo.md) e [ADR 0008](adrs/0008-electron-como-shell.md).
