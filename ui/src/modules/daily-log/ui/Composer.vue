@@ -288,6 +288,9 @@ onBeforeUnmount(() => {
 <style>
 /* The board's own token, set where the board is used. */
 .wb-composer {
-  --wb-placeholder: 'Escreva o que aconteceu hoje… / para comandos';
+  /* Diz o que existe. A cópia do design pedia "/ para comandos", e não há
+     comando de barra nenhum — um placeholder que promete uma tecla que não faz
+     nada é a primeira coisa que alguém experimenta e a primeira que falha. */
+  --wb-placeholder: 'Escreva o que aconteceu hoje… use #, - ou [] seguido de espaço';
 }
 </style>

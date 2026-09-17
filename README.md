@@ -16,9 +16,10 @@ renderer edita, e `createEntry` normaliza markdown na entrada
 produto será Vue ([ADR 0010](docs/adrs/0010-vue-no-renderer.md)); o adapter do
 whiteboard continua vanilla e é montado como ilha.
 
-Não há backend: o documento vive em memória no browser. Quando houver
-persistência, o encaixe já está pronto — o modelo **é** markdown, então
-`toMarkdown()` é o que se guarda e `setMarkdown()` é o que restaura.
+O encaixe com a persistência é o markdown, e ele já carrega tráfego: o Daily
+Log guarda `toMarkdown()` no corpo da entrada e restaura com `setMarkdown()`.
+O whiteboard não sabe que isso acontece — para ele, markdown entra e markdown
+sai.
 
 ## Rodando
 
@@ -212,10 +213,14 @@ marcador + espaço**. Com isso:
 
 ### Limitações da edição
 
-Ficaram de fora de propósito:
+**Seleção entre blocos existe** — `Shift`+`↑`/`↓` toma blocos, `Ctrl`+`A`
+progride do texto para o board inteiro, e sobre a seleção valem `Alt`+`↑`/`↓`
+para mover, `Tab` / `Shift`+`Tab` / `Ctrl`+`D` para indentar e `Backspace` /
+`Del` para apagar. Ela é estado do adapter; o core só recebe ids e reconstrói a
+lista de irmãos.
 
-- **Seleção entre blocos** (arrastar por cima de vários) — cada bloco é um
-  `contenteditable` próprio, então seleção múltipla precisaria de camada extra.
+O que continua de fora, de propósito:
+
 - **Undo do navegador** não atravessa mudança estrutural: cada re-render zera a
   pilha nativa. Um undo de verdade é histórico no store.
 - **Formatação inline** (negrito/itálico/link) — a matemática de offset do caret
