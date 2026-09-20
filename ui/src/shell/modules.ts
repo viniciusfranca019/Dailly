@@ -31,4 +31,14 @@ export const MODULES: readonly ModuleDescriptor<VueModule>[] = [
         },
       ]
     : []),
+  ...(import.meta.env.VITE_REQUESTS === 'true'
+    ? [
+        {
+          id: 'requests',
+          title: 'Requests',
+          route: '/requests',
+          load: () => import('@modules/requests'),
+        },
+      ]
+    : []),
 ]

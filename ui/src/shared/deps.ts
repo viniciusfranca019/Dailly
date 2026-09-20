@@ -1,5 +1,6 @@
 import type { Entry, EntryFilter, ISODateTime, NewEntry } from '@dailly/domain'
 import type { TimeZone } from '@dailly/periods'
+import type { RequestsPort } from './requests.js'
 
 /**
  * What the composition root hands a module.
@@ -24,4 +25,19 @@ export interface ModuleDeps {
    * runs. Same reason `createEntry` takes a `Clock`.
    */
   now(): ISODateTime
+  /**
+   * A coleção de requests e o executor — e a dívida que este campo é.
+   *
+   * O Daily Log recebe uma port que nunca chama, e o Requests recebe dois
+   * use-cases de Entry que nunca chama. É o mesmo sintoma da Lei 4 que o
+   * servidor tinha antes do `provide`: um saco único que cresce a cada módulo,
+   * onde acrescentar um caso significa editar algo que já funciona.
+   *
+   * Está aqui de propósito e por um PR só. **O gatilho da correção já está
+   * combinado**: a próxima feature parte este contrato em "o que é de todo
+   * módulo" (`zone`, `now`) e "o que é deste módulo", do mesmo jeito que o
+   * `ProvideContext` fez do lado do servidor. Até lá, o custo é um campo
+   * ignorado e não um mecanismo novo — que seria mais caro de desfazer.
+   */
+  readonly requests: RequestsPort
 }

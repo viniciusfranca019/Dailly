@@ -8,6 +8,7 @@
  */
 interface ImportMetaEnv {
   readonly VITE_ANALYSE?: string
+  readonly VITE_REQUESTS?: string
 }
 
 interface ImportMeta {
