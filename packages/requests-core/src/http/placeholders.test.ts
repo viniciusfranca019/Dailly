@@ -157,7 +157,7 @@ describe('C4: a recusa nomeia variáveis que existem, não pedaços de JSON', ()
       caught = error as UnresolvedVariableError
     }
 
-    expect(caught?.missing.sort()).toEqual(['dois', 'um'])
+    expect([...(caught?.missing ?? [])].sort()).toEqual(['dois', 'um'])
     expect(caught?.message).not.toContain('"')
   })
 
