@@ -246,7 +246,7 @@ de decisão: uma conclusão com a causa errada pendurada.
 
 Esta ADR decidiu a modularização de um lado só, porque quando ela foi escrita
 só existia um lado. A [ADR 0009](0009-topologia-do-workspace.md) criou o
-`server/`, e ele nasceu plano: sete arquivos na raiz de `src/`, com as rotas do
+`server/`, e ele nasceu plano: oito arquivos na raiz de `src/`, com as rotas do
 Daily Log, o runner de migrations e o composition root no mesmo nível.
 
 Plano funcionava com um módulo. O gatilho para deixar de funcionar é o módulo

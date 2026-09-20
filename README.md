@@ -133,8 +133,8 @@ Não confunda com o outro nível de composição: `BlockRegistry` e
 
 ### O servidor tem as mesmas duas camadas
 
-`server/` nasceu plano e deixou de caber assim quando o segundo módulo apareceu.
-Hoje ele espelha a `ui/`
+`server/` nasceu plano e deixou de caber assim quando o segundo módulo foi
+decidido — ele ainda não existe. Hoje o servidor espelha a `ui/`
 ([ADR 0006, Emenda 1](docs/adrs/0006-modularizacao-frontend.md)):
 
 ```
