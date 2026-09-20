@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    // Sem `DOM` de propósito, pela mesma razão do whiteboard-core: o compilador
+    // passa a impor o que a ADR 0011 decidiu. Aqui a restrição é mais forte que
+    // "sem framework" — este pacote é a **metade pura** do driver de protocolo,
+    // e ele não executa requisição nenhuma. Sem a lib DOM, `fetch` não compila.
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["vitest/globals"],
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": false,
+
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "skipLibCheck": true
+  },
+  "include": ["src", "vitest.config.ts"]
+}
