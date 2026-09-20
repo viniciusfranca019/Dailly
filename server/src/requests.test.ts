@@ -45,6 +45,15 @@ beforeEach(async () => {
     reply.type('text/plain')
     return 'x'.repeat(5 * 1024 * 1024)
   })
+  target.get('/comprimido', async (_request, reply) => {
+    // `application/json` com corpo gzip: o content-type diz texto e os bytes
+    // não são texto. `undici.request` não descomprime — o `fetch` do Node
+    // descomprime, e foi essa analogia errada que produziu o defeito.
+    const { gzipSync } = await import('node:zlib')
+    reply.header('content-type', 'application/json')
+    reply.header('content-encoding', 'gzip')
+    return reply.send(gzipSync(Buffer.from('{"a":1}')))
+  })
   target.get('/binario', async (_request, reply) => {
     reply.type('image/png')
     return Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
@@ -319,6 +328,26 @@ describe('C7: resposta grande ou binária chega com aviso', () => {
     expect(Buffer.from(body.body, 'base64').subarray(0, 4)).toEqual(
       Buffer.from([0x89, 0x50, 0x4e, 0x47]),
     )
+  })
+
+  it('corpo comprimido chega em base64, inteiro, e não decodificado como texto', async () => {
+    // O `content-type` dizia `application/json`, então o corpo era decodificado
+    // como UTF-8 — e cada sequência inválida virava U+FFFD **no servidor**, de
+    // onde ninguém recupera. As três marcas diziam em coro "texto completo".
+    //
+    // O Firefox emite `Accept-Encoding: gzip, deflate, br` no Copy-as-cURL e o
+    // importador preserva esse header; o Chrome emite `--compressed`, que cai
+    // em `ignored`. O Chrome escapava por acidente.
+    const app = appWith()
+    await seed(app, saved({ spec: spec({ url: `${targetUrl}/comprimido` }) }))
+
+    const body = (await execute(app)).json()
+    const { gunzipSync } = await import('node:zlib')
+
+    expect(body.encoding).toBe('base64')
+    expect(body.headers).toContainEqual({ name: 'content-encoding', value: 'gzip' })
+    // Os bytes chegaram inteiros: quem quiser descomprimir, consegue.
+    expect(gunzipSync(Buffer.from(body.body, 'base64')).toString()).toBe('{"a":1}')
   })
 
   it('resposta normal não vem marcada', async () => {

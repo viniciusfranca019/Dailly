@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import Database from 'better-sqlite3'
 import { afterEach, describe, expect, it } from 'vitest'
 import { createServer } from '../index.js'
-import { ManifestError, type ServerModule } from './module.js'
+import { ManifestError, defineModule, type AnyServerModule } from './module.js'
 import { DatabaseTooNewError, LATEST_VERSION, collectMigrations, migrate } from './migrations.js'
 
 /**
@@ -18,14 +18,15 @@ import { DatabaseTooNewError, LATEST_VERSION, collectMigrations, migrate } from 
  * então um manifest inconsistente nunca chega a escrever no arquivo — é a
  * diferença entre um boot que falha e um banco pela metade.
  */
-const moduleWith = (id: string, versions: number[]): ServerModule => ({
-  id,
-  migrations: versions.map((version) => ({
-    version,
-    up: `CREATE TABLE t_${id}_${version} (id TEXT PRIMARY KEY);`,
-  })),
-  register() {},
-})
+const moduleWith = (id: string, versions: number[]): AnyServerModule =>
+  defineModule({
+    id,
+    migrations: versions.map((version) => ({
+      version,
+      up: `CREATE TABLE t_${id}_${version} (id TEXT PRIMARY KEY);`,
+    })),
+    register() {},
+  })
 
 describe('C4: versão de migration duplicada derruba o boot nomeando o culpado', () => {
   let dir: string | undefined
@@ -94,7 +95,7 @@ describe('o aviso de banco à frente diz um número verdadeiro', () => {
     migrate(seed)
     seed.close()
 
-    const semSchema: ServerModule = { id: 'sem-schema', migrations: [], register() {} }
+    const semSchema = defineModule({ id: 'sem-schema', migrations: [], register() {} })
 
     const boot = createServer({ databaseFile: file }, [semSchema])
 

@@ -8,7 +8,13 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { LATEST_VERSION, createServer, type RunningServer } from './index.js'
 import { MODULES } from './modules.js'
 import { buildApp } from './shell/app.js'
-import { ManifestError, assertManifest, type AnyServerModule } from './shell/module.js'
+import type { FastifyInstance } from 'fastify'
+import {
+  ManifestError,
+  assertManifest,
+  defineModule,
+  type AnyServerModule,
+} from './shell/module.js'
 
 /**
  * C3 — um módulo entra pelo manifest, não por import no shell.
@@ -23,14 +29,22 @@ import { ManifestError, assertManifest, type AnyServerModule } from './shell/mod
 /** Um handle de banco que nunca é tocado — o `provide` do fake não consulta nada. */
 const fakeDb = () => ({ marca: 'banco falso' }) as never
 
-const fakeModule = (over: Partial<AnyServerModule> = {}): AnyServerModule => ({
+/**
+ * As fixtures passam pela mesma porta que a produção.
+ *
+ * Elas eram três literais anotados direto com o tipo de armazenamento — ou
+ * seja, o próprio diff pulava a porta que ele criou. Foi assim que o gate
+ * mostrou que a porta não trancava nada.
+ */
+const fakeModule = (over: Partial<AnyServerModule> = {}): AnyServerModule =>
+  defineModule<void>({
   id: 'fake',
   migrations: [],
-  register(app) {
-    app.get('/fake', async () => ({ from: 'o módulo, não o shell' }))
-  },
-  ...over,
-})
+    register(app: FastifyInstance) {
+      app.get('/fake', async () => ({ from: 'o módulo, não o shell' }))
+    },
+    ...over,
+  } as unknown as Parameters<typeof defineModule<void>>[0])
 
 const deps = () => ({ entries: inMemoryEntryRepository(), zone: UTC })
 
@@ -155,15 +169,16 @@ describe('a isenção do /health é a rota, não o prefixo da URL', () => {
    * usuário — passa pelo hook como todas as outras. Com prefixo, um
    * `/health/executor` não passaria.
    */
-  const probing = (): AnyServerModule => ({
-    id: 'sondas',
-    migrations: [],
-    register(app) {
-      app.get('/healthz', async () => ({ probe: true }))
-      app.get('/health/executor', async () => ({ probe: true }))
-      app.get('/requests', async () => ({ probe: true }))
-    },
-  })
+  const probing = (): AnyServerModule =>
+    defineModule({
+      id: 'sondas',
+      migrations: [],
+      register(app: FastifyInstance) {
+        app.get('/healthz', async () => ({ probe: true }))
+        app.get('/health/executor', async () => ({ probe: true }))
+        app.get('/requests', async () => ({ probe: true }))
+      },
+    })
 
   const guarded = () => buildApp({ ...deps(), token: 'segredo' }, [probing()])
 

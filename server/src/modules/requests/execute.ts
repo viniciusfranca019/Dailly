@@ -77,12 +77,22 @@ export class ExecutionTimeoutError extends Error {
   }
 }
 
-/** `AbortSignal.timeout` e o cancelamento do undici chegam com estes nomes. */
+/**
+ * Todo prazo estourado, nas grafias que o undici usa.
+ *
+ * Os timeouts de header e de corpo medem **ociosidade** entre pedaços, e o
+ * sinal mede tempo de parede desde o despacho — então o sinal sempre dispara
+ * primeiro com valores iguais, e na prática eles são configuração dominada. Se
+ * um dia um deles vencer a corrida, ele não pode cair em "não consegui
+ * alcançar": é prazo, e prazo tem status próprio.
+ */
 const isTimeout = (error: unknown): boolean =>
   error instanceof Error &&
   (error.name === 'TimeoutError' ||
     error.name === 'AbortError' ||
-    (error as { code?: string }).code === 'UND_ERR_ABORTED')
+    ['UND_ERR_ABORTED', 'UND_ERR_HEADERS_TIMEOUT', 'UND_ERR_BODY_TIMEOUT'].includes(
+      (error as { code?: string }).code ?? '',
+    ))
 
 export class TargetUnreachableError extends Error {
   override readonly name = 'TargetUnreachableError'
@@ -90,6 +100,24 @@ export class TargetUnreachableError extends Error {
     super(`não consegui alcançar ${url}: ${cause}`)
   }
 }
+
+/**
+ * Corpo comprimido é binário, diga o `content-type` o que disser.
+ *
+ * `undici.request` **não** descomprime — o `fetch` do Node descomprime, e foi
+ * essa analogia errada que produziu o defeito. Um `application/json` com
+ * `content-encoding: gzip` casava com o teste de texto, e o
+ * `buffer.toString('utf-8')` rodava sobre bytes que não são UTF-8: cada
+ * sequência inválida virava U+FFFD, **do lado do servidor**, de onde ninguém
+ * recupera. E as três marcas — `utf-8`, `truncated: false`, `timedOut: false` —
+ * diziam em coro que aquilo era texto completo.
+ *
+ * O Firefox emite `Accept-Encoding: gzip, deflate, br` no Copy-as-cURL, e o
+ * importador preserva esse header. O Chrome emite `--compressed`, que cai em
+ * `ignored` — ou seja, o Chrome escapava por acidente.
+ */
+const isCompressed = (contentEncoding: string): boolean =>
+  contentEncoding.trim() !== '' && contentEncoding.trim().toLowerCase() !== 'identity'
 
 /** Content-types cujo corpo é texto de verdade; o resto vira base64. */
 const TEXTUAL = /^(text\/|application\/(json|xml|javascript|x-www-form-urlencoded)|.*\+json|.*\+xml)/i
@@ -194,8 +222,13 @@ export async function executeHttp(
   }
 
   const contentType = String(response.headers['content-type'] ?? '')
+  const contentEncoding = String(response.headers['content-encoding'] ?? '')
   const buffer = Buffer.concat(chunks)
-  const textual = TEXTUAL.test(contentType)
+  // Comprimido vence o content-type: decodificar gzip como UTF-8 destrói os
+  // bytes sem deixar marca. Em base64 eles chegam inteiros, e o
+  // `content-encoding` vai junto na lista de headers para quem quiser
+  // descomprimir.
+  const textual = TEXTUAL.test(contentType) && !isCompressed(contentEncoding)
 
   return {
     status: response.statusCode,
