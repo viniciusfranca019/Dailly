@@ -119,3 +119,49 @@ describe('C3: a migration do módulo é a que roda de verdade', () => {
     db.close()
   })
 })
+
+describe('a isenção do /health é a rota, não o prefixo da URL', () => {
+  /**
+   * O gate achou isto e a linha nem tinha mudado.
+   *
+   * Antes da reformulação o shell era dono de toda rota, e `/health` era a
+   * única string que casava com `startsWith('/health')`. Depois dela qualquer
+   * módulo registra caminho arbitrário na mesma instância — e aí um prefixo
+   * deixa de ser uma isenção e vira superfície de bypass.
+   *
+   * O comentário que eu escrevi em `shell/app.ts` afirmava o contrário, e a
+   * ADR 0011 se apoia nessa afirmação para dizer que a rota de execução das
+   * requests — egresso arbitrário para a internet, a partir da máquina do
+   * usuário — passa pelo hook como todas as outras. Com prefixo, um
+   * `/health/executor` não passaria.
+   */
+  const probing = (): ServerModule => ({
+    id: 'sondas',
+    migrations: [],
+    register(app) {
+      app.get('/healthz', async () => ({ probe: true }))
+      app.get('/health/executor', async () => ({ probe: true }))
+      app.get('/requests', async () => ({ probe: true }))
+    },
+  })
+
+  const guarded = () => buildApp({ ...deps(), token: 'segredo' }, [probing()])
+
+  it.each(['/healthz', '/health/executor', '/requests'])(
+    'exige o token em %s, porque nenhuma delas é o /health do shell',
+    async (url) => {
+      const response = await guarded().inject({ method: 'GET', url })
+
+      expect(response.statusCode).toBe(401)
+    },
+  )
+
+  it('continua deixando o /health de verdade passar, com e sem query', async () => {
+    // O shell faz polling nele para saber quando o servidor subiu, antes de
+    // ter qualquer outra coisa — inclusive o token.
+    const app = guarded()
+
+    expect((await app.inject({ method: 'GET', url: '/health' })).statusCode).toBe(200)
+    expect((await app.inject({ method: 'GET', url: '/health?probe=1' })).statusCode).toBe(200)
+  })
+})
