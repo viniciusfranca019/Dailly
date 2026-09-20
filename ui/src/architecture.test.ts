@@ -87,6 +87,21 @@ const deepCapabilityImport = (specifier: string) =>
 const relativeCapabilityImport = (specifier: string) =>
   !specifier.startsWith('@') && /capabilities\/[^/]+\//.test(specifier)
 
+/**
+ * A subida até `src/adapters/` — que é composição, não material de módulo.
+ *
+ * Um módulo que alcança o adapter constrói o próprio cliente HTTP, e com isso
+ * deixa de poder ser montado sobre um fake: o teste passa a precisar de
+ * servidor para exercitar uma tela. A port chega pelas `deps`, da raiz de
+ * composição, e é o que mantém as duas coisas separáveis.
+ *
+ * O caminho é relativo porque não existe alias para `adapters/` — de propósito,
+ * pelo mesmo motivo que não existe `@shell`. A âncora `^\.\.` é o que impede
+ * esta regra de acusar o `./adapters/dom/` que vive **dentro** da capability e
+ * é dela.
+ */
+const adapterImport = (specifier: string) => /^\.\.\/(\.\.\/)*adapters\//.test(specifier)
+
 const under = (prefix: string) => FILES.filter((file) => file.path.startsWith(prefix))
 
 const violations = (prefix: string, forbidden: (specifier: string) => boolean) =>
@@ -146,6 +161,29 @@ describe('the arrow only points downwards', () => {
     ])
     // The template's text is not a dependency, and must not be read as one.
     expect(specifiers).toHaveLength(3)
+  })
+
+  it('C13: nenhum módulo nem capability alcança os adapters da raiz', () => {
+    expect(violations('modules/', adapterImport)).toEqual([])
+    expect(violations('capabilities/', adapterImport)).toEqual([])
+    expect(violations('shared/', adapterImport)).toEqual([])
+  })
+
+  it('C13: a regra dos adapters dispara, e poupa o adapter interno da capability', () => {
+    // Provada contra fonte deliberadamente errada, como as outras: uma regra
+    // que só roda numa árvore limpa passa por dois motivos e não distingue
+    // nenhum — porque o código está certo, ou porque a varredura não viu.
+    const specifiers = [
+      '../../adapters/http-requests-client.js',
+      '../../../adapters/api.js',
+      './adapters/dom/index.js',
+      '@shared',
+    ]
+
+    expect(specifiers.filter(adapterImport)).toEqual([
+      '../../adapters/http-requests-client.js',
+      '../../../adapters/api.js',
+    ])
   })
 
   it('a capability never imports a product module', () => {

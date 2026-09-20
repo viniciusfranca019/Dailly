@@ -7,7 +7,7 @@ do Notion. TypeScript; o editor em si não usa framework.
 packages/whiteboard-core/  o modelo: markdown → blocos → markdown. Sem DOM, sem framework
 packages/requests-core/    o modelo: curl → ProtocolSpec → o que sai na fita. Sem DOM, sem rede
 ui/src/capabilities/       adapters que os módulos consomem (o renderer DOM do whiteboard, …)
-ui/src/modules/            os módulos de produto (Daily Log, Analyse, …)
+ui/src/modules/            os módulos de produto (Daily Log, Analyse, Requests, …)
 ui/src/playground/         harness do whiteboard
 ```
 
@@ -114,6 +114,9 @@ export const MODULES = [
   { id: 'daily-log', title: 'Daily Log', route: '/', load: () => import('@modules/daily-log') },
   ...(import.meta.env.VITE_ANALYSE === 'true'
     ? [{ id: 'analyse', title: 'Analyse', route: '/analyse', load: () => import('@modules/analyse') }]
+    : []),
+  ...(import.meta.env.VITE_REQUESTS === 'true'
+    ? [{ id: 'requests', title: 'Requests', route: '/requests', load: () => import('@modules/requests') }]
     : []),
 ]
 ```
@@ -342,14 +345,21 @@ CORS — sem status, sem headers, sem corpo. E gRPC não existe num webview.
 Daí o corte em duas metades:
 
 ```
-packages/requests-core/    puro: ProtocolSpec · ProtocolRegistry · fromRaw · resolve
-  http/                    o driver HTTP, atrás do subpath @dailly/requests-core/http
-server/src/modules/requests/   a metade que executa  (ainda não existe)
+packages/requests-core/         puro: ProtocolSpec · ProtocolRegistry · fromRaw · resolve
+  http/                         o driver HTTP, atrás do subpath @dailly/requests-core/http
+server/src/modules/requests/    a metade que executa: persistência, coleção, execute
+ui/src/modules/requests/        a tela, atrás da flag VITE_REQUESTS
+ui/src/adapters/http-requests-client.ts   a port da tela, sobre as rotas do servidor
 ```
 
 A metade pura roda nos dois runtimes: o renderer importa um curl e mostra o
 preview literal com `resolve()`, sem viagem nenhuma — era a única virtude do
 híbrido "o servidor monta, a UI executa", e ela sai de graça aqui.
+
+A tela é editar em cima, resposta embaixo, coleção **à direita**. À direita e
+não à esquerda como a categoria faz: a navegação do shell já é uma barra à
+esquerda, e duas coladas fazem a pessoa procurar em qual das duas está o que
+ela quer.
 
 Dois comportamentos que separam isto de um parser ingênuo:
 
@@ -360,6 +370,16 @@ Dois comportamentos que separam isto de um parser ingênuo:
   DevTools põe `--compressed` em quase todo curl, então recusar tudo tornaria a
   função inútil; ignorar calado é o que faz alguém colar um `--cert` achando que
   foi aplicado.
+- **Corpo comprimido é aberto na tela, ou dito.** O servidor entrega os bytes
+  marcados e quem descomprime é quem mostra. `gzip` e `deflate` abrem; **brotli
+  não** — nenhum navegador expõe `br` por `DecompressionStream`, e o
+  copy-as-cURL do Firefox manda `Accept-Encoding: gzip, deflate, br`. Então `br`
+  chega, e chega dito, nunca como uma parede de U+FFFD.
+
+O que **não** está neste corte, e por quê: apagar e renomear pasta (o servidor
+não tem a rota), arrastar request entre pastas (o `select` de pasta faz o mesmo
+com menos UI) e histórico de execução (outro schema, ninguém pediu — a resposta
+vive enquanto a tela a mostra).
 
 ## Adicionando um novo tipo de bloco
 
