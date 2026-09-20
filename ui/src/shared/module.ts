@@ -1,10 +1,14 @@
 /**
  * The module contract — deliberately neutral about rendering.
  *
- * It says how a module is *identified and loaded*, never how it is drawn. The
- * choice of React vs. vanilla (`docs/adaptacao-dailly.md` §1) is still open, so
- * the descriptor is generic over whatever surface the shell of the day needs:
- * swapping the shell does not touch the manifest or the flag mechanism.
+ * It says how a module is *identified and loaded*, never how it is drawn, and
+ * that neutrality has now been cashed in. The renderer question
+ * (`docs/adaptacao-dailly.md` §1) resolved to Vue in
+ * [ADR 0010](../../../docs/adrs/0010-vue-no-renderer.md), and Emenda 2 replaced
+ * the rendering half of the contract outright — `mount(host)` became a
+ * component. **This file did not change**: the descriptor is generic over
+ * whatever surface the shell of the day needs, so the manifest, the flags and
+ * the lazy `load()` crossed the migration untouched.
  */
 export interface ModuleDescriptor<TModule> {
   /** Stable identity, used in flags and diagnostics. */
