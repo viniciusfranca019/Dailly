@@ -14,8 +14,14 @@ const streamOf = (bytes: Uint8Array): ReadableStream<BufferSource> =>
     },
   })
 
-async function compress(text: string, format: 'gzip' | 'deflate'): Promise<Uint8Array> {
-  const source = streamOf(new TextEncoder().encode(text))
+const compress = (text: string, format: 'gzip' | 'deflate') =>
+  compressBytes(new TextEncoder().encode(text), format)
+
+async function compressBytes(
+  input: Uint8Array,
+  format: 'gzip' | 'deflate',
+): Promise<Uint8Array> {
+  const source = streamOf(input)
   const chunks: Uint8Array[] = []
   const reader = source.pipeThrough(new CompressionStream(format)).getReader()
   for (;;) {
@@ -183,5 +189,123 @@ describe('C9: a codificação que não sei abrir é dita, não fingida', () => {
     )
 
     expect(decoded).toEqual({ kind: 'text', text: 'a'.repeat(1024), truncated: false })
+  })
+
+  it('não confunde um nome herdado do protótipo com um formato que conhece', () => {
+    // `token in FORMATS` anda o protótipo: `content-encoding: constructor`
+    // passava pelo guarda do "não sei abrir" e ia para
+    // `new DecompressionStream(Object)`, que estoura — e a pessoa lia "não
+    // abriu" no lugar de "não sei abrir".
+    return expect(
+      decodeBody(
+        response({
+          encoding: 'base64',
+          body: base64(new Uint8Array([1, 2, 3])),
+          headers: [{ name: 'content-encoding', value: 'constructor' }],
+        }),
+      ),
+      // A recusa tem que ser a **certa**. Com `in`, esta chamada já devolvia
+      // `opaque` — pelo outro ramo, dizendo "não abriu" sobre um formato que
+      // nunca existiu. Passar pelo motivo errado é o que esta asserção pega.
+    ).resolves.toMatchObject({ kind: 'opaque', reason: expect.stringContaining('não sabe abrir') })
+  })
+
+  it('trata `identity` como ausência de compressão', async () => {
+    const decoded = await decodeBody(
+      response({
+        encoding: 'base64',
+        body: base64(new TextEncoder().encode('oi')),
+        headers: [{ name: 'content-encoding', value: 'identity' }],
+      }),
+    )
+
+    expect(decoded).toEqual({ kind: 'text', text: 'oi', truncated: false })
+  })
+
+  it('desfaz uma cadeia de codificações na ordem inversa', async () => {
+    // `content-encoding: gzip, deflate` diz que gzip foi aplicado **primeiro**.
+    // Desfazer na ordem lida devolve lixo, e lixo que não é utf-8 vira
+    // "não é texto" — uma recusa certa pela razão errada.
+    const once = await compress('{"ok":true}', 'gzip')
+    const twice = await compressBytes(once, 'deflate')
+
+    const decoded = await decodeBody(
+      response({
+        encoding: 'base64',
+        body: base64(twice),
+        headers: [{ name: 'content-encoding', value: 'gzip, deflate' }],
+      }),
+    )
+
+    expect(decoded).toEqual({ kind: 'text', text: '{"ok":true}', truncated: false })
+  })
+
+  it('recusa uma sequência utf-8 pendente no fim de um corpo completo', async () => {
+    // O flush final só roda quando **não** truncamos, e é ele que denuncia
+    // corrupção de verdade. Os outros testes de não-texto estouram no primeiro
+    // byte e nunca chegam nele.
+    const decoded = await decodeBody(
+      response({ encoding: 'base64', body: base64(new Uint8Array([0x61, 0x62, 0xe2, 0x82])) }),
+    )
+
+    expect(decoded.kind).toBe('opaque')
+  })
+
+  it('corta no meio de um caractere multibyte sem inventar caractere', async () => {
+    // 'é' são dois bytes. Cortar entre eles e decodificar com o decodificador
+    // tolerante daria U+FFFD no fim do texto — a tela mostrando um caractere
+    // que o alvo não mandou.
+    const bytes = await compress('aé', 'gzip')
+    const decoded = await decodeBody(
+      response({
+        encoding: 'base64',
+        body: base64(bytes),
+        headers: [{ name: 'content-encoding', value: 'gzip' }],
+      }),
+      2,
+    )
+
+    expect(decoded).toEqual({ kind: 'text', text: 'a', truncated: true })
+  })
+
+  it('mostra o prefixo que abriu quando o servidor já disse que cortou', async () => {
+    // Um gzip cortado pelo teto de 5 MB do servidor estoura no fim — e isso é
+    // esperado, não corrupção: o servidor **avisou**. Jogar fora o prefixo que
+    // já tinha aberto é descartar o que a pessoa poderia ler.
+    const bytes = await compress('{"items":[1,2,3,4,5,6,7,8,9,10]}'.repeat(40), 'gzip')
+    const cut = bytes.subarray(0, Math.floor(bytes.length * 0.8))
+
+    const decoded = await decodeBody(
+      response({
+        encoding: 'base64',
+        body: base64(cut),
+        truncated: true,
+        headers: [{ name: 'content-encoding', value: 'gzip' }],
+      }),
+    )
+
+    expect(decoded.kind).toBe('text')
+    if (decoded.kind !== 'text') throw new Error('esperava texto')
+    expect(decoded.truncated).toBe(true)
+    expect(decoded.text.startsWith('{"items"')).toBe(true)
+  })
+
+  it('continua recusando um gzip quebrado que o servidor disse estar inteiro', async () => {
+    // A contrapartida do teste acima: sem o aviso do servidor, um gzip que não
+    // abre é corrupção, e mostrar o prefixo seria apresentar como resposta
+    // meia resposta que ninguém marcou.
+    const bytes = await compress('{"items":[1,2,3]}'.repeat(40), 'gzip')
+    const cut = bytes.subarray(0, Math.floor(bytes.length * 0.8))
+
+    const decoded = await decodeBody(
+      response({
+        encoding: 'base64',
+        body: base64(cut),
+        truncated: false,
+        headers: [{ name: 'content-encoding', value: 'gzip' }],
+      }),
+    )
+
+    expect(decoded.kind).toBe('opaque')
   })
 })

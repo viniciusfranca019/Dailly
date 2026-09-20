@@ -40,7 +40,27 @@ export function httpClient({
       throw new ApiUnreachableError(cause)
     }
 
-    const payload: unknown = response.status === 204 ? undefined : await response.json()
+    /**
+     * Ler o corpo tem a sua própria falha, e ela não é "ninguém atendeu".
+     *
+     * O proxy do vite devolve HTML num 502. Com o `json()` fora deste `try`, o
+     * `SyntaxError` escapava sem ser `ApiError` nem `ApiUnreachableError` — e
+     * quem chamasse traduzia o que sobrasse, então a tela mostrava "Unexpected
+     * token <" onde devia dizer que o alvo não atendeu.
+     *
+     * O 204 não chega aqui de propósito: `Response.json()` num corpo vazio
+     * estoura, e chamar para descartar seria pedir o erro que este ramo evita.
+     */
+    let payload: unknown
+    try {
+      payload = response.status === 204 ? undefined : await response.json()
+    } catch {
+      throw new ApiError(
+        response.status,
+        `a API respondeu ${response.status} com um corpo que não é JSON`,
+      )
+    }
+
     if (!response.ok) throw new ApiError(response.status, describeRefusal(payload), payload)
     return payload
   }

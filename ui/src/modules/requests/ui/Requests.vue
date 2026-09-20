@@ -46,6 +46,17 @@ const curl = ref('')
 const ignored = ref<readonly string[]>([])
 const importError = ref<string | null>(null)
 
+const folderError = ref<string | null>(null)
+const folderSaved = ref(0)
+
+/**
+ * O env atravessa a troca de request de propósito.
+ *
+ * Ele é do momento, não da request: a mesma coleção roda contra `staging` e
+ * contra produção sem virar duas coleções. Limpar a cada clique obrigaria a
+ * redigitar o token a cada request da mesma sessão — dito aqui porque é a
+ * única peça de estado que sobrevive à troca, e silêncio pareceria descuido.
+ */
 const env = ref('')
 const running = ref(false)
 const response = ref<ExecutedResponse | null>(null)
@@ -55,7 +66,18 @@ const executionError = ref<string | null>(null)
 const reason = (cause: unknown, fallback: string) =>
   cause instanceof Error ? cause.message : fallback
 
+/**
+ * Quem manda é a última leitura **pedida**, não a última que resolve.
+ *
+ * `load()` é chamado de cinco lugares — montagem, "tentar de novo", salvar,
+ * criar pasta, apagar — e sem ordem uma leitura que falha tarde apaga do ecrã
+ * uma árvore que já estava certa, deixando um "tentar de novo" sobre dados
+ * corretos. Mesma ideia do `navigation` do `mount.ts`, e pela mesma razão.
+ */
+let reading = 0
+
 async function load(): Promise<void> {
+  const ticket = (reading += 1)
   loading.value = true
   loadError.value = null
   try {
@@ -63,12 +85,14 @@ async function load(): Promise<void> {
       props.deps.requests.folders(),
       props.deps.requests.requests(),
     ])
+    if (ticket !== reading) return
     folders.value = readFolders
     requests.value = readRequests
   } catch (cause) {
+    if (ticket !== reading) return
     loadError.value = reason(cause, 'não consegui ler a coleção')
   } finally {
-    loading.value = false
+    if (ticket === reading) loading.value = false
   }
 }
 
@@ -79,12 +103,29 @@ function clearResponse(): void {
   executionError.value = null
 }
 
+/**
+ * Qual execução é dona da tela.
+ *
+ * `clearResponse()` sozinho não bastava: ele limpa o que está na tela e não
+ * diz nada à execução **em voo**, que resolve depois e se instala numa tela
+ * que já não é dela — a resposta de `r2` aparecendo embaixo do nome de `r1`.
+ * E o `running` atravessava a troca junto, deixando o botão da request nova
+ * desabilitado pela execução da velha.
+ */
+let generation = 0
+
+function invalidate(): void {
+  generation += 1
+  running.value = false
+  clearResponse()
+}
+
 function pick(request: SavedRequest): void {
   selected.value = request
   pasting.value = false
   importError.value = null
   ignored.value = []
-  clearResponse()
+  invalidate()
 
   const fields = draftOf(request)
   draft.value = fields
@@ -100,9 +141,10 @@ function startPaste(): void {
   ignored.value = []
   importError.value = null
   error.value = null
+  folderError.value = null
   selected.value = null
   draft.value = null
-  clearResponse()
+  invalidate()
 }
 
 function doImport(): void {
@@ -135,6 +177,11 @@ async function save(): Promise<void> {
   try {
     const stored = await props.deps.requests.saveRequest(request)
     selected.value = stored
+    // Relê os campos do que **ficou gravado**. Sem isto, salvar sem nome
+    // batizava a request com a URL (`savedOf`), a árvore passava a mostrar a
+    // URL e o campo Nome continuava vazio: dois nomes para a mesma coisa, e o
+    // certo era o que a pessoa não estava vendo.
+    draft.value = draftOf(stored) ?? draft.value
     await load()
   } catch (cause) {
     error.value = reason(cause, 'não consegui salvar')
@@ -144,7 +191,7 @@ async function save(): Promise<void> {
 }
 
 async function createFolder(input: { name: string; parentId: string | null }): Promise<void> {
-  error.value = null
+  folderError.value = null
   try {
     await props.deps.requests.saveFolder({
       id: newId(),
@@ -152,11 +199,16 @@ async function createFolder(input: { name: string; parentId: string | null }): P
       name: input.name,
       position: folders.value.length,
     })
+    // Só depois do sucesso: é este sinal que fecha o formulário e limpa o
+    // nome. Limpar no clique apagava o que a pessoa digitou antes de saber se
+    // tinha dado certo.
+    folderSaved.value += 1
     await load()
   } catch (cause) {
     // A recusa do servidor é a frase que explica o que houve — "não foi
-    // possível criar a pasta" faria a pessoa tentar de novo igual.
-    error.value = reason(cause, 'não consegui criar a pasta')
+    // possível criar a pasta" faria a pessoa tentar de novo igual. E ela
+    // aparece **no formulário**, que é onde a pessoa está olhando.
+    folderError.value = reason(cause, 'não consegui criar a pasta')
   }
 }
 
@@ -169,7 +221,7 @@ async function remove(): Promise<void> {
     await props.deps.requests.deleteRequest(id)
     selected.value = null
     draft.value = null
-    clearResponse()
+    invalidate()
     await load()
   } catch (cause) {
     error.value = reason(cause, 'não consegui apagar')
@@ -206,16 +258,22 @@ async function execute(): Promise<void> {
   // requisição sai duas vezes.
   if (id === undefined || running.value) return
 
-  running.value = true
   clearResponse()
+  const ticket = (generation += 1)
+  running.value = true
   try {
     const result = await props.deps.requests.execute(id, parseEnv(env.value))
+    const body = await decodeBody(result)
+    // Alguém trocou de request, colou outro curl ou apagou esta enquanto isto
+    // estava em voo. Quem está na tela manda.
+    if (ticket !== generation) return
     response.value = result
-    decoded.value = await decodeBody(result)
+    decoded.value = body
   } catch (cause) {
+    if (ticket !== generation) return
     executionError.value = describeFailure(cause)
   } finally {
-    running.value = false
+    if (ticket === generation) running.value = false
   }
 }
 
@@ -238,17 +296,20 @@ onMounted(load)
           data-testid="paste"
           @submit.prevent="doImport"
         >
-          <label class="text-xs font-semibold uppercase tracking-wide text-[#747e8f]">
-            Cole o curl
-          </label>
-          <textarea
+          <label class="flex flex-col gap-2">
+            <span class="text-xs font-semibold uppercase tracking-wide text-[#747e8f]">
+              Cole o curl
+            </span>
+            <!-- Dentro da label: sem `for` ela era órfã, e o campo só tinha o
+                 nome acessível do `aria-label`, que dizia menos. -->
+            <textarea
             v-model="curl"
             data-testid="curl"
             rows="5"
-            aria-label="curl"
             placeholder="curl 'https://api.exemplo.dev/v1/coisas' -H 'authorization: Bearer {{token}}'"
             class="rounded border border-[#1e2638] bg-[#0a0d16] px-2 py-1.5 font-mono text-xs text-gray-200"
-          ></textarea>
+            ></textarea>
+          </label>
           <button
             type="submit"
             data-testid="import-curl"
@@ -289,6 +350,22 @@ onMounted(load)
         >
           {{ error }}
         </p>
+
+        <!--
+          A request que não dá para ler ainda dá para apagar — e o botão tem
+          que existir, senão a tela promete o que não entrega. A cadeia inteira
+          (`CorruptSpecError` no servidor, `spec` cru no adapter, `draftOf`
+          devolvendo nulo) existe para chegar até aqui.
+        -->
+        <button
+          v-if="selected && !draft"
+          type="button"
+          data-testid="delete"
+          class="self-start rounded border border-red-500/30 px-3 py-1.5 text-sm text-red-300 hover:bg-red-500/10"
+          @click="remove"
+        >
+          Apagar esta request
+        </button>
 
         <RequestEditor
           v-if="draft"
@@ -334,6 +411,8 @@ onMounted(load)
         :loading="loading"
         :error="loadError"
         :selected="selected?.id ?? null"
+        :folder-error="folderError"
+        :folder-saved="folderSaved"
         @pick="pick"
         @retry="load"
         @paste="startPaste"

@@ -18,11 +18,13 @@ const tone = computed(() => {
   return 'text-emerald-300'
 })
 
-const size = computed(() =>
-  props.response.bytes < 1024
-    ? `${props.response.bytes} B`
-    : `${(props.response.bytes / 1024).toFixed(1)} KB`,
-)
+/** Degraus até MB: 5 MB saindo como `5120.0 KB` é número que ninguém lê. */
+const size = computed(() => {
+  const bytes = props.response.bytes
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+})
 </script>
 
 <template>
@@ -49,12 +51,29 @@ const size = computed(() =>
       <span v-if="response.timedOut" data-testid="response-timed-out" class="text-amber-300">
         o prazo estourou no meio do corpo
       </span>
+      <!--
+        A marca **desta tela**, que é diferente da do servidor logo acima.
+
+        O servidor corta o que chega pela rede; esta tela corta o que a
+        expansão produz, e um corpo pode passar inteiro por lá e estourar aqui.
+        Sem esta linha o `truncated` do decodificador existia no dado e não na
+        tela: a pessoa lia um JSON que termina no meio, com 200 do lado, e nada
+        dizendo por quê.
+      -->
+      <span
+        v-if="decoded.kind === 'text' && decoded.truncated && !response.truncated"
+        data-testid="body-truncated"
+        class="text-amber-300"
+      >
+        cortado ao descomprimir — passou do teto desta tela
+      </span>
     </div>
 
     <details class="text-xs">
       <summary class="cursor-pointer text-[#747e8f]">headers</summary>
       <dl class="mt-1 grid grid-cols-[auto_1fr] gap-x-3 font-mono" data-testid="response-headers">
-        <template v-for="(header, at) in response.headers" :key="at">
+        <!-- Lista só de leitura, nunca reordenada: o índice compõe a chave. -->
+        <template v-for="(header, at) in response.headers" :key="`${header.name}:${at}`">
           <dt class="text-[#747e8f]">{{ header.name }}</dt>
           <dd class="min-w-0 break-all text-gray-300">{{ header.value }}</dd>
         </template>

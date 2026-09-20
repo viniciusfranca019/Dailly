@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Folder } from '@dailly/requests-core'
-import type { Draft } from './draft.js'
+import { rowId, type Draft } from './draft.js'
 
 /**
  * Os campos de uma request HTTP, editáveis.
@@ -27,7 +27,7 @@ const emit = defineEmits<{ save: []; execute: []; remove: [] }>()
 
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
 
-const addHeader = () => draft.value.headers.push({ name: '', value: '' })
+const addHeader = () => draft.value.headers.push({ id: rowId(), name: '', value: '' })
 const removeHeader = (at: number) => draft.value.headers.splice(at, 1)
 </script>
 
@@ -115,7 +115,12 @@ const removeHeader = (at: number) => draft.value.headers.splice(at, 1)
       <legend class="mb-1 text-xs font-semibold uppercase tracking-wide text-[#747e8f]">
         Headers
       </legend>
-      <div v-for="(header, at) in draft.headers" :key="at" class="flex items-center gap-2">
+      <!--
+        A chave é a identidade da **linha**, não o índice e não o par: dois `-H`
+        iguais são legítimos, e com o índice remover a primeira de duas destrói
+        o nó da segunda — que é justamente onde o cursor está.
+      -->
+      <div v-for="(header, at) in draft.headers" :key="header.id" class="flex items-center gap-2">
         <input
           v-model="header.name"
           data-testid="header-name"
@@ -155,26 +160,42 @@ const removeHeader = (at: number) => draft.value.headers.splice(at, 1)
       <input
         v-model="draft.auth.user"
         data-testid="auth-user"
-        aria-label="Usuário"
+        :aria-label="draft.auth.password === null ? 'Credencial' : 'Usuário'"
         class="w-56 rounded border border-[#1e2638] bg-[#0a0d16] px-2 py-1 font-mono text-xs text-gray-300"
       />
+      <!--
+        Sem senha separada não há campo de senha — e isso é a correção, não a
+        economia de um input.
+
+        `password === null` quer dizer "o curl não trouxe dois-pontos", e é o
+        que faz `-u '{{credencial}}'` atravessar a interpolação inteiro. Com um
+        campo ligado por `@input`, digitar uma letra e apagá-la trocava `null`
+        por `''` para sempre, sem intenção de ninguém — e a diferença é
+        observável na fita, porque os dois produzem `Authorization` diferentes.
+        Agora sair do estado é um clique que diz o que faz.
+      -->
+      <template v-if="draft.auth.password === null">
+        <button
+          type="button"
+          data-testid="split-credential"
+          class="rounded border border-[#1e2638] px-2 py-1 text-xs text-gray-300 hover:bg-white/5"
+          @click="draft.auth.password = ''"
+        >
+          separar usuário e senha
+        </button>
+        <p class="w-full text-xs text-[#747e8f]">
+          credencial única — o <code>:</code> é fechado na hora de sair.
+        </p>
+      </template>
       <input
-        :value="draft.auth.password ?? ''"
+        v-else
+        :value="draft.auth.password"
         data-testid="auth-password"
         aria-label="Senha"
         type="password"
         class="w-56 rounded border border-[#1e2638] bg-[#0a0d16] px-2 py-1 font-mono text-xs text-gray-300"
         @input="draft.auth.password = ($event.target as HTMLInputElement).value"
       />
-      <!--
-        `null` não é o mesmo que senha vazia: ele quer dizer que o curl não
-        trouxe dois-pontos, e é o que faz `-u '{{credencial}}'` atravessar a
-        interpolação inteiro. Dizer isso na tela é mais barato do que alguém
-        descobrir pelo 401.
-      -->
-      <p v-if="draft.auth.password === null" class="w-full text-xs text-[#747e8f]">
-        o curl não trouxe senha — o <code>:</code> é fechado na hora de sair.
-      </p>
     </fieldset>
 
     <label class="flex flex-col gap-1">

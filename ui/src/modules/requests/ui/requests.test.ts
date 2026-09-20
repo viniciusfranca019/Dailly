@@ -11,6 +11,8 @@ import { testModuleDeps, testRequestsPort } from '@shared/testing.js'
 import { createApp } from 'vue'
 import { describe, expect, it } from 'vitest'
 import Requests from './Requests.vue'
+import ResponseView from './ResponseView.vue'
+import type { DecodedBody } from './decode.js'
 
 /** Vue renderiza na fila de microtasks; um teste tem que deixar. */
 const settle = async () => {
@@ -74,6 +76,15 @@ const executed = (over: Partial<ExecutedResponse> = {}): ExecutedResponse => ({
 })
 
 const deps = (requests: RequestsPort) => testModuleDeps({ requests })
+
+/** Uma promessa que o teste solta quando quiser — para exercitar o "no meio". */
+const held = () => {
+  let release = (): void => {}
+  const promise = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  return { promise, release: () => release() }
+}
 
 const CURL = `curl -X POST https://api.stripe.com/v1/charges -H 'Idempotency-Key: k1' -d '{"amount":100}'`
 
@@ -227,24 +238,9 @@ describe('C6: salvar', () => {
     expect(allAt(host, 'folder').map((node) => node.textContent?.trim())).toContain('Stripe')
     expect(await port.folders()).toHaveLength(1)
   })
-
-  it('mostra a recusa do servidor em vez de uma frase genérica', async () => {
-    const port = testRequestsPort()
-    const refusing: RequestsPort = {
-      ...port,
-      async saveFolder() {
-        throw new Error('o resultado seria um laço')
-      },
-    }
-    const { host } = mount(deps(refusing))
-    await settle()
-
-    await click(at(host, 'new-folder'))
-    await fill(at(host, 'folder-name'), 'Stripe')
-    await click(at(host, 'save-folder'))
-
-    expect(text(host, 'error')).toContain('o resultado seria um laço')
-  })
+  // A recusa de criar pasta é exercitada em "uma pasta recusada não leva junto
+  // o nome digitado", que cobre isto e mais: onde a mensagem aparece e que o
+  // que foi digitado sobrevive. Este teste pedia menos do mesmo.
 })
 
 describe('C7: executar e ver a resposta embaixo', () => {
@@ -376,7 +372,11 @@ describe('C10, C11: as recusas', () => {
       const port = testRequestsPort({
         requests: [request('r1', 'uma')],
         execute: async () => {
-          throw new ExecutionFailedError(kind, `cru: ${kind}`)
+          // A **mesma** mensagem crua nos quatro. Com uma mensagem diferente
+          // por modo, este teste passaria mesmo se `describeFailure` colapsasse
+          // para `return cause.message` — que é exatamente a regressão que o
+          // C11 existe para impedir.
+          throw new ExecutionFailedError(kind, 'cru')
         },
       })
       const { host, destroy } = mount(deps(port))
@@ -413,5 +413,236 @@ describe('C12: apagar', () => {
     // resultado de algo que não existe mais.
     expect(at(host, 'response')).toBeNull()
     expect(await port.requests()).toEqual([])
+  })
+})
+
+describe('as corridas — o que chega depois de a tela ter virado', () => {
+  it('BLOCKER: a resposta de uma request não cai embaixo de outra', async () => {
+    const gate = held()
+    const port = testRequestsPort({
+      requests: [request('r1', 'uma'), { ...request('r2', 'outra'), position: 1 }],
+      execute: async (id) => {
+        await gate.promise
+        return executed({ body: `resposta de ${id}` })
+      },
+    })
+    const { host } = mount(deps(port))
+    await settle()
+
+    await click(allAt(host, 'request')[1]!)
+    await click(at(host, 'execute'))
+
+    // A pessoa desiste e vai olhar outra coisa no meio da execução.
+    await click(allAt(host, 'request')[0]!)
+    gate.release()
+    await settle()
+
+    expect(at(host, 'response')).toBeNull()
+    expect(at(host, 'running')).toBeNull()
+    // E o botão da request nova não pode estar travado pela execução da velha.
+    expect(at<HTMLButtonElement>(host, 'execute')?.disabled).toBe(false)
+  })
+
+  it('BLOCKER: uma leitura que falha tarde não apaga a árvore que já está certa', async () => {
+    const gate = held()
+    let reads = 0
+    const good = testRequestsPort()
+    const flaky: RequestsPort = {
+      ...good,
+      async folders() {
+        reads += 1
+        if (reads === 1) {
+          await gate.promise
+          throw new Error('a primeira falhou tarde')
+        }
+        return good.folders()
+      },
+    }
+
+    const { host } = mount(deps(flaky))
+    await settle()
+
+    await click(at(host, 'new-folder'))
+    await fill(at(host, 'folder-name'), 'Stripe')
+    await click(at(host, 'save-folder'))
+    expect(allAt(host, 'folder')).toHaveLength(1)
+
+    gate.release()
+    await settle()
+
+    // A leitura velha resolveu por último. Ela não manda: quem manda é a
+    // última pedida, e a árvore na tela estava correta.
+    expect(at(host, 'collections-error')).toBeNull()
+    expect(allAt(host, 'folder')).toHaveLength(1)
+  })
+})
+
+describe('o que o gate achou que a tela prometia e não entregava', () => {
+  it('uma request com spec ilegível pode ser apagada, que é o que a tela promete', async () => {
+    // A cadeia inteira existe para isto: o servidor lista `spec: null` em vez
+    // de derrubar a coleção, o adapter preserva o nulo, o `draftOf` devolve
+    // nulo em vez de estourar. Terminava numa tela onde ela aparece e não se
+    // apaga.
+    const port = testRequestsPort({ requests: [{ ...request('r1', 'quebrada'), spec: null }] })
+    const { host } = mount(deps(port))
+    await settle()
+
+    await click(allAt(host, 'request')[0]!)
+    expect(text(host, 'error')).toContain('apag')
+
+    await click(at(host, 'delete'))
+    expect(await port.requests()).toEqual([])
+    expect(allAt(host, 'request')).toHaveLength(0)
+  })
+
+  it('uma pasta recusada não leva junto o nome digitado', async () => {
+    const port = testRequestsPort()
+    const refusing: RequestsPort = {
+      ...port,
+      async saveFolder() {
+        throw new Error('o resultado seria um laço')
+      },
+    }
+    const { host } = mount(deps(refusing))
+    await settle()
+
+    await click(at(host, 'new-folder'))
+    await fill(at(host, 'folder-name'), 'Stripe')
+    await click(at(host, 'save-folder'))
+
+    // A recusa aparece **no formulário**, que é onde a pessoa está olhando —
+    // e o nome continua lá para ela tentar de novo sem redigitar.
+    expect(text(host, 'folder-error')).toContain('o resultado seria um laço')
+    expect(at<HTMLInputElement>(host, 'folder-name')?.value).toBe('Stripe')
+  })
+
+  it('a senha nula sobrevive à tela, e só sai dela quando alguém manda', async () => {
+    const port = testRequestsPort()
+    const { host } = mount(deps(port))
+    await settle()
+
+    await click(at(host, 'new-request'))
+    await fill(at(host, 'curl'), `curl https://x.dev -u '{{credencial}}'`)
+    await click(at(host, 'import-curl'))
+
+    // Enquanto é credencial única não há campo de senha para tropeçar: o
+    // `@input` escrevia sempre texto, então um toque e um backspace trocavam
+    // `null` por `''` para sempre — e a fita sai diferente.
+    expect(at(host, 'auth-password')).toBeNull()
+    expect(at<HTMLInputElement>(host, 'auth-user')?.value).toBe('{{credencial}}')
+
+    await click(at(host, 'split-credential'))
+    expect(at(host, 'auth-password')).not.toBeNull()
+  })
+
+  it('o botão de salvar fica de fato desabilitado enquanto salva', async () => {
+    // O teste de clique duplo exercita a guarda em JS; o atributo `disabled`
+    // não tinha teste nenhum, porque `MouseEvent` despachado à mão ignora
+    // `disabled` no jsdom.
+    const gate = held()
+    const port = testRequestsPort()
+    const slow: RequestsPort = {
+      ...port,
+      async saveRequest(saved) {
+        await gate.promise
+        return port.saveRequest(saved)
+      },
+    }
+    const { host } = mount(deps(slow))
+    await settle()
+
+    await click(at(host, 'new-request'))
+    await fill(at(host, 'curl'), CURL)
+    await click(at(host, 'import-curl'))
+    await click(at(host, 'save'))
+
+    expect(at<HTMLButtonElement>(host, 'save')?.disabled).toBe(true)
+    gate.release()
+    await settle()
+    expect(at<HTMLButtonElement>(host, 'save')?.disabled).toBe(false)
+  })
+
+  it('salvar sem nome mostra na tela o nome que ficou gravado', async () => {
+    // `savedOf` batiza a request com a URL quando o nome está vazio. A árvore
+    // passava a mostrar a URL e o campo Nome continuava vazio — dois nomes para
+    // a mesma coisa, e o certo era o que a pessoa não estava vendo.
+    const port = testRequestsPort()
+    const { host } = mount(deps(port))
+    await settle()
+
+    await click(at(host, 'new-request'))
+    await fill(at(host, 'curl'), CURL)
+    await click(at(host, 'import-curl'))
+    await click(at(host, 'save'))
+
+    expect(at<HTMLInputElement>(host, 'name')?.value).toBe(
+      'https://api.stripe.com/v1/charges',
+    )
+  })
+})
+
+describe('as linhas de header têm identidade', () => {
+  it('remover a primeira não reaproveita o nó da segunda', async () => {
+    const port = testRequestsPort()
+    const { host } = mount(deps(port))
+    await settle()
+
+    await click(at(host, 'new-request'))
+    await fill(at(host, 'curl'), `curl https://x.dev -H 'A: 1' -H 'B: 2'`)
+    await click(at(host, 'import-curl'))
+
+    const segundo = allAt(host, 'header-value')[1]!
+    await click(allAt(host, 'remove-header')[0]!)
+
+    // O nó que carregava o segundo header continua sendo o mesmo objeto DOM.
+    // Com `:key` no índice o Vue destrói este e repatcha o outro — e o foco de
+    // quem estava editando vai embora no meio da digitação.
+    expect(allAt(host, 'header-value')[0]).toBe(segundo)
+    expect(allAt(host, 'header-name').map((field) => (field as HTMLInputElement).value)).toEqual([
+      'B',
+    ])
+  })
+})
+
+describe('BLOCKER: as duas marcas de corte são duas, e as duas aparecem', () => {
+  // Testado direto no `ResponseView` e não pela tela inteira porque o defeito
+  // era dele: o `truncated` do decodificador existia no dado e nenhum `.vue`
+  // o lia. Chegar até aqui pela tela exigiria um corpo de 16 MB para estourar
+  // o teto de verdade — um teste lento que provaria a mesma linha.
+  const mountView = (decoded: DecodedBody, over: Partial<ExecutedResponse> = {}) => {
+    const host = document.createElement('div')
+    document.body.append(host)
+    createApp(ResponseView, { response: executed(over), decoded }).mount(host)
+    return host
+  }
+
+  it('marca o corte feito ao descomprimir, que o servidor não fez', async () => {
+    // O servidor entregou inteiro — comprimido coube nos 5 MB dele. Quem corta
+    // é esta tela, ao expandir. Sem a marca a pessoa lê um JSON que termina no
+    // meio, com 200 do lado, e nada dizendo por quê.
+    const host = mountView({ kind: 'text', text: 'a'.repeat(10), truncated: true })
+    await settle()
+
+    expect(at(host, 'body-truncated')).not.toBeNull()
+    expect(at(host, 'response-truncated')).toBeNull()
+  })
+
+  it('não repete a marca quando quem cortou foi o servidor', async () => {
+    const host = mountView(
+      { kind: 'text', text: 'a', truncated: true },
+      { truncated: true, contentLength: 9000 },
+    )
+    await settle()
+
+    expect(at(host, 'response-truncated')).not.toBeNull()
+    expect(at(host, 'body-truncated')).toBeNull()
+  })
+
+  it('não marca nada quando nada foi cortado', async () => {
+    const host = mountView({ kind: 'text', text: 'a', truncated: false })
+    await settle()
+
+    expect(at(host, 'body-truncated')).toBeNull()
+    expect(at(host, 'response-truncated')).toBeNull()
   })
 })
