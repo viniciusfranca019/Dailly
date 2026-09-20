@@ -122,25 +122,27 @@ const intoAnotherModule = (from: string, specifier: string): boolean => {
 const OUT_OF_MODULE = ['shell/module.js', 'shell/module.ts']
 
 /**
- * O próprio pacote, referenciado pelo nome.
+ * O próprio pacote, referenciado pelo nome — a segunda grafia da mesma porta.
  *
  * `import { LATEST_VERSION } from '@dailly/server'` alcança o mesmo interior
- * que `../../index.js`, e é especificador **bare** — uma regra que só olha
+ * que `../index.js`, e é especificador **bare**, então uma regra que só olha
  * import relativo nunca dispara nele. O `desktop/` importa por esse nome (e
- * deve), então o especificador resolve; o que não pode é um arquivo de dentro
- * do pacote entrar por ele.
+ * deve); o que não pode é um arquivo do interior entrar por ele.
  */
 const SELF_REFERENCE = '@dailly/server'
 
+const intoTheEntryPoint = (from: string, specifier: string): boolean => {
+  if (specifier === SELF_REFERENCE || specifier.startsWith(`${SELF_REFERENCE}/`)) return true
+  const target = resolved(from, specifier)
+  return target === 'index.js' || target === 'index.ts'
+}
+
 const illegalFromModule = (from: string, specifier: string): string | undefined => {
-  // Especificador não-relativo é pacote (`fastify`, `@dailly/domain`), e
-  // pacote é legítimo — com uma exceção: o nome do próprio pacote, que é a
-  // porta dos fundos para o mesmo interior.
-  if (!specifier.startsWith('.')) {
-    return specifier === SELF_REFERENCE || specifier.startsWith(`${SELF_REFERENCE}/`)
-      ? specifier
-      : undefined
-  }
+  // Especificador não-relativo é pacote (`fastify`, `@dailly/domain`), e pacote
+  // é legítimo. A auto-referência pelo nome do pacote também é entrada pelo
+  // ponto de entrada, e é julgada lá — sob a regra que explica por que folha é
+  // isenta, não sob esta, que fala de módulos.
+  if (!specifier.startsWith('.')) return undefined
 
   const self = moduleOf(from)
   if (self === undefined) return undefined
@@ -200,6 +202,12 @@ describe('C5: a seta do servidor só aponta para onde pode', () => {
     expect(illegalFromModule(from, '../outro/index.js')).toBeUndefined()
     expect(illegalFromModule(from, 'fastify')).toBeUndefined()
     expect(illegalFromModule(from, '@dailly/domain')).toBeUndefined()
+    // A auto-referência é entrada pelo ponto de entrada, e é julgada lá — um
+    // teste que importe `@dailly/server` como consumidor é legítimo, e esta
+    // regra, que fala de módulos, não tem por que acusá-lo.
+    expect(illegalFromModule(from, '@dailly/server')).toBeUndefined()
+    expect(intoTheEntryPoint(from, '@dailly/server')).toBe(true)
+    expect(intoTheEntryPoint('boots-without-electron.test.ts', '@dailly/server')).toBe(true)
 
     // Proibido — o interior do shell, por qualquer porta
     expect(illegalFromModule(from, '../../shell/config.js')).toBe('shell/config.js')
@@ -249,13 +257,7 @@ describe('C5: a seta do servidor só aponta para onde pode', () => {
         (file.path === 'modules.ts' || INTERIOR.some((dir) => file.path.startsWith(dir))),
     ).flatMap((file) =>
       importsOf(file.code)
-        .filter((specifier) => {
-          if (specifier === SELF_REFERENCE || specifier.startsWith(`${SELF_REFERENCE}/`)) {
-            return true
-          }
-          const target = resolved(file.path, specifier)
-          return target === 'index.js' || target === 'index.ts'
-        })
+        .filter((specifier) => intoTheEntryPoint(file.path, specifier))
         .map((specifier) => `${file.path} → ${specifier}`),
     )
 

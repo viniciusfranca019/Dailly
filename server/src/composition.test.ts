@@ -109,7 +109,7 @@ describe('C3: a migration do módulo é a que roda de verdade', () => {
       // satisfazível só por `createServer`. A suíte o prende em dois pontos: a
       // metade das rotas pelo `buildApp`, acima, onde o fake sobe sozinho; e a
       // metade da migration aqui, onde ele sobe ao lado do manifest real.
-      // Registrado na ADR 0006, Emenda 1, com o gatilho que resolve.
+      // Registrado na ADR 0006, Emenda 2, com o gatilho que resolve.
       ...MODULES,
       fakeModule({
         id: 'com-schema',

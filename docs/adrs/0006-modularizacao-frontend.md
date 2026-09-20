@@ -212,37 +212,7 @@ na [ADR 0010, Emenda 2](0010-vue-no-renderer.md) — *"um módulo não-Vue deixa
 ser possível sem mudar o contrato de novo"*. O defeito aqui era de redação, não
 de decisão: uma conclusão com a causa errada pendurada.
 
-## Alternativas consideradas
-
-- **pnpm workspace com um pacote por módulo** — a fronteira sairia do teste para
-  o resolver. Rejeitado pelo tamanho: custo de `package.json` e versionamento
-  interno hoje, sem consumidor externo. Com gatilho explícito para revisitar.
-- **Um `domain/` global com `Entry` dentro** — o caminho natural e o que
-  dissolve a modularidade de volta num monólito com pastas. `Entry` é material
-  do Daily Log; o Analyse o consome pela superfície pública, como a ADR 0001
-  descreve.
-- **Flag de runtime** (`VITE_MODULES` lido e filtrado em runtime) — alternaria
-  sem rebuild, mas carregaria todo módulo em todo bundle e não dobraria no
-  vite. Rejeitado enquanto o objetivo for não shipar módulo pela metade.
-- **Manter o whiteboard como um módulo entre os outros** — mais simples de
-  escrever, e o atalho que quebra o seam de markdown. Rejeitado.
-- **`components/` como nome da categoria** — é o palpite natural e está errado:
-  componente é widget (recebe props, desenha, morre), enquanto o centro de
-  gravidade do whiteboard é o modelo e o DOM é adapter opcional. Pior, é colisão
-  marcada: se a §1 cair para React + shadcn/ui, vai existir um `components/` de
-  verdade, e 1.600 linhas de parser ficariam na mesma pasta que um `Button`.
-- **`lib/`** — convenção universal e mais curta, mas não diz critério de
-  entrada, então atrai utilitário solto e vira um segundo `shared/`. Rejeitado
-  em favor de um nome que carrega a regra.
-- **`packages/`** — sinalizaria a graduação para workspace sem mover arquivo.
-  Rejeitado porque hoje seria mentira: não há `package.json` nenhum ali dentro.
-- **Reescrever o adapter DOM agora em React** — é a decisão §1, que esta ADR
-  deliberadamente não toma. O layout só garante que tomá-la depois não exija
-  remexer no core.
-
-## Emendas
-
-### Emenda 1 (2026-09-20) — a mesma decisão, aplicada ao servidor
+### Emenda 2 (2026-09-20) — a mesma decisão, aplicada ao servidor
 
 Esta ADR decidiu a modularização de um lado só, porque quando ela foi escrita
 só existia um lado. A [ADR 0009](0009-topologia-do-workspace.md) criou o
@@ -380,3 +350,33 @@ crescem.
 
 **O que não mudou, de propósito:** `desktop/`. É um arquivo, a execução das
 requests mora no servidor, e nenhum IPC novo nasce disto.
+
+
+
+## Alternativas consideradas
+
+- **pnpm workspace com um pacote por módulo** — a fronteira sairia do teste para
+  o resolver. Rejeitado pelo tamanho: custo de `package.json` e versionamento
+  interno hoje, sem consumidor externo. Com gatilho explícito para revisitar.
+- **Um `domain/` global com `Entry` dentro** — o caminho natural e o que
+  dissolve a modularidade de volta num monólito com pastas. `Entry` é material
+  do Daily Log; o Analyse o consome pela superfície pública, como a ADR 0001
+  descreve.
+- **Flag de runtime** (`VITE_MODULES` lido e filtrado em runtime) — alternaria
+  sem rebuild, mas carregaria todo módulo em todo bundle e não dobraria no
+  vite. Rejeitado enquanto o objetivo for não shipar módulo pela metade.
+- **Manter o whiteboard como um módulo entre os outros** — mais simples de
+  escrever, e o atalho que quebra o seam de markdown. Rejeitado.
+- **`components/` como nome da categoria** — é o palpite natural e está errado:
+  componente é widget (recebe props, desenha, morre), enquanto o centro de
+  gravidade do whiteboard é o modelo e o DOM é adapter opcional. Pior, é colisão
+  marcada: se a §1 cair para React + shadcn/ui, vai existir um `components/` de
+  verdade, e 1.600 linhas de parser ficariam na mesma pasta que um `Button`.
+- **`lib/`** — convenção universal e mais curta, mas não diz critério de
+  entrada, então atrai utilitário solto e vira um segundo `shared/`. Rejeitado
+  em favor de um nome que carrega a regra.
+- **`packages/`** — sinalizaria a graduação para workspace sem mover arquivo.
+  Rejeitado porque hoje seria mentira: não há `package.json` nenhum ali dentro.
+- **Reescrever o adapter DOM agora em React** — é a decisão §1, que esta ADR
+  deliberadamente não toma. O layout só garante que tomá-la depois não exija
+  remexer no core.

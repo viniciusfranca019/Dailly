@@ -4,7 +4,7 @@
 - **Data:** 2026-09-20
 - **Decisores:** Vinicius
 - **Relaciona:** [ADR 0001](0001-arquitetura-geral.md) (camadas e Processor) ·
-  [ADR 0006, Emenda 1](0006-modularizacao-frontend.md) (módulos no servidor) ·
+  [ADR 0006, Emenda 2](0006-modularizacao-frontend.md) (módulos no servidor) ·
   [ADR 0007](0007-api-local-e-tempo.md) (o que vive em `packages/`) ·
   [ADR 0008](0008-electron-como-shell.md) (o checklist de segurança do renderer)
 
