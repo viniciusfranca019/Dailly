@@ -33,9 +33,29 @@ describe('the real composition', () => {
      * the same run.
      */
     const withAnalyse = import.meta.env.VITE_ANALYSE === 'true'
-    expect(MODULES.map((module) => module.id)).toEqual(
-      withAnalyse ? ['daily-log', 'analyse'] : ['daily-log'],
-    )
+    const withRequests = import.meta.env.VITE_REQUESTS === 'true'
+    expect(MODULES.map((module) => module.id)).toEqual([
+      'daily-log',
+      ...(withAnalyse ? ['analyse'] : []),
+      ...(withRequests ? ['requests'] : []),
+    ])
+  })
+
+  it('C1: Requests is in the manifest exactly when its flag is on', async () => {
+    // The flag is what keeps a half-built module out of a shipped build, and
+    // the only way to know it arrived is to look from inside — a suite that
+    // never reads it passes for two reasons and tells them apart for neither.
+    const requests = MODULES.find((module) => module.id === 'requests')
+    if (import.meta.env.VITE_REQUESTS !== 'true') {
+      expect(requests).toBeUndefined()
+      return
+    }
+
+    expect(requests?.route).toBe('/requests')
+    expect(requests?.title).toBe('Requests')
+    // Listing it is not loading it: a descriptor whose `load()` throws would
+    // keep every assertion above intact and still give a dead entry in the nav.
+    expect((await requests!.load()).component).toBeDefined()
   })
 
   it('always has Daily Log, whatever the flags say', () => {

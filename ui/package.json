@@ -15,6 +15,7 @@
   "dependencies": {
     "@dailly/domain": "workspace:*",
     "@dailly/periods": "workspace:*",
+    "@dailly/requests-core": "workspace:*",
     "@dailly/whiteboard-core": "workspace:*",
     "vue": "^3.5.42"
   },

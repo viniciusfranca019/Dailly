@@ -125,6 +125,9 @@ importers:
       '@dailly/periods':
         specifier: workspace:*
         version: link:../packages/periods
+      '@dailly/requests-core':
+        specifier: workspace:*
+        version: link:../packages/requests-core
       '@dailly/whiteboard-core':
         specifier: workspace:*
         version: link:../packages/whiteboard-core

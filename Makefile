@@ -21,16 +21,16 @@ dev-ui: ## Só o renderer. Sem a API junto, a timeline não carrega
 	pnpm --filter @dailly/ui dev
 
 dev-all: ## Sobe API + app com todos os módulos ligados por flag
-	@VITE_ANALYSE=true $(MAKE) -j2 dev-api dev-ui
+	@VITE_ANALYSE=true VITE_REQUESTS=true $(MAKE) -j2 dev-api dev-ui
 
 test: ## Roda os testes de todo o workspace
 	pnpm test
 
 test-all: ## Testes com todos os módulos ligados por flag
-	@echo "com VITE_ANALYSE=true o manifesto tem 2 módulos, então o loop da"
-	@echo "composition.test.ts passa pelo Analyse de verdade — com a flag"
-	@echo "desligada ele tem uma iteração só e nunca exercita esse caminho."
-	VITE_ANALYSE=true pnpm test
+	@echo "com as flags ligadas o manifesto tem 3 módulos, então o loop da"
+	@echo "composition.test.ts monta Analyse e Requests de verdade — com elas"
+	@echo "desligadas ele tem uma iteração só e nunca exercita esse caminho."
+	VITE_ANALYSE=true VITE_REQUESTS=true pnpm test
 
 test-watch: ## Testes em watch
 	pnpm test:watch
@@ -39,7 +39,7 @@ build: ## Builda o app (só os módulos prontos)
 	pnpm --filter @dailly/ui build
 
 build-all: ## Builda com todos os módulos ligados por flag
-	VITE_ANALYSE=true pnpm --filter @dailly/ui build
+	VITE_ANALYSE=true VITE_REQUESTS=true pnpm --filter @dailly/ui build
 
 desktop: ## Abre o app completo no Electron (API dentro, banco de verdade)
 	$(MAKE) build

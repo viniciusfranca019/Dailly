@@ -3,3 +3,10 @@ export { assertManifest, findByRoute, ManifestError } from './module.js'
 export type { ModuleDescriptor } from './module.js'
 export type { VueModule } from './vue-module.js'
 export type { ModuleDeps } from './deps.js'
+export type {
+  ExecutedResponse,
+  ExecutionFailure,
+  RequestsPort,
+  ResponseHeader,
+} from './requests.js'
+export { ExecutionFailedError, MissingVariablesError } from './requests.js'
