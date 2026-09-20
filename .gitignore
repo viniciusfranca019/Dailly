@@ -13,3 +13,6 @@ dist/
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm
+
+# worktrees
+WIP/

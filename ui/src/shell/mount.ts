@@ -3,18 +3,29 @@ import {
   findByRoute,
   type ModuleDeps,
   type ModuleDescriptor,
-  type ModuleHandle,
-  type MountableModule,
+  type VueModule,
 } from '@shared'
+import { createApp, h, nextTick, ref, shallowRef, type App, type Component } from 'vue'
+import Shell from './Shell.vue'
 
 export interface ShellOptions {
-  readonly modules: readonly ModuleDescriptor<MountableModule>[]
+  readonly modules: readonly ModuleDescriptor<VueModule>[]
   /**
    * Built by the composition root and passed straight through. The shell does
    * not read them — it is a router, not a consumer — which is why a test can
    * hand it fakes without the shell learning anything about the domain.
    */
   readonly deps: ModuleDeps
+  /**
+   * The seam for everything that belongs to the application rather than to a
+   * screen: `app.use(pinia)`, `app.use(someComponentLibrary)`, `app.provide`.
+   *
+   * It exists because there is exactly **one** application. That is the reason
+   * the module contract stopped being `mount(host)` — with a `createApp` per
+   * module, a plugin installed here would have reached nothing, and both of
+   * ADR 0010's open pendencies are plugins.
+   */
+  configure?(app: App): void
 }
 
 export interface ShellHandle {
@@ -25,108 +36,83 @@ export interface ShellHandle {
 }
 
 /**
- * Mounts one module at a time into `host`, loading it on first visit.
+ * Mounts one module at a time into the shell's outlet, loading it on first visit.
  *
  * Nothing here knows any module by name: the shell reads the manifest it is
  * given, which is what makes a module removable by a flag without editing the
  * shell.
  */
 export async function mountShell(host: HTMLElement, options: ShellOptions): Promise<ShellHandle> {
-  const { modules, deps } = options
+  const { modules, deps, configure } = options
   assertManifest(modules)
 
-  const frame = document.createElement('div')
-  frame.className = 'flex h-full min-h-0'
-
-  const sidebar = document.createElement('aside')
-  sidebar.className =
-    'flex w-60 shrink-0 flex-col border-r border-[#1e2638] bg-[#0a0d16] px-3 py-4'
-  sidebar.dataset['testid'] = 'sidebar'
-
-  const workspace = document.createElement('header')
-  workspace.className =
-    'mb-5 flex items-center gap-2 px-2 text-sm font-semibold tracking-tight text-gray-100'
-  workspace.innerHTML =
-    '<span class="grid h-5 w-5 place-items-center rounded bg-blue-600 text-[10px] font-bold text-white">D</span>' +
-    '<span>Diário &amp; Logs</span>'
-
-  const nav = document.createElement('nav')
-  nav.className = 'flex flex-col gap-0.5'
-  nav.dataset['testid'] = 'nav'
-
+  const current = ref('')
   /**
-   * The sidebar lists the manifest, and only the manifest.
-   *
-   * The design it is modelled on shows Inbox, Histórico and Tags as well. Those
-   * are not modules of this product — inventing links that lead nowhere would
-   * make a screenshot that lies about what the app does, and the flag mechanism
-   * exists precisely so what ships is what is built.
+   * `shallowRef`, because a component definition is a large object that is
+   * always replaced whole. Making it deeply reactive would walk the render
+   * function and every option for no benefit at all.
    */
-  const buttons = new Map<string, HTMLButtonElement>()
-  for (const module of modules) {
-    const button = document.createElement('button')
-    button.type = 'button'
-    button.textContent = module.title
-    button.dataset['route'] = module.route
-    button.className =
-      'rounded-md px-2 py-1.5 text-left text-sm font-medium text-[#747e8f] transition-colors hover:bg-white/5 hover:text-gray-200'
-    button.addEventListener('click', () => void go(module.route))
-    buttons.set(module.route, button)
-    nav.append(button)
-  }
-
-  /**
-   * ADR 0007 asks for the zone to be visible *always*, not tucked into
-   * Settings, because every date on every screen is derived from it. The
-   * sidebar footer is the one place on this layout that is always on screen.
-   */
-  const footer = document.createElement('footer')
-  footer.className = 'mt-auto border-t border-[#1e2638] px-2 pt-3 text-xs text-[#747e8f]'
-  footer.dataset['testid'] = 'zone'
-  footer.textContent = `fuso: ${deps.zone}`
-
-  sidebar.append(workspace, nav, footer)
-
-  const outlet = document.createElement('main')
-  outlet.className = 'min-w-0 flex-1 overflow-y-auto bg-[#0c101b]'
-  outlet.dataset['testid'] = 'outlet'
-
-  frame.append(sidebar, outlet)
-  host.replaceChildren(frame)
-
-  let mounted: ModuleHandle | undefined
-  let current = ''
+  const component = shallowRef<Component | null>(null)
+  /** Loaded once per route: revisiting a module must not re-run its `load`. */
+  const loaded = new Map<string, Component>()
 
   async function go(route: string): Promise<void> {
     const descriptor = findByRoute(modules, route)
-    if (!descriptor || route === current) return
+    if (!descriptor || route === current.value) return
 
-    mounted?.destroy()
-    outlet.replaceChildren()
-
-    const module = await descriptor.load()
-    mounted = module.mount(outlet, deps)
-    current = route
-
-    for (const [candidate, button] of buttons) {
-      const active = candidate === route
-      button.classList.toggle('bg-white/5', active)
-      button.classList.toggle('text-gray-100', active)
-      button.classList.toggle('text-[#747e8f]', !active)
+    let next = loaded.get(route)
+    if (!next) {
+      next = (await descriptor.load()).component
+      loaded.set(route, next)
     }
+
+    component.value = next
+    current.value = route
+
+    /**
+     * The one behavioural difference the Vue contract introduces, paid here
+     * rather than by every caller.
+     *
+     * `module.mount(outlet)` wrote to the DOM synchronously; `<component :is>`
+     * renders on the next tick. Without this await, `go` would resolve while
+     * the outgoing module is still on screen — a window in which the route has
+     * moved and the screen has not.
+     */
+    await nextTick()
   }
+
+  /**
+   * A render function rather than props on `createApp`, so the frame re-renders
+   * when the routing state changes. Passing the refs themselves would hand the
+   * component ref objects instead of values; reading `.value` inside `render`
+   * is what registers the dependency.
+   */
+  const app = createApp({
+    render: () =>
+      h(Shell, {
+        modules,
+        deps,
+        current: current.value,
+        component: component.value,
+        onNavigate: (route: string) => void go(route),
+      }),
+  })
+
+  configure?.(app)
+  app.mount(host)
 
   await go(modules[0]!.route)
 
   return {
     get current() {
-      return current
+      return current.value
     },
     go,
     destroy() {
-      mounted?.destroy()
-      mounted = undefined
-      current = ''
+      app.unmount()
+      current.value = ''
+      component.value = null
+      loaded.clear()
       host.replaceChildren()
     },
   }

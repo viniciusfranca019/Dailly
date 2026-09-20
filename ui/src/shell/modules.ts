@@ -1,4 +1,4 @@
-import type { ModuleDescriptor, MountableModule } from '@shared'
+import type { ModuleDescriptor, VueModule } from '@shared'
 
 /**
  * The manifest — the single place that knows which modules exist in a build.
@@ -14,7 +14,7 @@ import type { ModuleDescriptor, MountableModule } from '@shared'
  * A runtime flag would let one build toggle without rebuilding, at the cost of
  * carrying every module in every bundle. Revisit if that day comes.
  */
-export const MODULES: readonly ModuleDescriptor<MountableModule>[] = [
+export const MODULES: readonly ModuleDescriptor<VueModule>[] = [
   {
     id: 'daily-log',
     title: 'Daily Log',

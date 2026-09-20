@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest'
 import { TEXT_ATTR } from '@capabilities/whiteboard/dom'
 import type { Entry } from '@dailly/domain'
 import { testModuleDeps } from '@shared/testing.js'
-import { mountDailyLog } from './daily-log.js'
+import { createApp } from 'vue'
+import DailyLog from './DailyLog.vue'
 
 /**
  * Selectors are `data-testid`, not classes.
@@ -32,7 +33,11 @@ const NOW = '2026-09-16T12:00:00.000Z'
 const mount = (deps = testModuleDeps({ now: NOW })) => {
   const host = document.createElement('div')
   document.body.append(host)
-  return { host, handle: mountDailyLog(host, deps) }
+  // The module is a component; the shell is what creates the application.
+  // A test stands in for the shell with the two lines the shell also uses.
+  const app = createApp(DailyLog, { deps })
+  app.mount(host)
+  return { host, handle: { destroy: () => app.unmount() } }
 }
 
 const at = <T extends HTMLElement>(host: HTMLElement, id: string) =>
