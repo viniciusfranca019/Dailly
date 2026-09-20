@@ -5,7 +5,7 @@ import Database from 'better-sqlite3'
 import { afterEach, describe, expect, it } from 'vitest'
 import { createServer } from '../index.js'
 import { ManifestError, type ServerModule } from './module.js'
-import { collectMigrations } from './migrations.js'
+import { DatabaseTooNewError, LATEST_VERSION, collectMigrations, migrate } from './migrations.js'
 
 /**
  * C4 — versão de migration duplicada derruba o boot nomeando o culpado.
@@ -65,5 +65,42 @@ describe('C4: versão de migration duplicada derruba o boot nomeando o culpado',
     const db = new Database(file, { readonly: true })
     expect(db.pragma('user_version', { simple: true })).toBe(0)
     db.close()
+  })
+})
+
+describe('o aviso de banco à frente diz um número verdadeiro', () => {
+  let dir: string | undefined
+
+  afterEach(async () => {
+    if (dir) await rm(dir, { recursive: true, force: true })
+    dir = undefined
+  })
+
+  /**
+   * Fui eu que quebrei isto ao dar a lista como parâmetro ao `migrate`: a
+   * guarda passou a comparar com o máximo da lista recebida, enquanto a frase
+   * continuava afirmando o que "esta versão do dailly" conhece. Com um
+   * manifest montado à mão os dois divergem, e o aviso passava um número
+   * falso — num erro em que a ADR 0005 apoia a decisão de restaurar backup.
+   */
+  it('não atribui ao build um número que é do schema montado na chamada', async () => {
+    // O banco na versão 1 é construído aqui, não é a fixture do C1. Abrir a
+    // fixture no lugar a colocaria em modo WAL e deixaria `-wal`/`-shm` ao
+    // lado de um arquivo versionado — o teste do C1 copia para um temporário
+    // por esse mesmo motivo, e este não tem razão para arriscar.
+    dir = await mkdtemp(join(tmpdir(), 'dailly-nit4-'))
+    const file = join(dir, 'na-versao-1.sqlite')
+    const seed = new Database(file)
+    migrate(seed)
+    seed.close()
+
+    const semSchema: ServerModule = { id: 'sem-schema', migrations: [], register() {} }
+
+    const boot = createServer({ databaseFile: file }, [semSchema])
+
+    await expect(boot).rejects.toThrow(DatabaseTooNewError)
+    await expect(boot).rejects.toThrow(/o schema montado aqui vai até a 0/)
+    // O build conhece a versão 1 — dizer que ele conhece até a 0 seria falso.
+    expect(LATEST_VERSION).toBe(1)
   })
 })

@@ -62,11 +62,22 @@ export const LATEST_VERSION = MIGRATIONS.reduce(
   0,
 )
 
+/**
+ * O arquivo está à frente do schema que este processo sabe aplicar.
+ *
+ * A frase diz **"o schema montado aqui"**, não "esta versão do dailly", e a
+ * diferença nasceu quando `migrate` ganhou a lista como parâmetro: no caminho
+ * de produção os dois coincidem com o `LATEST_VERSION`, mas com um manifest
+ * montado à mão eles divergem — e a versão anterior da frase afirmava com
+ * segurança um número que era do outro. A ADR 0005 apoia a história de restore
+ * neste aviso; um aviso sobre perda de dados que erra o número é pior que
+ * nenhum.
+ */
 export class DatabaseTooNewError extends Error {
   override readonly name = 'DatabaseTooNewError'
   constructor(found: number, expected: number) {
     super(
-      `o banco está na versão ${found}, mas esta versão do dailly conhece até a ${expected}. ` +
+      `o banco está na versão ${found}, mas o schema montado aqui vai até a ${expected}. ` +
         'Abrir assim arriscaria corromper dados escritos por uma versão mais nova.',
     )
   }
@@ -92,8 +103,11 @@ export function migrate(db: Database, migrations: readonly Migration[] = MIGRATI
     if (migration.version <= current) continue
     db.transaction(() => {
       db.exec(migration.up)
-      // `user_version` não aceita parâmetro ligado, daí a interpolação. O valor
-      // vem da lista deste build, nunca de entrada do usuário.
+      // `user_version` não aceita parâmetro ligado, daí a interpolação. A
+      // justificativa antiga — "vem da lista deste build" — deixou de valer
+      // quando a lista virou parâmetro. O que continua valendo, e é o que
+      // importa: o número é declarado por um módulo em código, e nenhum
+      // caminho de requisição chega até aqui.
       db.pragma(`user_version = ${migration.version}`)
     })()
   }

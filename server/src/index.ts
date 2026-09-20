@@ -1,4 +1,4 @@
-import { sqliteEntryRepository } from './modules/entries/index.js'
+import { sqliteEntryRepository } from './adapters/sqlite-entry-repository.js'
 import { MODULES } from './modules.js'
 import { buildApp } from './shell/app.js'
 import { resolveConfig, type ConfigInput, type ServerConfig } from './shell/config.js'
@@ -10,7 +10,7 @@ export { resolveConfig, InvalidTimeZoneError } from './shell/config.js'
 export type { ServerConfig, ConfigInput } from './shell/config.js'
 export { buildApp } from './shell/app.js'
 export { openDatabase } from './shell/database.js'
-export { sqliteEntryRepository } from './modules/entries/index.js'
+export { sqliteEntryRepository } from './adapters/sqlite-entry-repository.js'
 export {
   MIGRATIONS,
   LATEST_VERSION,

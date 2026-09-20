@@ -15,6 +15,5 @@ export const entriesModule: ServerModule = {
   register: registerEntryRoutes,
 }
 
-export { sqliteEntryRepository } from './sqlite-entry-repository.js'
 export { validateEntry, validateRange } from './validate.js'
 export type { Invalid } from './validate.js'

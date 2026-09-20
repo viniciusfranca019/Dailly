@@ -6,7 +6,7 @@ import { UTC } from '@dailly/periods'
 import Database from 'better-sqlite3'
 import { afterEach, describe, expect, it } from 'vitest'
 import { createServer, type RunningServer } from './index.js'
-import { entriesModule } from './modules/entries/index.js'
+import { MODULES } from './modules.js'
 import { buildApp } from './shell/app.js'
 import { ManifestError, assertManifest, type ServerModule } from './shell/module.js'
 
@@ -98,9 +98,9 @@ describe('C3: a migration do módulo é a que roda de verdade', () => {
     const file = join(dir, 'dailly.sqlite')
 
     server = await createServer({ databaseFile: file }, [
-      // O módulo de verdade entra junto: o composition root constrói o
+      // O manifest de verdade entra junto: o composition root constrói o
       // repositório SQLite, que precisa da tabela `entries` da migration 1.
-      entriesModule,
+      ...MODULES,
       fakeModule({
         id: 'com-schema',
         migrations: [{ version: 2, up: 'CREATE TABLE extra (id TEXT PRIMARY KEY);' }],
