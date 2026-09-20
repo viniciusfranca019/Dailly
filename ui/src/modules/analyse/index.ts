@@ -1,5 +1,3 @@
-import type { ModuleHandle } from '@shared'
-
 /**
  * Analyse — public surface.
  *
@@ -9,16 +7,4 @@ import type { ModuleHandle } from '@shared'
  * to keep the flag honest — flip it on and the chunk appears, flip it off and
  * it does not.
  */
-export function mount(host: HTMLElement): ModuleHandle {
-  const section = document.createElement('section')
-  section.className = 'analyse'
-  section.innerHTML =
-    '<h1>Analyse</h1><p>Fase 4/5 do roadmap. Depende de Entry com labels (Fase 2) e do provider BYOK (Fase 3).</p>'
-  host.append(section)
-
-  return {
-    destroy() {
-      section.remove()
-    },
-  }
-}
+export { default as component } from './ui/Analyse.vue'
