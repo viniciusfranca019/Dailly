@@ -131,14 +131,42 @@ Não confunda com o outro nível de composição: `BlockRegistry` e
 `RendererRegistry` compõem **blocos** dentro do whiteboard. O manifest compõe
 **módulos**. Grãos diferentes, mecanismos diferentes.
 
+### O servidor tem as mesmas duas camadas
+
+`server/` nasceu plano e deixou de caber assim quando o segundo módulo apareceu.
+Hoje ele espelha a `ui/`
+([ADR 0006, Emenda 1](docs/adrs/0006-modularizacao-frontend.md)):
+
+```
+server/src/
+  shell/        config · database · runner de migrations · buildApp · /health
+  modules.ts    o manifest — ServerModule { id, migrations, register(app, deps) }
+  modules/
+    entries/    routes · validate · sqlite-entry-repository · migrations · index
+  index.ts      composition root
+```
+
+Duas diferenças em relação ao frontend. **Não há flag de build**: lá a flag
+remove código de um bundle que o usuário baixa, e aqui não há bundle — uma rota
+desligada não custa nada a ninguém.
+
+E **as migrations são uma sequência global**, não uma por módulo, porque
+`PRAGMA user_version` é um inteiro por arquivo. Cada módulo declara sua fatia, o
+shell concatena e ordena, e `collectMigrations` recusa colisão nomeando a versão
+e os dois módulos — antes de abrir o banco, para que um manifest inconsistente
+derrube o boot sem ter escrito nada.
+
 ### A fronteira é testada, não combinada
 
-Três testes varrem o source e falham nomeando o arquivo culpado, cada um onde a
-regra é verificável:
+Quatro testes varrem o source e falham nomeando o arquivo culpado, cada um onde
+a regra é verificável:
 
 - `ui/src/architecture.test.ts` — as camadas da `ui/`: o whiteboard importando um
   módulo, um módulo furando outro por caminho profundo em vez do index público,
   alguém entrando no `shell/`.
+- `server/src/architecture.test.ts` — as mesmas duas setas do outro lado: o
+  shell conhece o manifest e nunca um módulo, e um módulo alcança outro só pelo
+  index público.
 - `packages/whiteboard-core/src/architecture.test.ts` — DOM no core. O
   `tsconfig` do pacote já não carrega a lib DOM, então o compilador pega o caso
   tipado; o teste pega o que tipo não vê.
