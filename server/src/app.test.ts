@@ -2,6 +2,18 @@ import { NotImplementedError, inMemoryEntryRepository, uuidIds } from '@dailly/d
 import { UTC } from '@dailly/periods'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { buildApp } from './shell/app.js'
+import { openDatabase } from './shell/database.js'
+
+/**
+ * O app inteiro precisa de banco desde que existe um módulo que constrói a
+ * própria dependência (o Requests, via `provide`).
+ *
+ * Um `:memory:` por chamada: este arquivo testa a superfície HTTP do entries e
+ * do shell, e continua fazendo isso montando o manifesto **de verdade** — o
+ * que é mais cobertura, não menos. O repositório de entries segue injetado,
+ * que é do que o teste do 501 depende.
+ */
+const withDb = <T extends object>(deps: T) => ({ ...deps, db: openDatabase(':memory:') })
 
 const anEntry = (over: Partial<Record<string, unknown>> = {}) => {
   const at = '2026-07-24T10:00:00.000Z'
@@ -21,7 +33,7 @@ describe('the HTTP surface', () => {
   let app: ReturnType<typeof buildApp>
 
   beforeEach(() => {
-    app = buildApp({ entries: inMemoryEntryRepository(), zone: UTC })
+    app = buildApp(withDb({ entries: inMemoryEntryRepository(), zone: UTC }))
   })
 
   it('accepts an entry and gives it back created', async () => {
@@ -46,10 +58,7 @@ describe('the HTTP surface', () => {
   it('reports the zone, because the UI must always show it', async () => {
     // ADR 0007: "a UI sempre mostra qual zona está em uso". Only this process
     // knows — the zone is its environment variable.
-    const saoPaulo = buildApp({
-      entries: inMemoryEntryRepository(),
-      zone: 'America/Sao_Paulo',
-    })
+    const saoPaulo = buildApp(withDb({ entries: inMemoryEntryRepository(), zone: 'America/Sao_Paulo' }))
 
     expect((await saoPaulo.inject({ method: 'GET', url: '/health' })).json()).toEqual({
       status: 'ok',
@@ -121,15 +130,17 @@ describe('the HTTP surface', () => {
       // does not exist. Driven through a store that refuses, because the route
       // does not forward label filters yet — without this the mapping would be
       // code no test ever reaches.
-      const refusing = buildApp({
-        entries: {
-          ...inMemoryEntryRepository(),
-          list: async () => {
-            throw new NotImplementedError('filtrar por label')
+      const refusing = buildApp(
+        withDb({
+          entries: {
+            ...inMemoryEntryRepository(),
+            list: async () => {
+              throw new NotImplementedError('filtrar por label')
+            },
           },
-        },
-        zone: UTC,
-      })
+          zone: UTC,
+        }),
+      )
 
       const response = await refusing.inject({ method: 'GET', url: '/entries' })
 
@@ -143,7 +154,7 @@ describe('the HTTP surface', () => {
     let guarded: ReturnType<typeof buildApp>
 
     beforeEach(() => {
-      guarded = buildApp({ entries: inMemoryEntryRepository(), zone: UTC, token: TOKEN })
+      guarded = buildApp(withDb({ entries: inMemoryEntryRepository(), zone: UTC, token: TOKEN }))
     })
 
     it('refuses a request with no token', async () => {
