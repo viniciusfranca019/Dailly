@@ -63,8 +63,12 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
    * like a no-op and was dropped, leaving the navigation in flight to win.
    * Guarding against `requested` asks the right question: is this where we are
    * already heading?
+   *
+   * A plain `let`, not a `ref`: nothing renders from it. It sits beside
+   * `navigation` and `destroyed`, which are the other two variables the render
+   * function never reads, and wearing the same shape as them says so.
    */
-  const requested = ref('')
+  let requested = ''
 
   /**
    * Loaded once per route.
@@ -97,9 +101,9 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
   async function go(route: string): Promise<void> {
     if (destroyed) return
     const descriptor = findByRoute(modules, route)
-    if (!descriptor || route === requested.value) return
+    if (!descriptor || route === requested) return
 
-    requested.value = route
+    requested = route
     const ticket = ++navigation
 
     let next = loaded.get(route)
@@ -130,7 +134,7 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
       // Released so the same route can be asked for again: the message on
       // screen tells the user to click again, and the guard above would
       // otherwise swallow that click.
-      requested.value = ''
+      requested = ''
       await nextTick()
       return
     }
@@ -189,7 +193,7 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
       destroyed = true
       app.unmount()
       current.value = ''
-      requested.value = ''
+      requested = ''
       component.value = null
       failed.value = null
       loaded.clear()

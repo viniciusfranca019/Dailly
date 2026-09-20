@@ -65,7 +65,7 @@ function importsOf(code: string): string[] {
 }
 
 /**
- * The two shapes of "reached past the public entry point", named once.
+ * The three shapes of "reached past the public entry point", named once.
  *
  * They are predicates at module scope rather than inline in their tests so the
  * suite can prove them against a *known-bad* source below. A rule that is only
@@ -77,6 +77,15 @@ const deepModuleImport = (specifier: string) =>
 
 const deepCapabilityImport = (specifier: string) =>
   specifier.startsWith('@capabilities/') && specifier.split('/').length > 3
+
+/**
+ * The climb an alias check cannot see: `../../capabilities/whiteboard/x`.
+ *
+ * An aliased import is the supported way in and is judged by the rule above,
+ * not by this one — so this predicate looks only at relative specifiers.
+ */
+const relativeCapabilityImport = (specifier: string) =>
+  !specifier.startsWith('@') && /capabilities\/[^/]+\//.test(specifier)
 
 const under = (prefix: string) => FILES.filter((file) => file.path.startsWith(prefix))
 
@@ -114,10 +123,14 @@ describe('the arrow only points downwards', () => {
     // The proof that the rules *fire* on an SFC, run against source that is
     // deliberately wrong. Without it, a green suite could mean the extractor
     // silently returned nothing.
+    // C6 names two shapes — "a deep path, **or a capability by a relative
+    // path**" — so the fixture carries both. The relative climb is the one an
+    // alias check cannot see, which makes it the half most worth proving.
     const sfc = [
       '<script setup lang="ts">',
       "import { setCaret } from '@capabilities/whiteboard/adapters/dom/caret.js'",
       "import { formatDay } from '@modules/daily-log/ui/timeline.js'",
+      "import { el } from '../../capabilities/whiteboard/adapters/dom/dom.js'",
       '</script>',
       '<template><p>@capabilities/not/an/import</p></template>',
     ].join('\n')
@@ -128,8 +141,11 @@ describe('the arrow only points downwards', () => {
       '@capabilities/whiteboard/adapters/dom/caret.js',
     ])
     expect(specifiers.filter(deepModuleImport)).toEqual(['@modules/daily-log/ui/timeline.js'])
+    expect(specifiers.filter(relativeCapabilityImport)).toEqual([
+      '../../capabilities/whiteboard/adapters/dom/dom.js',
+    ])
     // The template's text is not a dependency, and must not be read as one.
-    expect(specifiers).toHaveLength(2)
+    expect(specifiers).toHaveLength(3)
   })
 
   it('a capability never imports a product module', () => {
@@ -186,9 +202,7 @@ describe('the arrow only points downwards', () => {
     // supported way in and is judged by the rule above, not by this one.
     const found = FILES.filter((file) => !file.path.startsWith('capabilities/')).flatMap((file) =>
       importsOf(file.code)
-        .filter(
-          (specifier) => !specifier.startsWith('@') && /capabilities\/[^/]+\//.test(specifier),
-        )
+        .filter(relativeCapabilityImport)
         .map((specifier) => `${file.path} → ${specifier}`),
     )
     expect(found).toEqual([])
