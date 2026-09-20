@@ -53,37 +53,90 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
    * function and every option for no benefit at all.
    */
   const component = shallowRef<Component | null>(null)
-  /** Loaded once per route: revisiting a module must not re-run its `load`. */
-  const loaded = new Map<string, Component>()
+  /**
+   * The module the user asked for last, which is **not** the same thing as the
+   * one on screen.
+   *
+   * `current` only moves once a module has loaded, so while a slow chunk is in
+   * flight the two disagree — and that gap is the whole race. Guarding against
+   * `current` meant that asking to come back to where you already are looked
+   * like a no-op and was dropped, leaving the navigation in flight to win.
+   * Guarding against `requested` asks the right question: is this where we are
+   * already heading?
+   */
+  const requested = ref('')
+
+  /**
+   * Loaded once per route.
+   *
+   * The *promise* is cached rather than the component, so two clicks on the
+   * same not-yet-loaded button share one `load()` instead of racing to fill the
+   * map after their awaits. A rejected entry is evicted, which is what lets a
+   * failed module be retried by clicking it again.
+   */
+  const loaded = new Map<string, Promise<Component>>()
+
+  /** The module that failed to load, so the outlet can say so. */
+  const failed = shallowRef<{ route: string; title: string } | null>(null)
 
   /**
    * Which navigation currently owns the screen.
    *
    * Two clicks race across the `await` below, and without this the *earlier*
-   * one wins whenever its chunk is slower — a double-click on the navigation
-   * lands on the first destination. Bumping it in `destroy` covers the same
-   * hazard at the end of life: a navigation still in flight must not render
-   * into a host the shell has already given back.
+   * one wins whenever its chunk is slower. `destroy` bumps it too, which
+   * abandons anything in flight rather than rendering into a host the shell has
+   * already given back.
    */
   let navigation = 0
+  let destroyed = false
 
   async function go(route: string): Promise<void> {
+    if (destroyed) return
     const descriptor = findByRoute(modules, route)
-    if (!descriptor || route === current.value) return
+    if (!descriptor || route === requested.value) return
 
+    requested.value = route
     const ticket = ++navigation
 
     let next = loaded.get(route)
     if (!next) {
-      next = (await descriptor.load()).component
+      next = descriptor.load().then((module) => module.component)
       loaded.set(route, next)
+    }
+
+    let resolved: Component
+    try {
+      resolved = await next
+    } catch {
+      // Evicted so the same click can be tried again; a cached rejection would
+      // make the failure permanent for the life of the window.
+      loaded.delete(route)
+      // Someone has moved on. Their navigation owns the screen, not this error.
+      if (ticket !== navigation || destroyed) return
+
+      /**
+       * A module load is a remote read, and a remote read needs all four of its
+       * states. Throwing here would only produce an unhandled rejection from
+       * the click handler: the user would click, nothing would happen, and
+       * nothing on screen would say why.
+       */
+      failed.value = { route, title: descriptor.title }
+      component.value = null
+      current.value = route
+      // Released so the same route can be asked for again: the message on
+      // screen tells the user to click again, and the guard above would
+      // otherwise swallow that click.
+      requested.value = ''
+      await nextTick()
+      return
     }
 
     // Someone asked for somewhere else while this was loading. They win: the
     // last thing the user asked for is the thing they are waiting to see.
-    if (ticket !== navigation) return
+    if (ticket !== navigation || destroyed) return
 
-    component.value = next
+    failed.value = null
+    component.value = resolved
     current.value = route
 
     /**
@@ -111,6 +164,9 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
         deps,
         current: current.value,
         component: component.value,
+        failed: failed.value,
+        // `go` handles its own failures and never rejects, which is what makes
+        // discarding the promise here safe rather than merely quiet.
         onNavigate: (route: string) => void go(route),
       }),
   })
@@ -126,10 +182,13 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
     },
     go,
     destroy() {
+      destroyed = true
       navigation++
       app.unmount()
       current.value = ''
+      requested.value = ''
       component.value = null
+      failed.value = null
       loaded.clear()
       host.replaceChildren()
     },

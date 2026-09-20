@@ -100,6 +100,14 @@ describe('the arrow only points downwards', () => {
     // clean tree while checking almost none of the UI.
     expect(FILES.filter((file) => file.path.endsWith('.vue')).length).toBeGreaterThan(3)
     expect(FILES.map((file) => file.path)).toContain('shell/Shell.vue')
+
+    // Listing the path is not reading it. An extractor that returned '' for
+    // every SFC would keep the count above intact and quietly make every rule
+    // below vacuous for all six components — the same class of failure the
+    // count itself is guarding against, one level down.
+    expect(FILES.find((file) => file.path === 'shell/Shell.vue')?.code).toContain(
+      "from '@shared'",
+    )
   })
 
   it('C6: catches a boundary violation written inside a single-file component', () => {

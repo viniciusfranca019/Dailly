@@ -287,3 +287,147 @@ describe('overlapping navigation', () => {
     expect(shell.current).toBe('')
   })
 })
+
+describe('gate iteration 1 — navigation that was asked for last', () => {
+  const slowModule = (marker: string, delay: number) => {
+    const module: VueModule = {
+      component: defineComponent({ setup: () => () => h('p', { 'data-marker': marker }) }),
+    }
+    return vi.fn(() => new Promise<VueModule>((resolve) => setTimeout(() => resolve(module), delay)))
+  }
+
+  /**
+   * MAJOR 1 — the half of the race the first fix did not close.
+   *
+   * `current` means "what is on screen"; the guard needed "what was asked for
+   * last". Asking to come back to where you already are took the early return,
+   * which never bumped the ticket, so the navigation still in flight kept its
+   * claim and won.
+   */
+  it('stays put when the user clicks back to the route already on screen', async () => {
+    const a = descriptorFor('daily-log', '/', fakeModule('daily-log').module)
+    const slow: ModuleDescriptor<VueModule> = {
+      id: 'analyse',
+      title: 'analyse',
+      route: '/analyse',
+      load: slowModule('analyse', 50),
+    }
+
+    const shell = await mountShell(host, { modules: [a.descriptor, slow], deps: testModuleDeps() })
+
+    // Click Analyse, then click Daily Log again before the chunk lands.
+    const leaving = shell.go('/analyse')
+    await shell.go('/')
+    await leaving
+
+    expect(shell.current).toBe('/')
+    expect(host.querySelector('[data-marker="daily-log"]')).not.toBeNull()
+    expect(host.querySelector('[data-marker="analyse"]')).toBeNull()
+  })
+
+  it('calls load once when the same button is clicked twice before it lands', async () => {
+    // The docblock promised "loaded once per route" while the map was written
+    // only after the await, so the second click missed it.
+    const a = descriptorFor('daily-log', '/', fakeModule('daily-log').module)
+    const load = slowModule('analyse', 20)
+    const slow: ModuleDescriptor<VueModule> = { id: 'analyse', title: 'analyse', route: '/analyse', load }
+
+    const shell = await mountShell(host, { modules: [a.descriptor, slow], deps: testModuleDeps() })
+    await Promise.all([shell.go('/analyse'), shell.go('/analyse')])
+
+    expect(load).toHaveBeenCalledTimes(1)
+  })
+
+  it('is inert after destroy, instead of writing to a host it gave back', async () => {
+    const a = descriptorFor('daily-log', '/', fakeModule('daily-log').module)
+    const b = descriptorFor('analyse', '/analyse', fakeModule('analyse').module)
+
+    const shell = await mountShell(host, { modules: [a.descriptor, b.descriptor], deps: testModuleDeps() })
+    shell.destroy()
+    await shell.go('/analyse')
+
+    expect(shell.current).toBe('')
+    expect(host.children.length).toBe(0)
+  })
+})
+
+describe('gate iteration 1 — a module that fails to load', () => {
+  /**
+   * MAJOR 2 — the click that produced nothing at all.
+   *
+   * `void go(route)` threw the promise away, so a rejected `load()` became an
+   * unhandled rejection and the screen simply did not change. A module load is
+   * a remote read, and a remote read that renders no error state is three of
+   * the four states, which is a bug rather than a polish item.
+   */
+  const broken = (route: string): ModuleDescriptor<VueModule> => ({
+    id: 'analyse',
+    title: 'Analyse',
+    route,
+    load: vi.fn(() => Promise.reject(new Error('chunk 404'))),
+  })
+
+  it('says on screen that the module could not be loaded', async () => {
+    const a = descriptorFor('daily-log', '/', fakeModule('daily-log').module)
+    const shell = await mountShell(host, {
+      modules: [a.descriptor, broken('/analyse')],
+      deps: testModuleDeps(),
+    })
+
+    await shell.go('/analyse')
+
+    const alert = host.querySelector('[role="alert"]')
+    expect(alert).not.toBeNull()
+    // Naming the module is the difference between a diagnosis and a shrug.
+    expect(alert?.textContent).toContain('Analyse')
+  })
+
+  it('does not reject, so a click handler cannot leave an unhandled rejection', async () => {
+    const a = descriptorFor('daily-log', '/', fakeModule('daily-log').module)
+    const shell = await mountShell(host, {
+      modules: [a.descriptor, broken('/analyse')],
+      deps: testModuleDeps(),
+    })
+
+    await expect(shell.go('/analyse')).resolves.toBeUndefined()
+  })
+
+  it('lets the same route be tried again, which is what the message promises', async () => {
+    const a = descriptorFor('daily-log', '/', fakeModule('daily-log').module)
+    const good = fakeModule('analyse').module
+    let attempts = 0
+    const flaky: ModuleDescriptor<VueModule> = {
+      id: 'analyse',
+      title: 'Analyse',
+      route: '/analyse',
+      load: vi.fn(() =>
+        ++attempts === 1 ? Promise.reject(new Error('chunk 404')) : Promise.resolve(good),
+      ),
+    }
+
+    const shell = await mountShell(host, { modules: [a.descriptor, flaky], deps: testModuleDeps() })
+
+    await shell.go('/analyse')
+    expect(host.querySelector('[role="alert"]')).not.toBeNull()
+
+    await shell.go('/analyse')
+
+    expect(host.querySelector('[role="alert"]')).toBeNull()
+    expect(host.querySelector('[data-marker="analyse"]')).not.toBeNull()
+    expect(shell.current).toBe('/analyse')
+  })
+
+  it('recovers when the user navigates somewhere that works', async () => {
+    const a = descriptorFor('daily-log', '/', fakeModule('daily-log').module)
+    const shell = await mountShell(host, {
+      modules: [a.descriptor, broken('/analyse')],
+      deps: testModuleDeps(),
+    })
+
+    await shell.go('/analyse')
+    await shell.go('/')
+
+    expect(host.querySelector('[role="alert"]')).toBeNull()
+    expect(host.querySelector('[data-marker="daily-log"]')).not.toBeNull()
+  })
+})
