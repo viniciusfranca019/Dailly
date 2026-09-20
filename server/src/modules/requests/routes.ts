@@ -11,7 +11,12 @@ import {
 } from '@dailly/requests-core'
 import { type HttpWire, httpDriver } from '@dailly/requests-core/http'
 import type { FastifyInstance, FastifyReply } from 'fastify'
-import { InvalidWireError, TargetUnreachableError, executeHttp } from './execute.js'
+import {
+  ExecutionTimeoutError,
+  InvalidWireError,
+  TargetUnreachableError,
+  executeHttp,
+} from './execute.js'
 import { validateFolder, validateSavedRequest } from './validate.js'
 
 /**
@@ -133,6 +138,11 @@ export function registerRequestRoutes(app: FastifyInstance, store: RequestStore)
         // 422 e não 502: a recusa é do spec, e aconteceu antes de qualquer
         // socket. Dizer 502 mandaria procurar na rede.
         return reply.code(422).send({ error: error.message })
+      }
+      if (error instanceof ExecutionTimeoutError) {
+        // 504 e não 502: o alvo foi alcançado e respondeu — ele só não
+        // terminou no prazo que **este** servidor impõe.
+        return reply.code(504).send({ error: error.message })
       }
       if (error instanceof TargetUnreachableError) {
         // 502: quem falhou foi o alvo. Dizer 500 seria assumir a culpa de
