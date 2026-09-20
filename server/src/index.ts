@@ -43,6 +43,14 @@ export interface RunningServer {
  * coletadas *antes* de o arquivo ser aberto: um manifest inconsistente derruba
  * o boot sem ter escrito nada. Um boot que falha depois de aplicar metade do
  * schema é pior que um que não sobe.
+ *
+ * **Pressuposição do parâmetro `modules`, dita porque ela não é checada.** O
+ * repositório de entries é construído aqui, incondicionalmente, fora do laço do
+ * manifest — então a lista passada não determina sozinha a composição: ela
+ * precisa conter o módulo entries, ou a tabela que o repositório lê não existe.
+ * Violada, quem reclama é o SQLite (`no such table: entries`), não o contrato.
+ * A saída — um `provide(db, zone)` no `ServerModule` — está decidida e adiada
+ * na ADR 0006, Emenda 1, com o Requests como gatilho.
  */
 export async function createServer(
   input: ConfigInput,

@@ -98,8 +98,18 @@ describe('C3: a migration do módulo é a que roda de verdade', () => {
     const file = join(dir, 'dailly.sqlite')
 
     server = await createServer({ databaseFile: file }, [
-      // O manifest de verdade entra junto: o composition root constrói o
-      // repositório SQLite, que precisa da tabela `entries` da migration 1.
+      // O manifest de verdade entra junto, e isto é a pressuposição do
+      // `createServer` aparecendo à luz: ele constrói o `sqliteEntryRepository`
+      // incondicionalmente, fora do laço do manifest, então o parâmetro
+      // `modules` não determina sozinho a composição. Sem o entries na lista,
+      // quem reclama é o SQLite — `no such table: entries` — e não o contrato.
+      //
+      // Consequência para o C3: o cenário como aprovado ("um módulo registrado
+      // com id, migrations e register()... as rotas dele respondem") não é
+      // satisfazível só por `createServer`. A suíte o prende em dois pontos: a
+      // metade das rotas pelo `buildApp`, acima, onde o fake sobe sozinho; e a
+      // metade da migration aqui, onde ele sobe ao lado do manifest real.
+      // Registrado na ADR 0006, Emenda 1, com o gatilho que resolve.
       ...MODULES,
       fakeModule({
         id: 'com-schema',
