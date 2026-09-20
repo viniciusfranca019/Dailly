@@ -84,3 +84,42 @@ function btoaLike(text: string): string {
   }
   return out
 }
+
+describe('C4: nem a montagem da query é decidida sobre uma chave', () => {
+  it('junta a query depois da interpolação, quando a URL é uma variável', () => {
+    // `curl -G -d 'q=1' '{{baseUrl}}'` com baseUrl = `https://x.dev/a?j=1`.
+    // Decidir `?` na importação olharia para `{{baseUrl}}`, que não tem `?`, e
+    // produziria `https://x.dev/a?j=1?q=1` — URL quebrada por um segundo `?`.
+    //
+    // `{{baseUrl}}` é a variável mais comum desta categoria de ferramenta, e
+    // `-G` é o idioma da documentação da Stripe: recusar a combinação perderia
+    // o caso comum. Adiar a junção para a fita é a mesma decisão que o `-u` já
+    // tomou, e pela mesma razão.
+    const { spec } = importing(`curl -G -d 'q=1' '{{baseUrl}}'`)
+
+    expect(spec.url).toBe('{{baseUrl}}')
+    expect(spec.query).toEqual(['q=1'])
+
+    expect(wireOf(spec, { baseUrl: 'https://x.dev/a?j=1' }).url).toBe('https://x.dev/a?j=1&q=1')
+  })
+
+  it('usa ? quando a URL resolvida não tem query', () => {
+    const { spec } = importing(`curl -G -d 'q=1' '{{baseUrl}}'`)
+
+    expect(wireOf(spec, { baseUrl: 'https://x.dev/a' }).url).toBe('https://x.dev/a?q=1')
+  })
+
+  it('não duplica o separador quando a URL já termina em ?', () => {
+    // Verificado contra curl de verdade: `…/D?` com `-d q=1` vira `…/D?q=1`,
+    // e não `…/D?&q=1`.
+    const { spec } = importing(`curl -G -d 'q=1' 'https://x.dev/d?'`)
+
+    expect(wireOf(spec, {}).url).toBe('https://x.dev/d?q=1')
+  })
+
+  it('a chave dentro do próprio dado também atravessa até a fita', () => {
+    const { spec } = importing(`curl -G -d 'q={{termo}}' 'https://x.dev/a'`)
+
+    expect(wireOf(spec, { termo: 'busca' }).url).toBe('https://x.dev/a?q=busca')
+  })
+})

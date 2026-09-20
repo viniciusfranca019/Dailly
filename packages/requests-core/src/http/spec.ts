@@ -35,5 +35,18 @@ export interface HttpSpec {
   readonly url: string
   readonly headers: readonly HttpHeader[]
   readonly body: string | null
+  /**
+   * Os pares que o `-G` mandou para a query, **ainda não colados na URL**.
+   *
+   * Colar na importação exigiria escolher entre `?` e `&` olhando o texto
+   * literal da URL — e a URL pode ser uma chave. `{{baseUrl}}` não tem `?`, o
+   * importador escolheria `?`, e depois da interpolação sairia
+   * `https://x.dev/a?j=1?q=1`. É o mesmo defeito do `-u` em base64 e do
+   * `--data-urlencode` em percent-encoding, no terceiro disfarce.
+   *
+   * Depois da interpolação a URL é literal de verdade, e aí a escolha é
+   * trivial. Por isso a junção mora no `toWire`.
+   */
+  readonly query: readonly string[]
   readonly auth: HttpAuth | null
 }

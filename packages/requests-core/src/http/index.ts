@@ -37,6 +37,21 @@ const basicCredential = (auth: HttpAuth): string => {
   return auth.user.includes(':') ? auth.user : `${auth.user}:`
 }
 
+/**
+ * Cola na URL o que o `-G` mandou para a query — aqui, e não na importação.
+ *
+ * Aqui a URL já passou pela interpolação, então ela é literal de verdade e a
+ * escolha entre `?` e `&` é trivial. O caso de a URL já terminar em `?` foi
+ * verificado contra curl real: `…/d?` com `-d q=1` vira `…/d?q=1`, e não
+ * `…/d?&q=1`.
+ */
+const withQuery = (url: string, query: readonly string[]): string => {
+  if (query.length === 0) return url
+  const joined = query.join('&')
+  if (url.endsWith('?') || url.endsWith('&')) return `${url}${joined}`
+  return `${url}${url.includes('?') ? '&' : '?'}${joined}`
+}
+
 const isAuth = (value: unknown): boolean =>
   isRecord(value) &&
   typeof value['user'] === 'string' &&
@@ -68,6 +83,10 @@ export const httpDriver = {
       errors.push({ field: 'body', message: 'deve ser texto ou nulo' })
     }
 
+    if (!Array.isArray(candidate.query) || !candidate.query.every((p) => typeof p === 'string')) {
+      errors.push({ field: 'query', message: 'deve ser uma lista de textos' })
+    }
+
     if (candidate.auth !== null && !isAuth(candidate.auth)) {
       errors.push({ field: 'auth', message: 'deve ser nulo ou ter usuário e senha de texto' })
     }
@@ -78,7 +97,7 @@ export const httpDriver = {
   toWire: (spec: HttpSpec): HttpWire => ({
     protocol: 'http',
     method: spec.method.toUpperCase(),
-    url: spec.url,
+    url: withQuery(spec.url, spec.query),
     // O `Basic` é fechado **aqui**, e não na importação, porque só aqui a
     // credencial já passou pela interpolação. Ela entra no fim da lista: a
     // ordem relativa a um header explícito não é observável na fita, e um

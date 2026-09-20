@@ -22,6 +22,7 @@ const spec = (over: Partial<Record<string, unknown>> = {}) => ({
     url: 'https://{{host}}/entries',
     headers: [{ name: 'Authorization', value: 'Bearer {{token}}' }],
     body: null,
+    query: [],
     auth: null,
     ...over,
   },
@@ -134,7 +135,7 @@ describe('C4: um spec inválido falha com classe própria, não com Error solto'
     try {
       resolve(
         registry(),
-        { ...spec(), spec: { method: '', url: '', headers: 'nao', body: 1, auth: null } },
+        { ...spec(), spec: { method: '', url: '', headers: 'nao', body: 1, query: [], auth: null } },
         {},
       )
     } catch (error) {
