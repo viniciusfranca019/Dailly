@@ -239,3 +239,68 @@ de decisão: uma conclusão com a causa errada pendurada.
 - **Reescrever o adapter DOM agora em React** — é a decisão §1, que esta ADR
   deliberadamente não toma. O layout só garante que tomá-la depois não exija
   remexer no core.
+
+## Emendas
+
+### Emenda 1 (2026-09-20) — a mesma decisão, aplicada ao servidor
+
+Esta ADR decidiu a modularização de um lado só, porque quando ela foi escrita
+só existia um lado. A [ADR 0009](0009-topologia-do-workspace.md) criou o
+`server/`, e ele nasceu plano: sete arquivos na raiz de `src/`, com as rotas do
+Daily Log, o runner de migrations e o composition root no mesmo nível.
+
+Plano funcionava com um módulo. O gatilho para deixar de funcionar é o módulo
+**Requests** ([ADR 0011](0011-requests-modulo-e-execucao.md)), que traz rotas,
+schema e um adapter próprios — e que, sem fronteira declarada, entraria por
+import direto em `app.ts` exatamente como esta ADR descreve que o atalho
+acontece.
+
+A forma é a desta ADR, com os nomes da 0009:
+
+```
+server/src/
+  shell/        config · database · runner de migrations · buildApp · /health
+  modules.ts    o manifest
+  modules/
+    entries/    routes · validate · sqlite-entry-repository · migrations · index
+  index.ts      composition root
+```
+
+**Duas diferenças em relação ao frontend, e as duas têm causa.**
+
+**Não há flag de build.** Na `ui/` a flag existe para *remover* código de um
+bundle que o usuário baixa, e a forma dela (`=== 'true'`, com o `import()`
+dentro do ramo) é ditada pelo que o vite dobra. No servidor não há bundle: uma
+rota desligada não custa bytes a ninguém. Uma flag de runtime aqui compraria a
+única divergência que interessa evitar — um renderer sem o módulo conversando
+com uma API que o tem, ou o contrário.
+
+**As migrations são a tensão de verdade.** `PRAGMA user_version` é um inteiro
+por arquivo, não por módulo: não existe "versão do entries" e "versão do
+requests", existe *a* versão do banco. Então os números são globais mesmo
+quando o código que os declara é local, e nada no tipo impede dois módulos de
+escolherem o mesmo.
+
+A decisão: cada módulo declara sua fatia, o shell concatena e ordena, e
+`collectMigrations` recusa colisão nomeando a versão e os dois módulos. A
+coordenação dos números é manual; a asserção é o que a torna segura. E ela roda
+**antes** de o arquivo ser aberto — um manifest inconsistente derruba o boot sem
+ter escrito nada, porque um boot que falha depois de aplicar metade do schema é
+pior que um que não sobe.
+
+A alternativa era uma tabela própria de controle, com versão por módulo. Ela
+resolveria a coordenação manual, e custaria abandonar o `user_version` — que é
+exatamente a propriedade de que a [ADR 0005](0005-backup-restore.md) depende:
+restaurar um `.sqlite` antigo e abri-lo roda as migrations que faltam sem
+contabilidade externa nenhuma. Coordenar à mão e falhar alto é o lado barato
+desse par.
+
+**A fronteira ganhou o teste que esta ADR exige dela**, em
+`server/src/architecture.test.ts`: o shell conhece o manifest e nunca um
+módulo; um módulo alcança outro só pelo index público. O predicado resolve o
+caminho antes de julgar, porque um irmão alcançado por `../entries/validate.js`
+atravessa a fronteira sem conter a palavra `modules` em lugar nenhum — furo que
+o próprio teste pegou antes de o segundo módulo existir.
+
+**O que não mudou, de propósito:** `desktop/`. É um arquivo, a execução das
+requests mora no servidor, e nenhum IPC novo nasce disto.
