@@ -1,7 +1,8 @@
 import type { Entry, EntryFilter, EntryRepository } from '@dailly/domain'
 import { NotImplementedError } from '@dailly/domain'
 import type { ApiConfig } from './api.js'
-import { ApiError, ApiUnreachableError } from './errors.js'
+import { ApiError } from './errors.js'
+import { httpClient } from './http.js'
 
 /**
  * `EntryRepository` over HTTP — the renderer's side of the port.
@@ -21,35 +22,28 @@ export interface HttpEntryRepositoryDeps {
 
 export const httpEntryRepository = ({
   config,
-  fetch: doFetch = globalThis.fetch.bind(globalThis),
+  fetch,
 }: HttpEntryRepositoryDeps): EntryRepository => {
+  const send = httpClient({ config, ...(fetch ? { fetch } : {}) })
+
+  /**
+   * O 501 é o servidor dizendo "isso é Fase 2", e o domínio já tem nome para
+   * isso. Traduzir de volta mantém um vocabulário só do outro lado da fita,
+   * em vez de obrigar cada chamador a aprender HTTP.
+   *
+   * A tradução ficou aqui quando o resto da chamada subiu para `http.ts`: ela
+   * é a única parte que conhece o domínio das entries, e levá-la junto faria
+   * o cliente compartilhado conhecer dois domínios.
+   */
   const request = async (path: string, init: RequestInit = {}): Promise<unknown> => {
-    let response: Response
     try {
-      response = await doFetch(`${config.baseUrl}${path}`, {
-        ...init,
-        headers: {
-          'content-type': 'application/json',
-          ...(config.token ? { authorization: `Bearer ${config.token}` } : {}),
-          ...init.headers,
-        },
-      })
-    } catch (cause) {
-      // A rejected fetch is the network, not the server: no status to report.
-      throw new ApiUnreachableError(cause)
+      return await send(path, init)
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 501) {
+        throw new NotImplementedError(error.message)
+      }
+      throw error
     }
-
-    const payload: unknown = response.status === 204 ? undefined : await response.json()
-
-    if (!response.ok) {
-      // 501 is the server saying "this is Fase 2", and the domain already has a
-      // name for that. Translating it back keeps one vocabulary across the wire
-      // instead of making every caller learn HTTP.
-      if (response.status === 501) throw new NotImplementedError(describe(payload))
-      throw new ApiError(response.status, describe(payload), payload)
-    }
-
-    return payload
   }
 
   return {
@@ -84,18 +78,4 @@ export const httpEntryRepository = ({
       throw new NotImplementedError('getById')
     },
   }
-}
-
-/** Pull a human message out of whatever the API sent back. */
-function describe(payload: unknown): string {
-  if (typeof payload === 'object' && payload !== null) {
-    const body = payload as { error?: unknown; errors?: { field?: string; message?: string }[] }
-    if (typeof body.error === 'string') return body.error
-    if (Array.isArray(body.errors)) {
-      return body.errors
-        .map((error) => [error.field, error.message].filter(Boolean).join(' '))
-        .join('; ')
-    }
-  }
-  return 'a API recusou a requisição'
 }
