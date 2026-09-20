@@ -56,12 +56,29 @@ function importsOf(code: string): string[] {
  * Um driver **é** o lugar onde um protocolo pode ser nomeado — é literalmente o
  * trabalho dele. A regra é sobre o que fica de fora deles.
  */
-const MODEL = FILES.filter(
-  (file) => !file.path.endsWith('.test.ts') && !file.path.includes('/'),
-)
-
 /** Os protocolos que existem ou podem existir — o nome de uma pasta de driver. */
 const PROTOCOLS = ['http', 'grpc', 'amqp', 'graphql', 'websocket']
+
+/**
+ * O modelo: tudo que não é driver nem teste — **em qualquer profundidade**.
+ *
+ * A versão anterior dizia isso na prosa e checava `!path.includes('/')`, ou
+ * seja, só a raiz de `src/`. Um `storage/repository.ts` importando o driver
+ * passava com a suíte inteira verde, e o gate provou isso contra a árvore de
+ * verdade. Não era hipótese: o roadmap põe o `RequestRepository` neste pacote
+ * na próxima feature, e ele é exatamente a primeira subpasta que não é driver.
+ *
+ * A camada é dita pelo primeiro segmento, com a lista de protocolos que já
+ * existe — nenhum conceito novo.
+ */
+const isModel = (path: string): boolean => {
+  if (path.endsWith('.test.ts')) return false
+  const first = path.includes('/') ? path.slice(0, path.indexOf('/')) : ''
+  return !PROTOCOLS.includes(first)
+}
+
+const MODEL = FILES.filter((file) => isModel(file.path))
+
 
 /**
  * Um import de driver, nas quatro grafias que alcançam o mesmo arquivo.
@@ -168,5 +185,26 @@ describe('a metade pura não executa nada', () => {
       .map((file) => file.path)
 
     expect(found).toEqual([])
+  })
+})
+
+describe('C5: a regra vale pela camada, não pelo lugar onde o arquivo calhou de ficar', () => {
+  it('reconhece como modelo um arquivo em subpasta que não é de driver', () => {
+    // A regra olhava só a raiz de `src/`, então um `storage/repository.ts`
+    // importando o driver passava com a suíte inteira verde — provado pelo
+    // gate contra a árvore de verdade. E `storage/` não é hipótese: o roadmap
+    // põe o `RequestRepository` neste pacote na próxima feature, e ele é
+    // exatamente a primeira subpasta que não é driver.
+    expect(isModel('resolve.ts')).toBe(true)
+    expect(isModel('storage/repository.ts')).toBe(true)
+    expect(isModel('interpolate.ts')).toBe(true)
+
+    // Um driver é o único lugar onde nomear um protocolo é o trabalho.
+    expect(isModel('http/from-raw.ts')).toBe(false)
+    expect(isModel('grpc/index.ts')).toBe(false)
+
+    // Teste não é modelo: ele exercita o driver de propósito.
+    expect(isModel('registry.test.ts')).toBe(false)
+    expect(isModel('storage/repository.test.ts')).toBe(false)
   })
 })

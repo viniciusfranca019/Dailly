@@ -65,8 +65,14 @@ export const httpDriver = {
     // credencial já passou pela interpolação. Ela entra no fim da lista: a
     // ordem relativa a um header explícito não é observável na fita, e um
     // lugar fixo é o que torna o resultado determinístico.
+    // O `-u` só vira header quando o comando não trouxe um `Authorization`
+    // explícito. Verificado contra curl de verdade: com os dois juntos, só o
+    // `-H` vai para a fita — e mandar os dois produz uma requisição que
+    // nenhum servidor interpreta como a pessoa espera. O nome é comparado sem
+    // caixa porque header não distingue maiúscula.
     headers:
-      spec.auth === null
+      spec.auth === null ||
+      spec.headers.some((header) => header.name.toLowerCase() === 'authorization')
         ? spec.headers
         : [
             ...spec.headers,

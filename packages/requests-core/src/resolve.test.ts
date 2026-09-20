@@ -156,3 +156,43 @@ describe('C4: um spec inválido falha com classe própria, não com Error solto'
     expect(() => resolve(registry(), invalid, { host: 'x', token: 't' })).toThrow(InvalidSpecError)
   })
 })
+
+describe('C4: a recusa diz o que de fato aconteceu', () => {
+  it('não acusa de ausente uma variável que está no ambiente', () => {
+    // `{{base}}` = `https://{{host}}` e `host` definido: a antiga mensagem
+    // dizia "a variável host não tem valor no ambiente". A pessoa vai
+    // acrescentar `host`, já está lá, e não sobra nada para tentar.
+    const boom = () =>
+      resolve(registry(), spec({ url: '{{base}}/a' }), {
+        base: 'https://{{host}}',
+        host: 'x.dev',
+        token: 't',
+      })
+
+    expect(boom).toThrow(UnresolvedVariableError)
+    expect(boom).not.toThrow(/não tem valor no ambiente/)
+    expect(boom).toThrow(/não resolve outra/)
+  })
+
+  it('separa as duas causas quando as duas acontecem', () => {
+    let caught: UnresolvedVariableError | undefined
+    try {
+      resolve(registry(), spec({ url: '{{base}}/{{sumida}}' }), {
+        base: 'https://{{host}}',
+        host: 'x.dev',
+        token: 't',
+      })
+    } catch (error) {
+      caught = error as UnresolvedVariableError
+    }
+
+    expect(caught?.missing).toEqual(['sumida'])
+    expect(caught?.surviving).toEqual(['host'])
+  })
+
+  it('a ausência simples continua dizendo o que sempre disse', () => {
+    expect(() => resolve(registry(), spec(), { host: 'x.dev' })).toThrow(
+      /token não tem valor no ambiente/,
+    )
+  })
+})
