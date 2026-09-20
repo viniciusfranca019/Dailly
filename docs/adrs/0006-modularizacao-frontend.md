@@ -312,13 +312,28 @@ importa de `modules/`, e a regra vale para a árvore inteira.
 **O que essa mudança não conserta, dito aqui porque o próximo leitor não deve
 supor que consertou.**
 
-O `ServerModuleDeps` continua sendo um struct fechado que nomeia `entries`.
-Trazer o Requests ainda vai exigir editar este arquivo para acrescentar um
-campo — o tell da Lei 4, intacto. A saída conhecida é um `provide(db, zone)`
-opcional no `ServerModule`, chamado pelo composition root e fundido ao saco; ela
-é compatível com os testes congelados, e não foi construída porque hoje teria um
-chamador só (Lei 3). O segundo chamador é o próprio Requests, e é ele que paga a
-abstração.
+**A terceira divergência em relação ao gêmeo, e a única que não é deliberada —
+é adiada.** O `ModuleDescriptor` da `ui/` é genérico (`ModuleDescriptor<TModule>`):
+ele não conhece tipo de produto nenhum. O `ServerModuleDeps` nomeia `entries:
+EntryRepository`, que é tipo de produto. O contrato do shell, aqui, ganha um
+campo por módulo.
+
+O custo é o tell da Lei 4: trazer o Requests obriga a editar este arquivo, que
+já funciona. E o acoplamento tem um lugar exato — `createServer` constrói o
+`sqliteEntryRepository` incondicionalmente, fora do laço do manifest, então o
+parâmetro `modules` **não determina sozinho a composição**: ele pressupõe que o
+manifest traga o módulo entries. Violada a pressuposição, quem reclama é o
+SQLite (`no such table: entries`), não o contrato.
+
+A saída é conhecida, não é pesquisa: um `provide(db, zone)` opcional no
+`ServerModule`, chamado pelo composition root e fundido ao saco — verificado
+como compatível com os testes que o C2 congelou. Ela não foi construída porque
+hoje teria **um chamador só**, que é exatamente a abstração que a Lei 3 proíbe.
+Adiar aqui não é adiar o pensamento: a forma já está escrita.
+
+**Gatilho para graduar**, no mesmo idioma que esta ADR usa para o workspace: o
+módulo Requests da [ADR 0011](0011-requests-modulo-e-execucao.md) é o segundo
+chamador, e é ele que paga a abstração. Construir lá, não antes.
 
 **E a propriedade nova, que a `ui/` não tem.** O adapter da `ui/` implementa um
 port de domínio sobre um *transporte*; ele não conhece o interior de módulo
