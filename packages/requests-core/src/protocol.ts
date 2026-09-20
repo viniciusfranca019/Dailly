@@ -49,10 +49,23 @@ export interface Imported<T> {
  * repositório já usa para o mesmo problema: um ponto de extensão onde
  * acrescentar um caso é um arquivo novo, não uma edição no núcleo.
  */
-export interface ProtocolDriver<T> {
+/** O mínimo que toda requisição na fita tem: de qual protocolo ela é. */
+export interface WireRequest {
+  readonly protocol: string
+}
+
+export interface ProtocolDriver<T, W extends WireRequest = WireRequest> {
   readonly protocol: string
   /** Estreita `unknown` para o schema deste protocolo, ou diz o que está errado. */
   validate(spec: unknown): { spec: T } | { errors: Invalid[] }
+  /**
+   * A requisição literal que sairia deste spec — o preview.
+   *
+   * Recebe o spec **já interpolado**: trocar `{{variável}}` por valor é
+   * genérico e mora no `resolve`, porque senão cada driver novo reimplementaria
+   * a mesma substituição, cada um com um bug diferente.
+   */
+  toWire(spec: T): W
   /**
    * A forma crua deste protocolo — `curl` no HTTP. Opcional: nem todo
    * protocolo tem texto que alguém cola.
