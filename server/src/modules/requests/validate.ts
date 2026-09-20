@@ -30,7 +30,15 @@ export function validateSavedRequest(
   if (!text(payload['id'])) errors.push({ field: 'id', message: 'é obrigatório' })
   if (!text(payload['name'])) errors.push({ field: 'name', message: 'é obrigatório' })
   if (!text(payload['protocol'])) errors.push({ field: 'protocol', message: 'é obrigatório' })
-  if (payload['spec'] === undefined) errors.push({ field: 'spec', message: 'é obrigatório' })
+  // **Objeto, não só "presente".** Aceitar `null` deixava uma request salva
+  // com spec nulo indistinguível, na listagem, de uma cujo JSON está
+  // corrompido — e as duas aparecem como `null` lá. Exigir objeto faz o `null`
+  // da listagem significar exatamente uma coisa. O limite, dito: um protocolo
+  // cujo spec fosse um escalar não caberia; nenhum é, e o envelope já pressupõe
+  // um schema por protocolo.
+  if (!isRecord(payload['spec'])) {
+    errors.push({ field: 'spec', message: 'deve ser um objeto' })
+  }
   if (payload['folderId'] !== null && typeof payload['folderId'] !== 'string') {
     errors.push({ field: 'folderId', message: 'deve ser um id ou nulo' })
   }

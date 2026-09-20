@@ -582,3 +582,18 @@ describe('C2: falhar no meio do corpo também é falha do alvo', () => {
     }
   })
 })
+
+describe('C4: o null da listagem significa exatamente uma coisa', () => {
+  it('recusa salvar uma request com spec nulo', async () => {
+    // Sem isto, uma request legitimamente nula e uma corrompida ficavam
+    // indistinguíveis na listagem — as duas como `null`.
+    const response = await appWith().inject({
+      method: 'POST',
+      url: '/requests',
+      payload: { ...saved(), spec: null } as unknown as Record<string, unknown>,
+    })
+
+    expect(response.statusCode).toBe(400)
+    expect(response.json().errors).toContainEqual({ field: 'spec', message: 'deve ser um objeto' })
+  })
+})
