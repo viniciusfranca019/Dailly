@@ -75,17 +75,30 @@ async function inflate(
   // `Blob` existe em toda parte, `Blob.prototype.stream` não — o jsdom que
   // roda estes testes não o tem. Depender dele faria o caminho mais importante
   // deste arquivo ser o único impossível de testar.
-  let stream: ReadableStream<Uint8Array> = new ReadableStream<Uint8Array>({
+  //
+  // O tipo é `BufferSource` e não `Uint8Array` porque é assim que a lib DOM
+  // declara o lado de escrita do `DecompressionStream`; encadear com o tipo
+  // estreito só passaria com um cast, e um cast aqui esconderia o dia em que
+  // a forma de verdade mudar.
+  let source: ReadableStream<BufferSource> = new ReadableStream<BufferSource>({
     start(controller) {
-      controller.enqueue(bytes)
+      // `new Uint8Array(bytes)` e não `bytes`: a cópia troca o buffer por um
+      // `ArrayBuffer` concreto, que é o que `BufferSource` exige. Um cast aqui
+      // passaria igual e esconderia o dia em que a forma mudar.
+      controller.enqueue(new Uint8Array(bytes))
       controller.close()
     },
   })
+  let inflated: ReadableStream<Uint8Array> | null = null
   for (const format of [...formats].reverse()) {
-    stream = stream.pipeThrough(new DecompressionStream(format))
+    const piped = source.pipeThrough(new DecompressionStream(format))
+    source = piped
+    inflated = piped
   }
+  // Só chega aqui com pelo menos um formato; sem nenhum não há o que expandir.
+  if (inflated === null) return { chunks: [bytes], truncated: false }
 
-  const reader = stream.getReader()
+  const reader = inflated.getReader()
   const chunks: Uint8Array[] = []
   let total = 0
 
@@ -95,7 +108,10 @@ async function inflate(
       if (done) return { chunks, truncated: false }
 
       const room = limit - total
-      if (value.byteLength >= room) {
+      // `>` e não `>=`: um corpo que cabe **exatamente** no teto está inteiro,
+      // e marcá-lo truncado é a marca mentindo. O mesmo `>=` já fez isso uma
+      // vez do lado do servidor.
+      if (value.byteLength > room) {
         chunks.push(value.subarray(0, room))
         await reader.cancel()
         return { chunks, truncated: true }

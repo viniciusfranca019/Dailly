@@ -2,6 +2,7 @@ import { createEntry, queryEntries, systemClock, uuidIds } from '@dailly/domain'
 import { UTC } from '@dailly/periods'
 import { resolveApiConfig } from '../adapters/api.js'
 import { httpEntryRepository } from '../adapters/http-entry-repository.js'
+import { httpRequestsClient } from '../adapters/http-requests-client.js'
 import { mountShell } from './mount.js'
 import { MODULES } from './modules.js'
 import './styles.css'
@@ -41,6 +42,7 @@ async function boot(): Promise<void> {
       queryEntries: queryEntries({ entries }),
       zone,
       now: systemClock.now,
+      requests: httpRequestsClient({ config }),
     },
   })
 }

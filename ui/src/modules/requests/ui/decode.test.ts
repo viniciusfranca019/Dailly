@@ -6,10 +6,10 @@ import { decodeBody } from './decode.js'
 const base64 = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes))
 
 /** O jsdom não tem `Blob.prototype.stream`, então a fonte é um stream à mão. */
-const streamOf = (bytes: Uint8Array): ReadableStream<Uint8Array> =>
-  new ReadableStream<Uint8Array>({
+const streamOf = (bytes: Uint8Array): ReadableStream<BufferSource> =>
+  new ReadableStream<BufferSource>({
     start(controller) {
-      controller.enqueue(bytes)
+      controller.enqueue(new Uint8Array(bytes))
       controller.close()
     },
   })
@@ -166,5 +166,22 @@ describe('C9: a codificação que não sei abrir é dita, não fingida', () => {
     expect(decoded.truncated).toBe(true)
     expect(decoded.text.length).toBeLessThanOrEqual(1024)
     expect(decoded.text.startsWith('aaaa')).toBe(true)
+  })
+
+  it('um corpo que cabe exatamente no teto não é marcado truncado', async () => {
+    // A marca é o que a pessoa lê para saber se falta alguma coisa. Um `>=` no
+    // lugar do `>` a faz mentir no caso da borda — e foi exatamente isso que
+    // aconteceu uma vez do lado do servidor.
+    const bytes = await compress('a'.repeat(1024), 'gzip')
+    const decoded = await decodeBody(
+      response({
+        encoding: 'base64',
+        body: base64(bytes),
+        headers: [{ name: 'content-encoding', value: 'gzip' }],
+      }),
+      1024,
+    )
+
+    expect(decoded).toEqual({ kind: 'text', text: 'a'.repeat(1024), truncated: false })
   })
 })
