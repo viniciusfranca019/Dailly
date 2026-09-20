@@ -16,3 +16,6 @@ dist/
 
 # worktrees
 WIP/
+
+# a fixture do C1 é um banco de verdade, versionado de propósito
+!server/src/__fixtures__/*.sqlite
