@@ -2,7 +2,7 @@ import { entryRepositoryContract } from '@dailly/domain/testing'
 import { NotImplementedError } from '@dailly/domain'
 import { UTC } from '@dailly/periods'
 import { describe, expect, it } from 'vitest'
-import { openDatabase } from './database.js'
+import { openDatabase } from '../../shell/database.js'
 import { sqliteEntryRepository } from './sqlite-entry-repository.js'
 
 const make = (zone = UTC) => sqliteEntryRepository({ db: openDatabase(':memory:'), zone })

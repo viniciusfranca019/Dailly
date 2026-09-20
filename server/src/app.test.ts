@@ -1,7 +1,7 @@
 import { NotImplementedError, inMemoryEntryRepository, uuidIds } from '@dailly/domain'
 import { UTC } from '@dailly/periods'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { buildApp } from './app.js'
+import { buildApp } from './shell/app.js'
 
 const anEntry = (over: Partial<Record<string, unknown>> = {}) => {
   const at = '2026-07-24T10:00:00.000Z'

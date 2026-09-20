@@ -1,53 +1,82 @@
-import { sqliteEntryRepository } from './sqlite-entry-repository.js'
-import { openDatabase } from './database.js'
-import { buildApp } from './app.js'
-import { resolveConfig, type ConfigInput, type ServerConfig } from './config.js'
+import { sqliteEntryRepository } from './modules/entries/index.js'
+import { MODULES } from './modules.js'
+import { buildApp } from './shell/app.js'
+import { resolveConfig, type ConfigInput, type ServerConfig } from './shell/config.js'
+import { openDatabase } from './shell/database.js'
+import { collectMigrations } from './shell/migrations.js'
+import { assertManifest, type ServerModule } from './shell/module.js'
 
-export { resolveConfig, InvalidTimeZoneError } from './config.js'
-export type { ServerConfig, ConfigInput } from './config.js'
-export { buildApp } from './app.js'
-export { openDatabase } from './database.js'
-export { sqliteEntryRepository } from './sqlite-entry-repository.js'
-export { MIGRATIONS, LATEST_VERSION, migrate, DatabaseTooNewError } from './migrations.js'
+export { resolveConfig, InvalidTimeZoneError } from './shell/config.js'
+export type { ServerConfig, ConfigInput } from './shell/config.js'
+export { buildApp } from './shell/app.js'
+export { openDatabase } from './shell/database.js'
+export { sqliteEntryRepository } from './modules/entries/index.js'
+export {
+  MIGRATIONS,
+  LATEST_VERSION,
+  migrate,
+  collectMigrations,
+  DatabaseTooNewError,
+} from './shell/migrations.js'
+export { ManifestError, assertManifest } from './shell/module.js'
+export type { ServerModule, ServerModuleDeps } from './shell/module.js'
+export type { Migration } from './shell/migrations.js'
+export { MODULES } from './modules.js'
 
 export interface RunningServer {
-  /** Where the renderer should point, with the port the OS actually gave us. */
+  /** Para onde o renderer deve apontar, com a porta que o SO realmente deu. */
   readonly url: string
   readonly config: ServerConfig
   close(): Promise<void>
 }
 
 /**
- * Boot the whole server: database, migrations, store, routes, socket.
+ * Sobe o servidor inteiro: banco, migrations, store, rotas, socket.
  *
- * This is the composition root of the server process. It is the only function
- * the Electron shell needs, and — the point of ADR 0009's rule — it runs
- * perfectly well without Electron, which `boots-without-electron.test.ts`
- * proves on every `make check`. While that test can be written, the separation
- * is a fact; the day it cannot, HTTP has stopped paying for itself.
+ * Este é o composition root do processo. É a única função de que o shell
+ * Electron precisa e — o ponto da regra da ADR 0009 — ela roda perfeitamente
+ * sem Electron, o que o `boots-without-electron.test.ts` prova a cada
+ * `make check`. Enquanto esse teste puder ser escrito, a separação é um fato;
+ * no dia em que não puder, o HTTP deixou de se pagar.
+ *
+ * **A ordem aqui não é arbitrária.** O manifest é validado e as migrations são
+ * coletadas *antes* de o arquivo ser aberto: um manifest inconsistente derruba
+ * o boot sem ter escrito nada. Um boot que falha depois de aplicar metade do
+ * schema é pior que um que não sobe.
  */
-export async function createServer(input: ConfigInput): Promise<RunningServer> {
+export async function createServer(
+  input: ConfigInput,
+  modules: readonly ServerModule[] = MODULES,
+): Promise<RunningServer> {
   const config = resolveConfig(input)
-  const db = openDatabase(config.databaseFile)
+
+  assertManifest(modules)
+  const migrations = collectMigrations(modules)
+
+  const db = openDatabase(config.databaseFile, migrations)
   const entries = sqliteEntryRepository({ db, zone: config.zone })
 
-  const app = buildApp({
-    entries,
-    zone: config.zone,
-    ...(config.token ? { token: config.token } : {}),
-  })
+  const app = buildApp(
+    {
+      entries,
+      zone: config.zone,
+      ...(config.token ? { token: config.token } : {}),
+    },
+    modules,
+  )
 
   await app.listen({ host: config.host, port: config.port })
 
   const address = app.server.address()
   if (address === null || typeof address === 'string') {
     await app.close()
+    db.close()
     throw new Error('o servidor subiu sem um endereço TCP')
   }
 
   return {
-    // The port is read back rather than assumed: config asks for 0, and only
-    // the OS knows which one it handed over.
+    // A porta é lida de volta em vez de assumida: a config pede 0, e só o SO
+    // sabe qual ele entregou.
     url: `http://${config.host}:${address.port}`,
     config,
     close: async () => {
