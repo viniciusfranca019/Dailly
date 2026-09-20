@@ -20,7 +20,9 @@ const isHeader = (value: unknown): boolean =>
   isRecord(value) && typeof value['name'] === 'string' && typeof value['value'] === 'string'
 
 const isAuth = (value: unknown): boolean =>
-  isRecord(value) && typeof value['user'] === 'string' && typeof value['password'] === 'string'
+  isRecord(value) &&
+  typeof value['user'] === 'string' &&
+  (value['password'] === null || typeof value['password'] === 'string')
 
 export const httpDriver = {
   protocol: 'http',
@@ -70,7 +72,13 @@ export const httpDriver = {
             ...spec.headers,
             {
               name: 'Authorization',
-              value: `Basic ${toBase64(`${spec.auth.user}:${spec.auth.password}`)}`,
+              // Sem senha separada, a credencial inteira já é o par — foi o
+              // que atravessou a interpolação sem ser cortada.
+              value: `Basic ${toBase64(
+                spec.auth.password === null
+                  ? spec.auth.user
+                  : `${spec.auth.user}:${spec.auth.password}`,
+              )}`,
             },
           ],
     body: spec.body,

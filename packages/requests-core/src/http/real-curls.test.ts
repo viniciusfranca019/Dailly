@@ -79,3 +79,47 @@ describe('C2: um curl sem URL é recusado, não devolvido oco', () => {
     expect(() => importing('curl -X POST -d oi')).toThrow(/URL/)
   })
 })
+
+describe('C1: --data-urlencode segue a regra do curl, não a minha', () => {
+  it('o primeiro = vence; o @ só é arquivo quando nenhum = vem antes', () => {
+    // Verificado contra curl de verdade: `--data-urlencode 'email=a@b.com'`
+    // manda `email=a%40b.com`. Tratar qualquer `@` como arquivo descartava o
+    // corpo de um comando perfeitamente legítimo.
+    const { spec, ignored } = importing(`curl https://x.dev/a --data-urlencode 'email=a@b.com'`)
+
+    expect(spec.body).toBe('email=a%40b.com')
+    expect(spec.method).toBe('POST')
+    expect(ignored).toEqual([])
+  })
+
+  it('sem = antes, o @ é a forma de arquivo e é relatada', () => {
+    const { spec, ignored } = importing(`curl https://x.dev/a --data-urlencode '@corpo.json'`)
+
+    expect(spec.body).toBeNull()
+    expect(ignored).toEqual(['--data-urlencode @corpo.json'])
+  })
+})
+
+describe('C6: a forma de arquivo do corpo é relatada, não mandada literal', () => {
+  it('relata -d @arquivo em vez de enviar o texto "@arquivo"', () => {
+    // O curl lê o arquivo; deste lado da fronteira não há arquivo nenhum.
+    // Mandar `@corpo.json` como corpo é a única saída que nem funciona nem
+    // avisa — e o pacote já relata o equivalente no `--data-urlencode @…` e no
+    // `-b cookies.txt`. Era a mesma decisão faltando num ramo só.
+    const { spec, ignored } = importing('curl https://x.dev/a -d @corpo.json')
+
+    expect(spec.body).toBeNull()
+    expect(ignored).toEqual(['-d @corpo.json'])
+  })
+
+  it('--data-raw manda o @ literal, porque é isso que ele existe para fazer', () => {
+    // A diferença é a razão de ser do `--data-raw`: ele é o `-d` que **não**
+    // interpreta `@`. Relatá-lo aqui inverteria a semântica dele.
+    expect(importing('curl https://x.dev/a --data-raw @literal').spec.body).toBe('@literal')
+  })
+
+  it('o @ no meio do valor não é forma de arquivo', () => {
+    // Só o `@` inicial marca arquivo: `-d 'email=a@b.com'` é corpo comum.
+    expect(importing(`curl https://x.dev/a -d 'email=a@b.com'`).spec.body).toBe('email=a@b.com')
+  })
+})

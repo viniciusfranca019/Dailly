@@ -1,4 +1,5 @@
 import type { Imported } from '../protocol.js'
+import { hasPlaceholder, indexOutsidePlaceholder } from './placeholders.js'
 import type { HttpAuth, HttpHeader, HttpSpec } from './spec.js'
 import { tokenize } from './tokenize.js'
 
@@ -27,8 +28,17 @@ export class AmbiguousUrlError extends Error {
   }
 }
 
-/** Corpo cru, nas três grafias que o curl aceita e que significam o mesmo aqui. */
-const BODY_FLAGS = new Set(['-d', '--data', '--data-raw', '--data-binary', '--data-ascii'])
+/**
+ * Corpo cru, e a diferença entre as grafias que importa.
+ *
+ * `-d`, `--data`, `--data-ascii` e `--data-binary` **leem arquivo** quando o
+ * valor começa com `@`; `--data-raw` existe justamente para não ler. Deste
+ * lado da fronteira não há arquivo nenhum, então a forma de arquivo é relatada
+ * — mandar `@corpo.json` como texto é a única saída que nem funciona nem
+ * avisa, e o pacote já relata o equivalente no `--data-urlencode` e no `-b`.
+ */
+const BODY_FLAGS = new Set(['-d', '--data', '--data-binary', '--data-ascii', '--data-raw'])
+const BODY_FLAGS_READING_FILES = new Set(['-d', '--data', '--data-binary', '--data-ascii'])
 
 /**
  * Opções que **consomem o próximo token** e que este importador não aplica.
@@ -67,16 +77,25 @@ const IGNORED_WITH_VALUE = new Set([
 ])
 
 /**
- * A codificação do `--data-urlencode`, nas formas que não tocam em arquivo.
+ * A codificação do `--data-urlencode`, seguindo a regra do curl e não a minha.
  *
- * `conteudo`, `=conteudo` e `nome=conteudo` — em todas, o que é codificado é o
- * conteúdo, nunca o nome. As formas com `@` leem arquivo, e arquivo não existe
- * neste lado: elas são relatadas.
+ * **O primeiro `=` vence, e o `@` só é a forma de arquivo quando nenhum `=`
+ * vem antes dele.** Verificado contra curl de verdade: `email=a@b.com` manda
+ * `email=a%40b.com`. Tratar qualquer `@` como arquivo descartava o corpo de um
+ * comando perfeitamente legítimo.
+ *
+ * `null` significa "não dá para aplicar", e quem chama relata — arquivo não
+ * existe deste lado da fronteira, e chave dentro do valor não pode ser
+ * codificada sem sumir com a chave.
  */
 function urlEncoded(argument: string): string | null {
-  if (argument.includes('@')) return null
+  // Codificar uma chave a transformaria em `%7B%7Bterm%7D%7D`, e aí nem o
+  // `resolve` nem a varredura de sobreviventes a reconheceriam.
+  if (hasPlaceholder(argument)) return null
+
   const at = argument.indexOf('=')
-  if (at < 0) return encodeURIComponent(argument)
+  if (at < 0) return argument.includes('@') ? null : encodeURIComponent(argument)
+
   const name = argument.slice(0, at)
   const content = encodeURIComponent(argument.slice(at + 1))
   return name === '' ? content : `${name}=${content}`
@@ -112,10 +131,16 @@ export function fromRaw(raw: string): Imported<HttpSpec> {
     }
 
     if (BODY_FLAGS.has(token)) {
+      const argument = nextOf(++i)
+      // Só o `@` inicial marca arquivo: `-d 'email=a@b.com'` é corpo comum.
+      if (BODY_FLAGS_READING_FILES.has(token) && argument.startsWith('@')) {
+        ignored.push(`${token} ${argument}`)
+        continue
+      }
       // Repetido, o curl junta com `&` — `-d a=1 -d b=2` manda `a=1&b=2`.
       // Ficar com o último perderia metade do corpo em silêncio, e o C1 já
       // decidiu, para o `-H`, que repetição é legítima e se preserva.
-      data.push(nextOf(++i))
+      data.push(argument)
       continue
     }
 
@@ -143,18 +168,22 @@ export function fromRaw(raw: string): Imported<HttpSpec> {
       // lado. A ADR 0011 apoia a decisão inteira de executar no servidor em
       // `Cookie` ser metade do uso real — recusar a flag que o carrega seria
       // irônico.
-      if (argument.includes('=')) headers.push({ name: 'Cookie', value: argument })
+      if (indexOutsidePlaceholder(argument, '=') >= 0) {
+        headers.push({ name: 'Cookie', value: argument })
+      }
       else ignored.push(`${token} ${argument}`.trimEnd())
       continue
     }
 
     if (token === '-u' || token === '--user') {
       const credential = nextOf(++i)
-      const at = credential.indexOf(':')
-      // Só o primeiro dois-pontos separa: `-u u:a:b` é senha `a:b`.
+      // Só o primeiro dois-pontos separa (`-u u:a:b` é senha `a:b`), e só um
+      // que esteja **fora** de uma chave: em `-u '{{cred}}'` não há corte a
+      // fazer, e inventá-lo mandaria `u:p:` para a fita.
+      const at = indexOutsidePlaceholder(credential, ':')
       auth =
         at < 0
-          ? { user: credential, password: '' }
+          ? { user: credential, password: null }
           : { user: credential.slice(0, at), password: credential.slice(at + 1) }
       continue
     }
