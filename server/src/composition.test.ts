@@ -1,6 +1,12 @@
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { inMemoryEntryRepository } from '@dailly/domain'
 import { UTC } from '@dailly/periods'
-import { describe, expect, it } from 'vitest'
+import Database from 'better-sqlite3'
+import { afterEach, describe, expect, it } from 'vitest'
+import { createServer, type RunningServer } from './index.js'
+import { entriesModule } from './modules/entries/index.js'
 import { buildApp } from './shell/app.js'
 import { ManifestError, assertManifest, type ServerModule } from './shell/module.js'
 
@@ -60,5 +66,56 @@ describe('C3: um módulo entra pelo manifest, não por import no shell', () => {
 
   it('recusa um manifest vazio — um build sem módulo nenhum é um erro de composição', () => {
     expect(() => assertManifest([])).toThrow(ManifestError)
+  })
+})
+
+describe('C3: a migration do módulo é a que roda de verdade', () => {
+  /**
+   * O terceiro membro do contrato, que os outros testes não exercitavam.
+   *
+   * `register()` tinha prova e `id` tinha prova; `migrations` não. O fake do
+   * bloco acima declara `migrations: []`, então o caminho que leva a fatia de
+   * um módulo até o arquivo passava por baixo de toda a suíte — e passava
+   * mesmo com `openDatabase` e `migrate` ignorando a lista recebida.
+   *
+   * O defeito aqui é ausência de guarda, não comportamento errado: o teste
+   * nasce verde contra a árvore limpa. O que ele prova é a regressão, e ela
+   * foi verificada aplicando a mutação de verdade — `openDatabase` chamado sem
+   * a lista no composition root derruba este teste, e só este.
+   */
+  let server: RunningServer | undefined
+  let dir: string | undefined
+
+  afterEach(async () => {
+    await server?.close()
+    server = undefined
+    if (dir) await rm(dir, { recursive: true, force: true })
+    dir = undefined
+  })
+
+  it('cria no arquivo a tabela que o módulo declarou, e para na versão dele', async () => {
+    dir = await mkdtemp(join(tmpdir(), 'dailly-c3-'))
+    const file = join(dir, 'dailly.sqlite')
+
+    server = await createServer({ databaseFile: file }, [
+      // O módulo de verdade entra junto: o composition root constrói o
+      // repositório SQLite, que precisa da tabela `entries` da migration 1.
+      entriesModule,
+      fakeModule({
+        id: 'com-schema',
+        migrations: [{ version: 2, up: 'CREATE TABLE extra (id TEXT PRIMARY KEY);' }],
+      }),
+    ])
+    await server.close()
+    server = undefined
+
+    const db = new Database(file, { readonly: true })
+    const tables = (
+      db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as { name: string }[]
+    ).map((row) => row.name)
+
+    expect(tables).toContain('extra')
+    expect(db.pragma('user_version', { simple: true })).toBe(2)
+    db.close()
   })
 })
