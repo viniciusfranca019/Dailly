@@ -1,7 +1,7 @@
 import type { Invalid, ProtocolDriver } from '../protocol.js'
 import { toBase64 } from './base64.js'
 import { fromRaw } from './from-raw.js'
-import type { HttpSpec } from './spec.js'
+import type { HttpAuth, HttpSpec } from './spec.js'
 import type { HttpWire } from './wire.js'
 
 /**
@@ -18,6 +18,24 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const isHeader = (value: unknown): boolean =>
   isRecord(value) && typeof value['name'] === 'string' && typeof value['value'] === 'string'
+
+/**
+ * A credencial do `Basic`, montada segundo a regra do curl — aplicada ao valor
+ * **resolvido**, não ao texto colado.
+ *
+ * Sem senha separada (`password: null`) o importador não achou dois-pontos
+ * fora de uma chave, então quem decide é o texto que sobrou depois da
+ * interpolação: se ele já traz o `:`, é o par completo; se não, falta o
+ * separador. A RFC 7617 define a credencial como `usuário ":" senha`, e curl
+ * de verdade manda `Basic dXNlcjo=` para `-u user` — base64 de `user:`. Sem o
+ * dois-pontos, middleware comum não tem o que separar e responde 401: o curl
+ * que autentica no terminal falharia no app, e a razão ficaria invisível
+ * porque está codificada.
+ */
+const basicCredential = (auth: HttpAuth): string => {
+  if (auth.password !== null) return `${auth.user}:${auth.password}`
+  return auth.user.includes(':') ? auth.user : `${auth.user}:`
+}
 
 const isAuth = (value: unknown): boolean =>
   isRecord(value) &&
@@ -78,13 +96,7 @@ export const httpDriver = {
             ...spec.headers,
             {
               name: 'Authorization',
-              // Sem senha separada, a credencial inteira já é o par — foi o
-              // que atravessou a interpolação sem ser cortada.
-              value: `Basic ${toBase64(
-                spec.auth.password === null
-                  ? spec.auth.user
-                  : `${spec.auth.user}:${spec.auth.password}`,
-              )}`,
+              value: `Basic ${toBase64(basicCredential(spec.auth))}`,
             },
           ],
     body: spec.body,
