@@ -123,3 +123,52 @@ describe('C6: a forma de arquivo do corpo é relatada, não mandada literal', ()
     expect(importing(`curl https://x.dev/a -d 'email=a@b.com'`).spec.body).toBe('email=a@b.com')
   })
 })
+
+describe('C1: o -G não é uma flag a ignorar, é o que decide método e destino', () => {
+  it('manda os dados para a query e mantém GET, como o curl faz', () => {
+    // A documentação da Stripe é escrita assim. Ignorar o `-G` e relatar
+    // deixava de pé um POST para `/v1/charges` com `limit=3` — ou seja, o
+    // preview mostrava uma **criação de cobrança** onde a pessoa colou uma
+    // leitura. Não é o caso do C6: `--compressed` ignorado é a mesma
+    // requisição sem um recurso; `-G` ignorado é outra requisição.
+    const { spec, ignored } = importing('curl -G -d limit=3 -d x=1 https://api.stripe.com/v1/charges')
+
+    expect(spec.method).toBe('GET')
+    expect(spec.url).toBe('https://api.stripe.com/v1/charges?limit=3&x=1')
+    expect(spec.body).toBeNull()
+    expect(ignored).toEqual([])
+  })
+
+  it('junta com & quando a URL já tem query', () => {
+    const { spec } = importing(`curl -G --data-urlencode 'q=a b' 'https://x.dev/a?j=1'`)
+
+    expect(spec.url).toBe('https://x.dev/a?j=1&q=a%20b')
+    expect(spec.body).toBeNull()
+  })
+
+  it('sem dado nenhum, o -G é só um GET', () => {
+    const { spec } = importing('curl -G https://x.dev/a')
+
+    expect(spec.url).toBe('https://x.dev/a')
+    expect(spec.method).toBe('GET')
+  })
+
+  it('o -X explícito continua vencendo, porque é o que o curl faz', () => {
+    expect(importing('curl -G -X HEAD -d a=1 https://x.dev/a').spec.method).toBe('HEAD')
+  })
+
+  it('o -G não mexe na chave que atravessa para a query', () => {
+    // `&` e `?` são estruturais: vêm das flags e da URL, nunca de dentro de um
+    // valor. A chave passa inteira e continua visível ao resolve.
+    expect(importing('curl -G -d "q={{termo}}" https://x.dev/a').spec.url).toBe(
+      'https://x.dev/a?q={{termo}}',
+    )
+  })
+
+  it('-I vira HEAD, que é o método que ele pede', () => {
+    const { spec, ignored } = importing('curl -I https://x.dev/a')
+
+    expect(spec.method).toBe('HEAD')
+    expect(ignored).toEqual([])
+  })
+})

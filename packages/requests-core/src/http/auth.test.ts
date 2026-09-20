@@ -78,3 +78,39 @@ describe('C1: o -u não duplica um Authorization que o comando já trouxe', () =
     expect(wire.headers).toHaveLength(1)
   })
 })
+
+describe('C1: o -u sem senha segue a RFC, não a minha intuição', () => {
+  it('acrescenta o dois-pontos que separa usuário de senha vazia', () => {
+    // Verificado contra curl de verdade: `-u user` manda `Basic dXNlcjo=`, que
+    // é base64 de `user:`. A RFC 7617 define a credencial como
+    // `usuário ":" senha` — sem o dois-pontos não há o que separar, e
+    // middleware comum (basic-auth, werkzeug) devolve null e responde 401.
+    // Ou seja: o curl que autentica no terminal falhava no app, e a razão
+    // ficava invisível porque está codificada.
+    const { spec } = httpDriver.fromRaw('curl https://x.dev/a -u admin')
+    const wire = resolve<HttpWire>(registry(), { id: 'r', name: 'n', protocol: 'http', spec }, {})
+
+    expect(wire.headers).toEqual([{ name: 'Authorization', value: 'Basic YWRtaW46' }])
+  })
+
+  it('não acrescenta um segundo dois-pontos quando a chave já trouxe o seu', () => {
+    // A regra do curl é aplicada ao valor **resolvido**, não ao texto colado.
+    // `-u '{{cred}}'` com `cred = "u:p"` já é o par completo depois da
+    // interpolação; acrescentar outro `:` mandaria `u:p:`.
+    const { spec } = httpDriver.fromRaw(`curl https://x.dev/a -u '{{cred}}'`)
+    const wire = resolve<HttpWire>(registry(), { id: 'r', name: 'n', protocol: 'http', spec }, {
+      cred: 'u:p',
+    })
+
+    expect(wire.headers[0]!.value).toBe('Basic dTpw')
+  })
+
+  it('uma chave que resolve sem dois-pontos ganha o dois-pontos', () => {
+    const { spec } = httpDriver.fromRaw(`curl https://x.dev/a -u '{{cred}}'`)
+    const wire = resolve<HttpWire>(registry(), { id: 'r', name: 'n', protocol: 'http', spec }, {
+      cred: 'admin',
+    })
+
+    expect(wire.headers[0]!.value).toBe('Basic YWRtaW46')
+  })
+})

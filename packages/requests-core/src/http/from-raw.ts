@@ -114,6 +114,12 @@ export function fromRaw(raw: string): Imported<HttpSpec> {
   if (tokens[0] !== 'curl' && tokens[0] !== 'curl.exe') throw new NotACurlError()
 
   let method: string | null = null
+  // `-G` não acrescenta um recurso à requisição: ele **reatribui** o que as
+  // flags de dado significam, mandando-as para a query e mantendo GET. Ignorar
+  // e relatar deixava de pé outra requisição — a documentação da Stripe é
+  // escrita com ele, e o preview mostrava um POST que cria cobrança onde a
+  // pessoa colou uma leitura.
+  let dataToQuery = false
   const headers: HttpHeader[] = []
   const data: string[] = []
   let auth: HttpAuth | null = null
@@ -127,6 +133,19 @@ export function fromRaw(raw: string): Imported<HttpSpec> {
 
     if (token === '-X' || token === '--request') {
       method = nextOf(++i)
+      continue
+    }
+
+    if (token === '-G' || token === '--get') {
+      dataToQuery = true
+      continue
+    }
+
+    // `-I` também decide método, e por isso não é flag a ignorar. O estrago é
+    // muito menor — um GET onde cabia HEAD é idempotente — mas a regra é a
+    // mesma, e regra com exceção tácita não é regra.
+    if (token === '-I' || token === '--head') {
+      if (method === null) method = 'HEAD'
       continue
     }
 
@@ -207,14 +226,22 @@ export function fromRaw(raw: string): Imported<HttpSpec> {
   if (loose.length > 1) throw new AmbiguousUrlError(loose)
   if (loose.length === 0) throw new MissingUrlError()
 
-  const body = data.length === 0 ? null : data.join('&')
+  const joined = data.length === 0 ? null : data.join('&')
+  const body = dataToQuery ? null : joined
+
+  // `?` e `&` são estruturais: vêm da flag e da URL, nunca de dentro de um
+  // valor. Uma chave que atravesse para a query passa inteira, e continua
+  // visível ao `resolve`.
+  let url = loose[0]!
+  if (dataToQuery && joined !== null) url += `${url.includes('?') ? '&' : '?'}${joined}`
 
   return {
     spec: {
       // A regra é do curl, não nossa: `-d` sem `-X` manda POST. Quem cola um
-      // `-d` espera o mesmo verbo que o terminal usaria.
+      // `-d` espera o mesmo verbo que o terminal usaria — e com `-G` o mesmo
+      // `-d` não faz corpo nenhum, então o verbo continua GET.
       method: method ?? (body === null ? 'GET' : 'POST'),
-      url: loose[0]!,
+      url,
       headers,
       body,
       auth,
