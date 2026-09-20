@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Folder, SavedRequest } from '@dailly/requests-core'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import FolderNode from './FolderNode.vue'
 import { buildTree } from './tree.js'
 
@@ -17,6 +17,18 @@ const props = defineProps<{
   loading: boolean
   error: string | null
   selected: string | null
+  /** A recusa da última tentativa de criar pasta, mostrada onde ela foi feita. */
+  folderError: string | null
+  /**
+   * Sobe a cada pasta criada com sucesso.
+   *
+   * O formulário não pode se limpar no clique: o pai é assíncrono e a recusa
+   * só chega depois, então limpar ali apagava o nome digitado **antes** de
+   * saber se tinha dado certo — e para tentar de novo era preciso redigitar.
+   * Um contador é o sinal mais fino possível de "deu certo", e não obriga o
+   * pai a devolver promessa por um `emit`.
+   */
+  folderSaved: number
 }>()
 
 const emit = defineEmits<{
@@ -38,9 +50,19 @@ const parentId = ref<string | null>(null)
 function createFolder(): void {
   if (name.value.trim() === '') return
   emit('createFolder', { name: name.value.trim(), parentId: parentId.value })
-  name.value = ''
-  naming.value = false
 }
+
+watch(
+  () => props.folderSaved,
+  () => {
+    name.value = ''
+    // `parentId` também: sem isto a pasta-mãe da tentativa anterior ficava
+    // escolhida na próxima, e a próxima pasta nascia num lugar que ninguém
+    // pediu.
+    parentId.value = null
+    naming.value = false
+  },
+)
 </script>
 
 <template>
@@ -88,6 +110,14 @@ function createFolder(): void {
           {{ folder.name }}
         </option>
       </select>
+      <p
+        v-if="folderError"
+        role="alert"
+        data-testid="folder-error"
+        class="rounded border border-red-500/20 bg-red-500/10 px-2 py-1 text-xs text-red-300"
+      >
+        {{ folderError }}
+      </p>
       <button
         type="submit"
         data-testid="save-folder"

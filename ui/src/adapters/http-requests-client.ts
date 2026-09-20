@@ -166,14 +166,19 @@ export const httpRequestsClient = ({ config, fetch }: HttpRequestsClientDeps): R
           )
         }
         if (error instanceof ApiError) {
-          if (error.status === 400 && isRecord(error.details) && Array.isArray(error.details['missing'])) {
-            const names = (key: string) =>
-              (error.details as Record<string, unknown>)[key] as unknown[] | undefined
-            throw new MissingVariablesError(
-              (names('missing') ?? []).filter((name): name is string => typeof name === 'string'),
-              (names('surviving') ?? []).filter((name): name is string => typeof name === 'string'),
-              error.message,
-            )
+          const details = error.details
+          if (error.status === 400 && isRecord(details) && Array.isArray(details['missing'])) {
+            // Os dois campos passam pela **mesma** peneira. `missing` era
+            // guardado e `surviving` não, então um `surviving: "x"` virava
+            // `"x".filter is not a function` escapando do `catch` — e a tela
+            // mostrava isso onde o C10 pede os nomes das variáveis.
+            const names = (key: string): string[] => {
+              const value = details[key]
+              return Array.isArray(value)
+                ? value.filter((name): name is string => typeof name === 'string')
+                : []
+            }
+            throw new MissingVariablesError(names('missing'), names('surviving'), error.message)
           }
 
           const kind = EXECUTION_FAILURES[error.status as keyof typeof EXECUTION_FAILURES]

@@ -5,9 +5,26 @@ import {
   NotACurlError,
   UnterminatedQuoteError,
   httpDriver,
-  type HttpHeader,
   type HttpSpec,
 } from '@dailly/requests-core/http'
+
+/**
+ * A identidade de uma linha de header — da linha, não do par.
+ *
+ * `-H 'A: 1' -H 'A: 2'` é legítimo, então nome e valor não identificam nada, e
+ * o índice não serve: remover a primeira de duas destrói o nó da segunda, que
+ * é onde o cursor está. Um contador de módulo basta e é determinístico, o que
+ * `crypto.randomUUID()` não seria dentro de um teste.
+ */
+let rows = 0
+export const rowId = () => `linha-${(rows += 1)}`
+
+/** Um header na tela: o par, mais a identidade que só a tela usa. */
+export interface HeaderRow {
+  id: string
+  name: string
+  value: string
+}
 
 /**
  * Os campos editáveis de uma request HTTP.
@@ -27,7 +44,7 @@ export interface Draft {
   folderId: string | null
   method: string
   url: string
-  headers: HttpHeader[]
+  headers: HeaderRow[]
   body: string
   query: string[]
   auth: { user: string; password: string | null } | null
@@ -37,14 +54,12 @@ export type Imported =
   | { readonly kind: 'imported'; readonly draft: Draft; readonly ignored: readonly string[] }
   | { readonly kind: 'rejected'; readonly reason: string }
 
-const METHODS_WITHOUT_BODY = new Set(['GET', 'HEAD'])
-
 const draftFrom = (spec: HttpSpec, over: Partial<Draft> = {}): Draft => ({
   name: '',
   folderId: null,
   method: spec.method,
   url: spec.url,
-  headers: spec.headers.map((header) => ({ ...header })),
+  headers: spec.headers.map((header) => ({ id: rowId(), ...header })),
   body: spec.body ?? '',
   query: [...spec.query],
   auth: spec.auth === null ? null : { ...spec.auth },
@@ -107,12 +122,21 @@ export function savedOf(
   const spec = {
     method: draft.method.trim().toUpperCase(),
     url: draft.url.trim(),
-    headers: draft.headers.filter((header) => header.name.trim() !== ''),
-    // Um corpo vazio num GET é ausência de corpo, não um corpo de zero byte —
-    // e mandar `Content-Length: 0` onde o curl não mandava muda a requisição.
-    body: draft.body === '' || METHODS_WITHOUT_BODY.has(draft.method.trim().toUpperCase())
-      ? null
-      : draft.body,
+    // O `id` da linha **não** vai junto: `httpDriver.validate` castra o objeto
+    // e qualquer propriedade extra sobreviveria até o banco.
+    headers: draft.headers
+      .filter((header) => header.name.trim() !== '')
+      .map(({ name, value }) => ({ name, value })),
+    /**
+     * Vazio é ausência de corpo; o método não decide nada.
+     *
+     * Zerar o corpo de GET e HEAD parecia zelo e era perda silenciosa: `curl -X
+     * GET -d '{"q":1}'` é o idioma do Elasticsearch, o curl de verdade manda o
+     * corpo, e a tela mostrava o campo preenchido enquanto o salvo ia `null`.
+     * Este módulo decidiu **relatar** o que não aplica; descartar calado é o
+     * contrário disso.
+     */
+    body: draft.body === '' ? null : draft.body,
     query: draft.query,
     auth: draft.auth === null || draft.auth.user.trim() === '' ? null : draft.auth,
   }

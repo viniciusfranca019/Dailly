@@ -63,12 +63,19 @@ function toText(chunks: readonly Uint8Array[], truncated: boolean): string {
   return text
 }
 
-/** Expande, parando no teto — e o teto é uma resposta, não uma exceção. */
+/**
+ * Expande, parando no teto — e o teto é uma resposta, não uma exceção.
+ *
+ * Falhar também é resposta: `failed` em vez de `throw` porque o que já abriu
+ * pode valer alguma coisa. Um gzip cortado pelo teto de 5 MB do servidor
+ * **sempre** estoura no fim, e ali o estouro é esperado, não corrupção — o
+ * servidor avisou que cortou.
+ */
 async function inflate(
   bytes: Uint8Array,
   formats: readonly CompressionFormat[],
   limit: number,
-): Promise<{ chunks: Uint8Array[]; truncated: boolean }> {
+): Promise<{ chunks: Uint8Array[]; truncated: boolean; failed: boolean }> {
   // `content-encoding: a, b` diz que `a` foi aplicado primeiro, então desfaz-se
   // de trás para frente.
   // Um `ReadableStream` montado à mão, e não `new Blob([bytes]).stream()`:
@@ -96,7 +103,7 @@ async function inflate(
     inflated = piped
   }
   // Só chega aqui com pelo menos um formato; sem nenhum não há o que expandir.
-  if (inflated === null) return { chunks: [bytes], truncated: false }
+  if (inflated === null) return { chunks: [bytes], truncated: false, failed: false }
 
   const reader = inflated.getReader()
   const chunks: Uint8Array[] = []
@@ -105,7 +112,7 @@ async function inflate(
   try {
     for (;;) {
       const { done, value } = await reader.read()
-      if (done) return { chunks, truncated: false }
+      if (done) return { chunks, truncated: false, failed: false }
 
       const room = limit - total
       // `>` e não `>=`: um corpo que cabe **exatamente** no teto está inteiro,
@@ -114,12 +121,14 @@ async function inflate(
       if (value.byteLength > room) {
         chunks.push(value.subarray(0, room))
         await reader.cancel()
-        return { chunks, truncated: true }
+        return { chunks, truncated: true, failed: false }
       }
 
       chunks.push(value)
       total += value.byteLength
     }
+  } catch {
+    return { chunks, truncated: false, failed: true }
   } finally {
     reader.releaseLock()
   }
@@ -146,7 +155,11 @@ export async function decodeBody(
     .map((token) => token.trim().toLowerCase())
     .filter((token) => token !== '' && token !== 'identity')
 
-  const unsupported = tokens.find((token) => !(token in FORMATS))
+  // `Object.hasOwn` e não `in`: `in` anda o protótipo, então
+  // `content-encoding: constructor` passava por este guarda e ia parar em
+  // `new DecompressionStream(Object)`. A pessoa lia "não abriu" sobre um
+  // formato que nunca existiu — a recusa certa pelo motivo errado.
+  const unsupported = tokens.find((token) => !Object.hasOwn(FORMATS, token))
   if (unsupported !== undefined) {
     return {
       kind: 'opaque',
@@ -161,24 +174,38 @@ export async function decodeBody(
   if (tokens.length === 0) {
     chunks = [bytes]
   } else {
-    try {
-      const inflated = await inflate(
-        bytes,
-        tokens.map((token) => FORMATS[token]!),
-        limit,
-      )
-      chunks = inflated.chunks
-      truncated = truncated || inflated.truncated
-    } catch {
-      return {
-        kind: 'opaque',
-        // Corpo truncado pelo teto do servidor chega aqui como gzip cortado, e
-        // esta é a frase honesta para ele também.
-        reason: 'o corpo diz estar comprimido, mas não abriu',
-        encoding: declared,
-        bytes: response.bytes || bytes.byteLength,
-      }
+    const formats: CompressionFormat[] = []
+    for (const token of tokens) {
+      const format = Object.hasOwn(FORMATS, token) ? FORMATS[token] : undefined
+      if (format !== undefined) formats.push(format)
     }
+
+    const inflated = await inflate(bytes, formats, limit)
+    truncated = truncated || inflated.truncated
+
+    /**
+     * Falhou: o prefixo vale se o servidor já tinha dito que cortou.
+     *
+     * Um gzip cortado no teto de 5 MB **sempre** estoura no fim, e ali o
+     * estouro é esperado. Descartar tudo faria a tela não mostrar nada de uma
+     * resposta que chegou pela metade e estava marcada como tal. Sem esse
+     * aviso, porém, um gzip que não abre é corrupção, e mostrar meia resposta
+     * sem ninguém ter marcado é apresentar como completo o que não é.
+     */
+    if (inflated.failed) {
+      const partialIsExpected = response.truncated || response.timedOut
+      if (!partialIsExpected || inflated.chunks.length === 0) {
+        return {
+          kind: 'opaque',
+          reason: 'o corpo diz estar comprimido, mas não abriu',
+          encoding: declared,
+          bytes: response.bytes || bytes.byteLength,
+        }
+      }
+      truncated = true
+    }
+
+    chunks = inflated.chunks
   }
 
   try {

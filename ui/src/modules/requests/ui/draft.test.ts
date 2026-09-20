@@ -146,4 +146,58 @@ describe('o rascunho vai e volta sem perder nada', () => {
 
     expect(savedOf({ ...draft, url: '   ' }, { id: 'r1', position: 0 })).toBeNull()
   })
+
+  it('não descarta o corpo de um GET que o curl mandava', () => {
+    // `curl -X GET -d '...'` é o idioma do Elasticsearch e de várias APIs de
+    // busca, e o curl de verdade manda o corpo. Zerar aqui mostrava o corpo na
+    // tela e gravava `null` — aplicar em silêncio, que é o contrário do que
+    // este módulo decidiu fazer com o que não entende.
+    const imported = importCurl(`curl -X GET https://x.dev/_search -d '{"q":1}'`)
+    if (imported.kind !== 'imported') throw new Error('esperava import')
+
+    expect(imported.draft.body).toBe('{"q":1}')
+    expect(savedOf(imported.draft, { id: 'r1', position: 0 })?.spec).toMatchObject({
+      method: 'GET',
+      body: '{"q":1}',
+    })
+  })
+
+  it('corpo vazio continua sendo ausência de corpo, não corpo de zero byte', () => {
+    const imported = importCurl('curl https://x.dev')
+    if (imported.kind !== 'imported') throw new Error('esperava import')
+
+    expect(savedOf(imported.draft, { id: 'r1', position: 0 })?.spec).toMatchObject({ body: null })
+  })
+
+  it('dá identidade estável a cada linha de header, e não a grava', () => {
+    // A linha precisa de chave estável para o `v-for`: com o índice, remover a
+    // primeira de duas destrói o nó da segunda, que é onde está o cursor. E a
+    // chave **não** pode vazar para o spec — `httpDriver.validate` castra o
+    // objeto e propriedade extra sobreviveria até o banco.
+    const imported = importCurl(`curl https://x.dev -H 'A: 1' -H 'A: 2'`)
+    if (imported.kind !== 'imported') throw new Error('esperava import')
+
+    const [first, second] = imported.draft.headers
+    expect(first?.id).toBeTruthy()
+    expect(first?.id).not.toBe(second?.id)
+
+    const spec = savedOf(imported.draft, { id: 'r1', position: 0 })?.spec as {
+      headers: Record<string, unknown>[]
+    }
+    expect(spec.headers).toEqual([
+      { name: 'A', value: '1' },
+      { name: 'A', value: '2' },
+    ])
+  })
+
+  it('a senha nula atravessa o salvamento sem virar texto vazio', () => {
+    // `null` quer dizer "o curl não trouxe dois-pontos", e a diferença é
+    // observável na fita: `null` e `''` produzem `Authorization` diferentes.
+    const imported = importCurl(`curl https://x.dev -u '{{credencial}}'`)
+    if (imported.kind !== 'imported') throw new Error('esperava import')
+
+    expect(savedOf(imported.draft, { id: 'r1', position: 0 })?.spec).toMatchObject({
+      auth: { user: '{{credencial}}', password: null },
+    })
+  })
 })

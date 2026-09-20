@@ -26,7 +26,18 @@ function fakeFetch(answer: (call: Call) => { status: number; body?: unknown } | 
     return {
       ok: reply.status >= 200 && reply.status < 300,
       status: reply.status,
-      json: async () => reply.body,
+      /**
+       * Estoura quando não há corpo, como um `Response` de verdade.
+       *
+       * O fake devolvia `undefined` e com isso o teste do 204 passava mesmo
+       * sem o ramo que evita chamar `json()` num corpo vazio — provado por
+       * mutação: apagar o ternário do `http.ts` deixava a suíte inteira verde.
+       * Um fake mais frouxo que o real testa um mundo que não existe.
+       */
+      json: async () => {
+        if (!('body' in reply)) throw new SyntaxError('Unexpected end of JSON input')
+        return reply.body
+      },
     } as Response
   }) as unknown as typeof globalThis.fetch
   return { doFetch, calls }
@@ -185,5 +196,53 @@ describe('a port de Requests sobre HTTP', () => {
 
     expect(failure).not.toBeInstanceOf(MissingVariablesError)
     expect(failure).toBeInstanceOf(ApiError)
+  })
+
+  it('C7: um header que não é par não atravessa a borda', async () => {
+    // Provado por mutação: sem este teste, tirar a validação de `parseHeader`
+    // deixava a suíte verde e punha `{ name: undefined }` na tela.
+    const { port } = client(() => ({
+      status: 200,
+      body: { ...executed, headers: ['content-type: application/json'] },
+    }))
+
+    await expect(port.execute('r1', {})).rejects.toBeInstanceOf(ApiError)
+  })
+
+  it('um id com barra não monta outra rota', async () => {
+    // Sem `encodeURIComponent`, `a/b` viraria `/requests/a/b/execute`, que é
+    // outra rota — e a suíte não notava.
+    const { port, calls } = client(() => ({ status: 204 }))
+    await port.deleteRequest('a/b?x')
+
+    expect(calls[0]!.url).toBe('/api/requests/a%2Fb%3Fx')
+  })
+
+  it('C11: um `surviving` que não é lista não vira TypeError cru', async () => {
+    // `missing` era guardado e `surviving` não. O `.filter` num texto escapa do
+    // `catch` como TypeError e a tela mostra "x.filter is not a function"
+    // onde o C10 pede os nomes das variáveis.
+    const { port } = client(() => ({
+      status: 400,
+      body: { error: 'faltam variáveis', missing: ['token'], surviving: 'baseUrl' },
+    }))
+
+    const failure = await port.execute('r1', {}).catch((error: unknown) => error)
+
+    expect(failure).toBeInstanceOf(MissingVariablesError)
+    expect(failure).toMatchObject({ missing: ['token'], surviving: [] })
+  })
+
+  it('C11: uma resposta que não é JSON vira recusa nomeada, não SyntaxError', async () => {
+    // O proxy do vite devolve HTML num 502. O `SyntaxError` do `json()` não é
+    // `ApiError` nem `ApiUnreachableError`, então escapava cru e a tela
+    // mostrava "Unexpected token <" onde o C11 pede "o alvo não atendeu".
+    const { doFetch } = fakeFetch(() => ({ status: 502 }))
+    const port = httpRequestsClient({ config: { baseUrl: '/api' }, fetch: doFetch })
+
+    const failure = await port.execute('r1', {}).catch((error: unknown) => error)
+
+    expect(failure).toBeInstanceOf(ExecutionFailedError)
+    expect(failure).toMatchObject({ kind: 'unreachable' })
   })
 })
