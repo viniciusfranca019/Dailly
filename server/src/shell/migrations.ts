@@ -1,6 +1,6 @@
 import type { Database } from 'better-sqlite3'
 import { MODULES } from '../modules.js'
-import { ManifestError, type Migration, type ServerModule } from './module.js'
+import { ManifestError, type AnyServerModule, type Migration } from './module.js'
 
 /**
  * Versionamento de schema por `PRAGMA user_version`, como a
@@ -32,7 +32,7 @@ export type { Migration } from './module.js'
  * A mensagem nomeia a versão e os dois módulos porque é exatamente o que falta
  * saber no momento em que o boot quebra.
  */
-export function collectMigrations(modules: readonly ServerModule[]): readonly Migration[] {
+export function collectMigrations(modules: readonly AnyServerModule[]): readonly Migration[] {
   const owner = new Map<number, string>()
   const collected: Migration[] = []
 

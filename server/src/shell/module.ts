@@ -45,14 +45,7 @@ export interface ProvideContext {
   readonly zone: TimeZone
 }
 
-/**
- * `TOwn` invariante, guardado alargado como `unknown` na lista — o mesmo
- * idioma do `BlockRegistry`, que trata definições de forma uniforme enquanto
- * cada uma continua estritamente tipada no próprio arquivo. Funciona porque
- * `register` e `provide` são métodos em forma curta, que o TypeScript trata de
- * forma bivariante.
- */
-export interface ServerModule<TOwn = void> {
+interface ServerModuleBase {
   /** Identidade estável, usada no manifest e nas mensagens de erro. */
   readonly id: string
   /**
@@ -62,24 +55,41 @@ export interface ServerModule<TOwn = void> {
    * coordenação entre módulos é manual, e a asserção é o que a torna segura.
    */
   readonly migrations: readonly Migration[]
-  /**
-   * A dependência que é **só deste módulo**, construída por ele.
+}
+
+/**
+ * `TOwn` é união discriminada, e não um parâmetro solto, por uma razão que o
+ * gate encontrou: com um tipo só, `ServerModule<RequestStore>` compilava sem
+ * `provide` — e aí o `register` recebia `undefined` tipado como `RequestStore`,
+ * estourando na primeira rota. Declarar o tipo e esquecer de construí-lo
+ * deixou de ser expressável.
+ *
+ * Guardado alargado como `unknown` na lista, o mesmo idioma do `BlockRegistry`:
+ * o shell trata os módulos de forma uniforme enquanto cada um continua
+ * estritamente tipado no próprio arquivo.
+ */
+export type ServerModule<TOwn = void> = [TOwn] extends [void]
+  ? ServerModuleBase & {
+      provide?: undefined
+      register(app: FastifyInstance, deps: ServerModuleDeps, own: void): void
+    }
+  : ServerModuleBase & {
+      /**
+       * A dependência que é **só deste módulo**, construída por ele.
    *
    * Esta é a abstração que a [ADR 0006, Emenda 2](../../../docs/adrs/0006-modularizacao-frontend.md)
    * adiou com gatilho nomeado, e o gatilho é o módulo Requests. Sem ela, cada
    * módulo novo acrescentaria um campo ao `ServerModuleDeps` — o tell da Lei 4
    * — e o entries passaria a enxergar o store de requests sem precisar dele.
    *
-   * **Opcional de propósito.** O entries não tem: o repositório dele é
-   * construído pelo composition root e entregue no saco, porque o teste do 501
-   * injeta um `entries` diferente a cada `buildApp` e isso precisa continuar
-   * possível.
-   */
-  provide?(context: ProvideContext): TOwn
-
-  /** Onde o módulo pendura suas rotas. Recebe o saco compartilhado e o próprio. */
-  register(app: FastifyInstance, deps: ServerModuleDeps, own: TOwn): void
-}
+       * **Ausente no entries de propósito:** o repositório dele é construído
+       * pelo composition root e entregue no saco, porque o teste do 501 injeta
+       * um `entries` diferente a cada `buildApp` e isso precisa continuar
+       * possível.
+       */
+      provide(context: ProvideContext): TOwn
+      register(app: FastifyInstance, deps: ServerModuleDeps, own: TOwn): void
+    }
 
 export class ManifestError extends Error {
   override readonly name = 'ManifestError'
@@ -92,7 +102,7 @@ export class ManifestError extends Error {
  * `collectMigrations` usa o id para apontar o culpado — dois módulos com o
  * mesmo nome tornariam essa mensagem inútil justamente quando ela é lida.
  */
-export function assertManifest(modules: readonly ServerModule<unknown>[]): void {
+export function assertManifest(modules: readonly AnyServerModule[]): void {
   if (modules.length === 0) {
     throw new ManifestError('manifest vazio: o servidor precisa de pelo menos um módulo')
   }
@@ -102,4 +112,18 @@ export function assertManifest(modules: readonly ServerModule<unknown>[]): void 
     if (seen.has(module.id)) throw new ManifestError(`módulo duplicado no manifest: ${module.id}`)
     seen.add(module.id)
   }
+}
+
+/**
+ * A forma **alargada** em que o shell guarda qualquer módulo.
+ *
+ * Dois tipos para dois trabalhos, como no `BlockRegistry`: `ServerModule<T>` é
+ * para **escrever** um módulo, e é ele que amarra "declara `TOwn`" a "tem
+ * `provide`"; este é para **guardar** uma lista heterogênea, onde o shell
+ * trata todos igual. Usar o de autoria como tipo de lista obrigaria todo
+ * módulo a ter `provide` — que é o oposto do que a união existe para dizer.
+ */
+export type AnyServerModule = ServerModuleBase & {
+  provide?(context: ProvideContext): unknown
+  register(app: FastifyInstance, deps: ServerModuleDeps, own: unknown): void
 }

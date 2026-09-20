@@ -113,6 +113,37 @@ export function requestStoreContract(
       expect((await store.folders()).find((f) => f.id === 'raiz')?.parentId).toBeNull()
     })
 
+    it('C6: recusa o laço também quando ele chega por salvar, não por mover', async () => {
+      // A segunda porta da regra, que ficou aberta até o gate encontrá-la:
+      // salvar é upsert, então ele reparenta — e o contrato só exercitava o
+      // verbo "mover". C6 é propriedade da árvore, não do verbo.
+      const store = make()
+      await store.saveFolder({ id: 'raiz', parentId: null, name: 'APIs', position: 0 })
+      await store.saveFolder({ id: 'filha', parentId: 'raiz', name: 'Auth', position: 0 })
+
+      await expect(
+        store.saveFolder({ id: 'raiz', parentId: 'filha', name: 'APIs', position: 0 }),
+      ).rejects.toThrow(FolderCycleError)
+
+      expect((await store.folders()).find((f) => f.id === 'raiz')?.parentId).toBeNull()
+    })
+
+    it('C6: recusa também a pasta salva como filha dela mesma', async () => {
+      const store = make()
+      await store.saveFolder({ id: 'a', parentId: null, name: 'A', position: 0 })
+
+      await expect(
+        store.saveFolder({ id: 'a', parentId: 'a', name: 'A', position: 0 }),
+      ).rejects.toThrow(FolderCycleError)
+    })
+
+    it('C6: mover uma pasta que não existe é recusado, não respondido como sucesso', async () => {
+      const store = make()
+      await store.saveFolder({ id: 'raiz', parentId: null, name: 'APIs', position: 0 })
+
+      await expect(store.moveFolder('fantasma', 'raiz')).rejects.toThrow(FolderNotFoundError)
+    })
+
     it('C6: aceita o movimento que não fecha laço', async () => {
       const store = make()
       await store.saveFolder({ id: 'raiz', parentId: null, name: 'APIs', position: 0 })

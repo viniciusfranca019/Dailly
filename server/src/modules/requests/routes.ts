@@ -1,5 +1,6 @@
 import type { RequestStore, SavedRequest } from '@dailly/requests-core'
 import {
+  CorruptSpecError,
   FolderCycleError,
   FolderNotFoundError,
   InvalidSpecError,
@@ -9,8 +10,8 @@ import {
   resolve,
 } from '@dailly/requests-core'
 import { type HttpWire, httpDriver } from '@dailly/requests-core/http'
-import type { FastifyInstance } from 'fastify'
-import { TargetUnreachableError, executeHttp } from './execute.js'
+import type { FastifyInstance, FastifyReply } from 'fastify'
+import { InvalidWireError, TargetUnreachableError, executeHttp } from './execute.js'
 import { validateFolder, validateSavedRequest } from './validate.js'
 
 /**
@@ -37,7 +38,7 @@ export function registerRequestRoutes(app: FastifyInstance, store: RequestStore)
    * primeira que esquecesse devolveria 500 para uma recusa legítima — que é
    * mandar quem chama procurar um defeito que não existe.
    */
-  const answer = async <T>(reply: Parameters<typeof app.get>[1] extends never ? never : any, work: () => Promise<T>) => {
+  const answer = async <T>(reply: FastifyReply, work: () => Promise<T>) => {
     try {
       return await work()
     } catch (error) {
@@ -74,7 +75,17 @@ export function registerRequestRoutes(app: FastifyInstance, store: RequestStore)
    * execução é outra feature, com outro schema, e ninguém pediu.
    */
   app.post('/requests/:id/execute', async (request, reply) => {
-    const saved = await store.requestById((request.params as { id: string }).id)
+    let saved
+    try {
+      saved = await store.requestById((request.params as { id: string }).id)
+    } catch (error) {
+      // Spec ilegível é recusa nomeada, não 500: o C4 diz que o banco é
+      // fronteira de confiança, e um JSON quebrado é a forma mais crua disso.
+      if (error instanceof CorruptSpecError) {
+        return reply.code(422).send({ error: error.message })
+      }
+      throw error
+    }
     if (!saved) return reply.code(404).send({ error: 'não existe request com esse id' })
 
     const body = request.body as { env?: unknown } | undefined
@@ -82,6 +93,16 @@ export function registerRequestRoutes(app: FastifyInstance, store: RequestStore)
     if (env !== undefined && (typeof env !== 'object' || env === null || Array.isArray(env))) {
       return reply.code(400).send({ errors: [{ field: 'env', message: 'deve ser um objeto' }] })
     }
+
+    // **Todo valor tem que ser texto.** A interpolação devolve o que achar para
+    // dentro de `replaceAll`, que serializa qualquer coisa: um objeto viraria
+    // `[object Object]` na fita, um `null` viraria `"null"`. O C3 existe para
+    // que um problema de variável seja pego antes de qualquer byte sair, e um
+    // env malformado produzia em silêncio uma requisição que ninguém escreveu.
+    const naoTexto = Object.entries((env ?? {}) as Record<string, unknown>)
+      .filter(([, value]) => typeof value !== 'string')
+      .map(([name]) => ({ field: `env.${name}`, message: 'deve ser texto' }))
+    if (naoTexto.length > 0) return reply.code(400).send({ errors: naoTexto })
 
     let wire: HttpWire
     try {
@@ -108,6 +129,11 @@ export function registerRequestRoutes(app: FastifyInstance, store: RequestStore)
     try {
       return await executeHttp(wire)
     } catch (error) {
+      if (error instanceof InvalidWireError) {
+        // 422 e não 502: a recusa é do spec, e aconteceu antes de qualquer
+        // socket. Dizer 502 mandaria procurar na rede.
+        return reply.code(422).send({ error: error.message })
+      }
       if (error instanceof TargetUnreachableError) {
         // 502: quem falhou foi o alvo. Dizer 500 seria assumir a culpa de
         // outro processo, e mandar a pessoa depurar o lugar errado.

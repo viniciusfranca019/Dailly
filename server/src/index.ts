@@ -4,7 +4,7 @@ import { buildApp } from './shell/app.js'
 import { resolveConfig, type ConfigInput, type ServerConfig } from './shell/config.js'
 import { openDatabase } from './shell/database.js'
 import { collectMigrations } from './shell/migrations.js'
-import { assertManifest, type ServerModule } from './shell/module.js'
+import { assertManifest, type AnyServerModule } from './shell/module.js'
 
 export { resolveConfig, InvalidTimeZoneError } from './shell/config.js'
 export type { ServerConfig, ConfigInput } from './shell/config.js'
@@ -19,7 +19,12 @@ export {
   DatabaseTooNewError,
 } from './shell/migrations.js'
 export { ManifestError, assertManifest } from './shell/module.js'
-export type { ServerModule, ServerModuleDeps, ProvideContext } from './shell/module.js'
+export type {
+  ServerModule,
+  AnyServerModule,
+  ServerModuleDeps,
+  ProvideContext,
+} from './shell/module.js'
 export type { Migration } from './shell/migrations.js'
 export { MODULES } from './modules.js'
 
@@ -49,12 +54,16 @@ export interface RunningServer {
  * manifest — então a lista passada não determina sozinha a composição: ela
  * precisa conter o módulo entries, ou a tabela que o repositório lê não existe.
  * Violada, quem reclama é o SQLite (`no such table: entries`), não o contrato.
- * A saída — um `provide(db, zone)` no `ServerModule` — está decidida e adiada
- * na ADR 0006, Emenda 2, com o Requests como gatilho.
+ *
+ * **O `provide` já existe** — o Requests, que era o gatilho nomeado na ADR 0006,
+ * Emenda 2, chegou e o construiu. O entries continua fora dele por escolha: o
+ * teste do 501 injeta um repositório diferente a cada `buildApp`, e migrá-lo
+ * tiraria essa injeção. Então esta pressuposição sobrevive, e sobrevive por um
+ * motivo que não é mais "a saída não existe".
  */
 export async function createServer(
   input: ConfigInput,
-  modules: readonly ServerModule<unknown>[] = MODULES,
+  modules: readonly AnyServerModule[] = MODULES,
 ): Promise<RunningServer> {
   const config = resolveConfig(input)
 

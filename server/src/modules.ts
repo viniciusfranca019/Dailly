@@ -1,6 +1,6 @@
 import { entriesModule } from './modules/entries/index.js'
 import { requestsModule } from './modules/requests/index.js'
-import type { ServerModule } from './shell/module.js'
+import type { AnyServerModule } from './shell/module.js'
 
 /**
  * O manifest — o único lugar que sabe quais módulos existem no servidor.
@@ -11,4 +11,4 @@ import type { ServerModule } from './shell/module.js'
  * Sem flag de build, ao contrário da `ui/` — a causa está na ADR 0006,
  * Emenda 2, e fica só lá.
  */
-export const MODULES: readonly ServerModule<unknown>[] = [entriesModule, requestsModule]
+export const MODULES: readonly AnyServerModule[] = [entriesModule, requestsModule]
