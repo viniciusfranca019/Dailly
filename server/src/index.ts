@@ -19,7 +19,7 @@ export {
   DatabaseTooNewError,
 } from './shell/migrations.js'
 export { ManifestError, assertManifest } from './shell/module.js'
-export type { ServerModule, ServerModuleDeps } from './shell/module.js'
+export type { ServerModule, ServerModuleDeps, ProvideContext } from './shell/module.js'
 export type { Migration } from './shell/migrations.js'
 export { MODULES } from './modules.js'
 
@@ -54,7 +54,7 @@ export interface RunningServer {
  */
 export async function createServer(
   input: ConfigInput,
-  modules: readonly ServerModule[] = MODULES,
+  modules: readonly ServerModule<unknown>[] = MODULES,
 ): Promise<RunningServer> {
   const config = resolveConfig(input)
 
@@ -68,6 +68,7 @@ export async function createServer(
     {
       entries,
       zone: config.zone,
+      db,
       ...(config.token ? { token: config.token } : {}),
     },
     modules,

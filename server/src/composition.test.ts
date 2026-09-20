@@ -20,7 +20,10 @@ import { ManifestError, assertManifest, type ServerModule } from './shell/module
  * A metade estrutural deste cenário — "o shell não importa o módulo em lugar
  * nenhum" — mora no `architecture.test.ts`, onde é verificável.
  */
-const fakeModule = (over: Partial<ServerModule> = {}): ServerModule => ({
+/** Um handle de banco que nunca é tocado — o `provide` do fake não consulta nada. */
+const fakeDb = () => ({ marca: 'banco falso' }) as never
+
+const fakeModule = (over: Partial<ServerModule<unknown>> = {}): ServerModule<unknown> => ({
   id: 'fake',
   migrations: [],
   register(app) {
@@ -180,5 +183,80 @@ describe('a isenção do /health é a rota, não o prefixo da URL', () => {
 
     expect((await app.inject({ method: 'GET', url: '/health' })).statusCode).toBe(200)
     expect((await app.inject({ method: 'GET', url: '/health?probe=1' })).statusCode).toBe(200)
+  })
+})
+
+describe('o módulo traz a própria dependência, em vez de o contrato crescer um campo', () => {
+  /**
+   * A abstração que a ADR 0006, Emenda 2, adiou com gatilho nomeado: *"o
+   * módulo Requests da ADR 0011 é o segundo chamador, e é ele que paga"*.
+   *
+   * Sem ela, trazer o Requests obrigaria a editar `ServerModuleDeps` para
+   * acrescentar um campo — e o módulo entries passaria a enxergar o store de
+   * requests, e vice-versa. É o tell da Lei 4: acrescentar um caso obriga a
+   * editar algo que já funciona.
+   *
+   * `provide` é opcional de propósito. O entries não tem: o repositório dele é
+   * construído pelo composition root e entregue no saco, porque o teste do 501
+   * em `app.test.ts` injeta um `entries` diferente a cada chamada e isso
+   * precisa continuar possível.
+   */
+  it('entrega ao módulo o que o provide dele devolveu', async () => {
+    const proprio = { marca: 'só deste módulo' }
+    let recebido: unknown
+
+    const app = buildApp({ ...deps(), db: fakeDb() }, [
+      fakeModule({
+        provide: () => proprio,
+        register(app, _deps, own) {
+          recebido = own
+          app.get('/fake', async () => ({ ok: true }))
+        },
+      }),
+    ])
+    await app.inject({ method: 'GET', url: '/fake' })
+
+    expect(recebido).toBe(proprio)
+  })
+
+  it('um módulo sem provide continua recebendo o saco compartilhado', async () => {
+    let zona: unknown
+    const app = buildApp(deps(), [
+      fakeModule({
+        register(app, received) {
+          zona = received.zone
+          app.get('/fake', async () => ({ ok: true }))
+        },
+      }),
+    ])
+    await app.inject({ method: 'GET', url: '/fake' })
+
+    expect(zona).toBe(UTC)
+  })
+
+  it('o provide recebe o banco e a zona, e mais nada', () => {
+    let contexto: unknown
+    const db = fakeDb()
+
+    buildApp({ ...deps(), db }, [
+      fakeModule({
+        provide: (context) => {
+          contexto = context
+          return null
+        },
+      }),
+    ])
+
+    expect(contexto).toEqual({ db, zone: UTC })
+  })
+
+  it('falha nomeando o módulo quando ele precisa de banco e não há banco', () => {
+    // O caminho que um `!` esconderia: um `buildApp` de teste, sem banco, com
+    // um módulo que precisa dele. Melhor falhar dizendo qual módulo do que
+    // entregar `undefined` e quebrar na primeira rota.
+    const boom = () => buildApp(deps(), [fakeModule({ id: 'precisa-de-banco', provide: () => 1 })])
+
+    expect(boom).toThrow(ManifestError)
+    expect(boom).toThrow(/precisa-de-banco/)
   })
 })

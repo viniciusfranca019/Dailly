@@ -12,6 +12,7 @@
 
 import type { EntryRepository } from '@dailly/domain'
 import type { TimeZone } from '@dailly/periods'
+import type { Database } from 'better-sqlite3'
 import type { FastifyInstance } from 'fastify'
 
 /**
@@ -38,7 +39,20 @@ export interface ServerModuleDeps {
   readonly zone: TimeZone
 }
 
-export interface ServerModule {
+/** O que o composition root oferece a um módulo que constrói a própria dependência. */
+export interface ProvideContext {
+  readonly db: Database
+  readonly zone: TimeZone
+}
+
+/**
+ * `TOwn` invariante, guardado alargado como `unknown` na lista — o mesmo
+ * idioma do `BlockRegistry`, que trata definições de forma uniforme enquanto
+ * cada uma continua estritamente tipada no próprio arquivo. Funciona porque
+ * `register` e `provide` são métodos em forma curta, que o TypeScript trata de
+ * forma bivariante.
+ */
+export interface ServerModule<TOwn = void> {
   /** Identidade estável, usada no manifest e nas mensagens de erro. */
   readonly id: string
   /**
@@ -48,8 +62,23 @@ export interface ServerModule {
    * coordenação entre módulos é manual, e a asserção é o que a torna segura.
    */
   readonly migrations: readonly Migration[]
-  /** Onde o módulo pendura suas rotas. Recebe o que o composition root resolveu. */
-  register(app: FastifyInstance, deps: ServerModuleDeps): void
+  /**
+   * A dependência que é **só deste módulo**, construída por ele.
+   *
+   * Esta é a abstração que a [ADR 0006, Emenda 2](../../../docs/adrs/0006-modularizacao-frontend.md)
+   * adiou com gatilho nomeado, e o gatilho é o módulo Requests. Sem ela, cada
+   * módulo novo acrescentaria um campo ao `ServerModuleDeps` — o tell da Lei 4
+   * — e o entries passaria a enxergar o store de requests sem precisar dele.
+   *
+   * **Opcional de propósito.** O entries não tem: o repositório dele é
+   * construído pelo composition root e entregue no saco, porque o teste do 501
+   * injeta um `entries` diferente a cada `buildApp` e isso precisa continuar
+   * possível.
+   */
+  provide?(context: ProvideContext): TOwn
+
+  /** Onde o módulo pendura suas rotas. Recebe o saco compartilhado e o próprio. */
+  register(app: FastifyInstance, deps: ServerModuleDeps, own: TOwn): void
 }
 
 export class ManifestError extends Error {
@@ -63,7 +92,7 @@ export class ManifestError extends Error {
  * `collectMigrations` usa o id para apontar o culpado — dois módulos com o
  * mesmo nome tornariam essa mensagem inútil justamente quando ela é lida.
  */
-export function assertManifest(modules: readonly ServerModule[]): void {
+export function assertManifest(modules: readonly ServerModule<unknown>[]): void {
   if (modules.length === 0) {
     throw new ManifestError('manifest vazio: o servidor precisa de pelo menos um módulo')
   }

@@ -1,10 +1,25 @@
 import Fastify, { type FastifyInstance } from 'fastify'
 import { MODULES } from '../modules.js'
-import { assertManifest, type ServerModule, type ServerModuleDeps } from './module.js'
+import type { Database } from 'better-sqlite3'
+import {
+  ManifestError,
+  assertManifest,
+  type ServerModule,
+  type ServerModuleDeps,
+} from './module.js'
 
 export interface AppDeps extends ServerModuleDeps {
   /** Quando presente, toda requisição precisa trazer `Authorization: Bearer <token>`. */
   readonly token?: string
+  /**
+   * O banco, oferecido aos módulos que constroem a própria dependência.
+   *
+   * Ausente num `buildApp` de teste que só monta módulos sem `provide` — e é
+   * por isso que a falta dele é um erro nomeado e não um `!`: um módulo que
+   * precisa de banco sem banco deve dizer qual módulo é, não quebrar na
+   * primeira rota com `undefined`.
+   */
+  readonly db?: Database
 }
 
 /**
@@ -20,8 +35,8 @@ export interface AppDeps extends ServerModuleDeps {
  * socket de verdade (ADR 0009) seja a exceção, não a regra.
  */
 export function buildApp(
-  { entries, zone, token }: AppDeps,
-  modules: readonly ServerModule[] = MODULES,
+  { entries, zone, token, db }: AppDeps,
+  modules: readonly ServerModule<unknown>[] = MODULES,
 ): FastifyInstance {
   assertManifest(modules)
 
@@ -55,7 +70,19 @@ export function buildApp(
     zone,
   }))
 
-  for (const module of modules) module.register(app, { entries, zone })
+  for (const module of modules) {
+    if (!module.provide) {
+      module.register(app, { entries, zone }, undefined)
+      continue
+    }
+    if (!db) {
+      throw new ManifestError(
+        `o módulo ${module.id} constrói a própria dependência e precisa do banco, ` +
+          'mas `buildApp` foi chamado sem ele.',
+      )
+    }
+    module.register(app, { entries, zone }, module.provide({ db, zone }))
+  }
 
   return app
 }
