@@ -132,6 +132,70 @@ renderizar certo numa página nua também precisa sobreviver ao reset do hospede
 uma: não há diálogo, toast nem combobox saindo dele. A Fase 2 ainda vai decidir
 entre escrever à mão ou adotar algo do ecossistema Vue.
 
+### Emenda 2 (2026-09-20) — o módulo passa a ser um componente
+
+A decisão acima escolheu Vue e deixou o contrato entre shell e módulo como
+estava: `mount(host, deps)` devolvendo um handle. O `shared/dom-shell.ts`
+registrou no próprio docblock que sobreviveria à escolha de framework — *"a
+module is still handed a host element and still returns a handle"*. Sobreviveu
+à escolha, e não sobreviveu ao uso.
+
+**O contrato agora é um componente.** Um módulo exporta `component`; o shell o
+renderiza com `<component :is>` e `deps` como única prop. O `dom-shell.ts` some
+e dá lugar a `shared/vue-module.ts`.
+
+**A razão é uma só, e não é elegância.** Sob o contrato antigo cada módulo era
+um `createApp` próprio. As duas pendências que esta ADR deixou abertas —
+biblioteca de componentes para a Fase 2 e store de estado — entram por
+`app.use()`, e um plugin instalado na raiz não atravessa fronteira de
+aplicação. Com N módulos, ou o plugin era instalado N vezes, ou duas instâncias
+de Pinia não compartilhavam estado. Não era custo maior: era a pendência
+tornada insolúvel. Agora existe uma aplicação e um ponto de instalação,
+`ShellOptions.configure(app)`.
+
+**O que não mudou, e é o ponto.** `ModuleDescriptor`, o manifesto, as flags de
+build e o `import()` preguiçoso atravessaram sem uma linha alterada — a ADR
+0006 separou "como um módulo é identificado e carregado" de "como ele é
+desenhado", e só a segunda metade foi trocada. Build com `VITE_ANALYSE`
+desligado continua não emitindo chunk de Analyse.
+
+**O whiteboard não foi tocado.** A decisão principal desta ADR continua de pé
+sem emenda: o adapter DOM segue vanilla, montado por `ref` dentro do
+`Composer.vue`. A troca de contrato acontece na fronteira de *módulo*, e a ilha
+vive dentro de um componente — duas costuras diferentes, e só uma se mexeu.
+
+**Trade-offs assumidos**
+
+- **Um módulo não-Vue deixa de ser possível sem mudar o contrato de novo.** Era
+  a única coisa que a neutralidade comprava, e não tinha consumidor: o
+  whiteboard é capability dentro de componente, não módulo.
+- **`go()` passou a esperar o `nextTick`.** `<component :is>` renderiza no tick
+  seguinte, ao contrário do `mount()` síncrono. O await está dentro do `go`
+  para que nenhum chamador precise de um `sleep` — mas é uma diferença de
+  comportamento real, não só de forma.
+- **Refinamento do gatilho de reabertura do whiteboard.** Esta ADR o definiu
+  como "o dia em que o adapter precisar de estado que só o framework tem". O
+  sintoma concreto já existe em embrião: `currentBlock()` no `Composer.vue`
+  consulta `activeElement` e os atributos do board para descobrir onde está o
+  caret — Vue enfiando a mão no DOM da ilha. A cura é o handle expor
+  `activeBlock()`, **não** o Vue entrar. E quando o gatilho disparar de
+  verdade, a saída é Vue *dentro* da ilha: `MountOptions.renderers` já é
+  registry, e um renderer pode montar um componente no próprio nó — a forma de
+  node view do Tiptap. O gatilho fica mais preciso; a decisão não se inverte.
+
+### Emenda 3 (2026-09-20) — a suíte de arquitetura passa a ler `.vue`
+
+Consequência direta da Emenda 2, registrada porque é uma correção de *alcance
+de regra*, não uma limpeza. O `ui/src/architecture.test.ts` varria só `.ts`, e
+os quatro SFCs do Daily Log já estavam fora do radar desde a decisão original.
+Mover o shell para SFC alargaria o buraco a ponto de a suíte reportar árvore
+limpa checando quase nada da UI.
+
+O scan agora inclui `.vue` e extrai o bloco `<script>` — template e style não
+importam módulo. O próprio arquivo de teste é excluído do scan, porque ele é o
+único que contém especificadores errados de propósito: as fixtures contra as
+quais as regras são provadas.
+
 ## Alternativas consideradas
 
 - **Manter a ADR 0003 (React + shadcn/ui)** — a única alternativa com biblioteca
