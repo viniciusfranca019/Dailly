@@ -100,7 +100,9 @@ describe('o aviso de banco à frente diz um número verdadeiro', () => {
 
     await expect(boot).rejects.toThrow(DatabaseTooNewError)
     await expect(boot).rejects.toThrow(/o schema montado aqui vai até a 0/)
-    // O build conhece a versão 1 — dizer que ele conhece até a 0 seria falso.
-    expect(LATEST_VERSION).toBe(1)
+    // O que a asserção quer dizer é que o build conhece *alguma* versão, então
+    // atribuir a ele o 0 do manifest vazio é falso. `toBe(1)` diria isso hoje e
+    // viraria manutenção na Fase 2, quando o entries tomar a migration 2.
+    expect(LATEST_VERSION).toBeGreaterThan(0)
   })
 })
