@@ -28,6 +28,15 @@ export interface ExecutedResponse {
   readonly encoding: 'utf-8' | 'base64'
   readonly truncated: boolean
   /**
+   * O prazo estourou **durante o corpo**, e o que veio antes está aqui.
+   *
+   * Devolver o parcial com a marca é mais útil que descartá-lo, e é o mesmo
+   * vocabulário que o `truncated` já usa: paramos cedo, e está dito por quê.
+   * No aperto de mão nada disso existe — lá não há parcial a devolver, e a
+   * recusa é erro.
+   */
+  readonly timedOut: boolean
+  /**
    * Bytes efetivamente recebidos.
    *
    * Quando `truncated`, a leitura é **interrompida** no teto — então este
@@ -53,6 +62,27 @@ export class InvalidWireError extends Error {
     super(`a requisição montada não é válida: ${cause}`)
   }
 }
+
+/**
+ * O prazo deste servidor estourou antes de o alvo terminar.
+ *
+ * Erro próprio e não `TargetUnreachableError`: o alvo **foi** alcançado e
+ * respondeu — ele só foi lento. Dizer "não consegui alcançar" mandaria a
+ * pessoa investigar a rede por um limite que nós impusemos.
+ */
+export class ExecutionTimeoutError extends Error {
+  override readonly name = 'ExecutionTimeoutError'
+  constructor(ms: number) {
+    super(`o alvo não terminou em ${ms}ms, que é o prazo deste servidor`)
+  }
+}
+
+/** `AbortSignal.timeout` e o cancelamento do undici chegam com estes nomes. */
+const isTimeout = (error: unknown): boolean =>
+  error instanceof Error &&
+  (error.name === 'TimeoutError' ||
+    error.name === 'AbortError' ||
+    (error as { code?: string }).code === 'UND_ERR_ABORTED')
 
 export class TargetUnreachableError extends Error {
   override readonly name = 'TargetUnreachableError'
@@ -80,7 +110,10 @@ const TEXTUAL = /^(text\/|application\/(json|xml|javascript|x-www-form-urlencode
  * para escondê-los. Se um dia a biblioteca mudar de padrão, é este parágrafo
  * que diz o que quebrou.
  */
-export async function executeHttp(wire: HttpWire): Promise<ExecutedResponse> {
+export async function executeHttp(
+  wire: HttpWire,
+  { timeoutMs = TIMEOUT_MS }: { timeoutMs?: number } = {},
+): Promise<ExecutedResponse> {
   // `performance.now()` e não `Date.now()`: um ajuste de relógio no meio da
   // requisição daria duração errada — ou negativa — num campo cujo trabalho
   // inteiro é ser uma medição.
@@ -90,17 +123,30 @@ export async function executeHttp(wire: HttpWire): Promise<ExecutedResponse> {
   try {
     response = await undiciRequest(wire.url, {
       method: wire.method as Dispatcher.HttpMethod,
-      headers: Object.fromEntries(wire.headers.map((header) => [header.name, header.value])),
+      // **Lista achatada, não objeto.** `Object.fromEntries` colapsa header
+      // repetido — a chave é única num objeto — e só o último saía. O schema
+      // carrega uma lista de pares justamente porque `-H` repetido é legítimo,
+      // e o formato sobrevivia ao parser, ao `resolve` e ao wire para morrer
+      // na última linha antes da rede.
+      //
+      // Pior que perder um header: o `resolve()` é a função pura que o
+      // renderer roda para mostrar *exatamente o que vai ser enviado*, que é o
+      // argumento inteiro da ADR 0011 contra o híbrido. O preview mostrava
+      // dois; a fita levava um.
+      headers: wire.headers.flatMap((header) => [header.name, header.value]),
       ...(wire.body === null ? {} : { body: wire.body }),
-      headersTimeout: TIMEOUT_MS,
-      bodyTimeout: TIMEOUT_MS,
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      headersTimeout: timeoutMs,
+      bodyTimeout: timeoutMs,
+      signal: AbortSignal.timeout(timeoutMs),
     })
   } catch (cause) {
     // A distinção importa mais do que parece: o undici recusa argumento antes
     // de tocar a rede, e tratar isso como "alvo inalcançável" manda a pessoa
     // depurar a conexão por causa de um erro que está no spec dela.
     if (cause instanceof errors.InvalidArgumentError) throw new InvalidWireError(cause.message)
+    // No aperto de mão não há parcial a devolver, então prazo estourado aqui é
+    // erro — e erro próprio, porque a culpa não é de alcançar.
+    if (isTimeout(cause)) throw new ExecutionTimeoutError(timeoutMs)
     // DNS que não resolve, conexão recusada, TLS inválido: é falha do alvo, não
     // deste servidor. Um 500 mandaria quem chama procurar o defeito aqui.
     throw new TargetUnreachableError(wire.url, cause instanceof Error ? cause.message : 'falhou')
@@ -109,6 +155,7 @@ export async function executeHttp(wire: HttpWire): Promise<ExecutedResponse> {
   const chunks: Buffer[] = []
   let bytes = 0
   let truncated = false
+  let timedOut = false
 
   try {
     for await (const chunk of response.body) {
@@ -127,6 +174,18 @@ export async function executeHttp(wire: HttpWire): Promise<ExecutedResponse> {
       chunks.push(piece)
       bytes += piece.length
     }
+  } catch (cause) {
+    // **Falhar no meio do corpo também é falhar.** O `try` cobria só o aperto
+    // de mão, então um socket que morre durante a leitura escapava inteiro:
+    // virava 500 com a mensagem crua do undici, que é exatamente o que o
+    // comentário acima proíbe — o alvo falhou e a resposta dizia que fomos
+    // nós.
+    if (!isTimeout(cause)) {
+      throw new TargetUnreachableError(wire.url, cause instanceof Error ? cause.message : 'falhou')
+    }
+    // Prazo estourado com corpo parcial na mão: devolver o que veio, marcado,
+    // vale mais que descartar. É o mesmo vocabulário do `truncated`.
+    timedOut = true
   } finally {
     // Parar de ler não basta: sem destruir, o socket continua aberto e o alvo
     // continua mandando. O teto tem que limitar a **leitura**, não só a
@@ -148,6 +207,7 @@ export async function executeHttp(wire: HttpWire): Promise<ExecutedResponse> {
     body: textual ? buffer.toString('utf-8') : buffer.toString('base64'),
     encoding: textual ? 'utf-8' : 'base64',
     truncated,
+    timedOut,
     bytes,
     contentLength: Number.isFinite(Number(response.headers['content-length']))
       ? Number(response.headers['content-length'])

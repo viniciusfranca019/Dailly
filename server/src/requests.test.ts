@@ -525,3 +525,60 @@ describe('C1: a request sobrevive a reiniciar o processo', () => {
     }
   })
 })
+
+describe('C2: header repetido chega inteiro na fita', () => {
+  it('manda os dois, em vez de colapsar no último', async () => {
+    // O schema carrega lista de pares justamente porque `-H` repetido é
+    // legítimo, e o formato sobrevivia ao parser, ao resolve e ao wire — para
+    // morrer na última linha antes da rede, num `Object.fromEntries`.
+    //
+    // Pior que perder um header: o `resolve()` é a função pura que o renderer
+    // roda para mostrar exatamente o que vai ser enviado — o argumento inteiro
+    // da ADR 0011 contra o híbrido. O preview mostrava dois; a fita levava um.
+    const app = appWith()
+    await seed(
+      app,
+      saved({
+        spec: spec({
+          headers: [
+            { name: 'x-dup', value: 'a' },
+            { name: 'x-dup', value: 'b' },
+          ],
+        }),
+      }),
+    )
+
+    const eco = JSON.parse((await execute(app)).json().body)
+
+    // O Node junta header repetido não-cookie com `, ` do lado de quem recebe.
+    expect(eco.headers['x-dup']).toBe('a, b')
+  })
+})
+
+describe('C2: falhar no meio do corpo também é falha do alvo', () => {
+  it('devolve 502 quando o socket morre durante a leitura, e não 500', async () => {
+    // O `try` cobria só o aperto de mão. Um socket que morre durante o corpo
+    // escapava inteiro e virava 500 com a mensagem crua do undici — a resposta
+    // dizendo que a culpa era deste servidor.
+    const { createServer: createRaw } = await import('node:http')
+    const mentiroso = createRaw((_req, res) => {
+      res.writeHead(200, { 'content-length': '100', 'content-type': 'text/plain' })
+      res.write('dez bytes.')
+      res.socket?.destroy()
+    })
+    await new Promise<void>((done) => mentiroso.listen(0, '127.0.0.1', done))
+    const porta = (mentiroso.address() as { port: number }).port
+
+    try {
+      const app = appWith()
+      await seed(app, saved({ spec: spec({ url: `http://127.0.0.1:${porta}/x` }) }))
+
+      const response = await execute(app)
+
+      expect(response.statusCode).toBe(502)
+      expect(response.json().error).toMatch(/não consegui alcançar/)
+    } finally {
+      mentiroso.close()
+    }
+  })
+})
