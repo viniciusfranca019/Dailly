@@ -4,7 +4,7 @@ import type { Database } from 'better-sqlite3'
 import {
   ManifestError,
   assertManifest,
-  type ServerModule,
+  type AnyServerModule,
   type ServerModuleDeps,
 } from './module.js'
 
@@ -36,7 +36,7 @@ export interface AppDeps extends ServerModuleDeps {
  */
 export function buildApp(
   { entries, zone, token, db }: AppDeps,
-  modules: readonly ServerModule<unknown>[] = MODULES,
+  modules: readonly AnyServerModule[] = MODULES,
 ): FastifyInstance {
   assertManifest(modules)
 

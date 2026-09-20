@@ -54,6 +54,27 @@ export function descendantsOf(folders: readonly Folder[], id: string): string[] 
   return found
 }
 
+/**
+ * O laço se fecharia? — a pergunta, separada da operação que a faz.
+ *
+ * Ela nasceu separada depois de o gate mostrar que a regra tinha **duas
+ * portas** e só uma trancada: `moveFolder` chamava `reparent` e recusava,
+ * enquanto `saveFolder` — que é upsert — trocava o pai sem checar nada. O
+ * contract test passava porque só exercitava o verbo "mover".
+ *
+ * C6 é propriedade da **árvore**, não do verbo. Toda escrita que mexe em
+ * `parentId` pergunta aqui.
+ */
+export function wouldCycle(
+  folders: readonly Folder[],
+  id: string,
+  parentId: string | null,
+): boolean {
+  if (parentId === null) return false
+  if (parentId === id) return true
+  return descendantsOf(folders, id).includes(parentId)
+}
+
 /** A pasta pelo id, para as mensagens dizerem nome em vez de identificador. */
 const nameOf = (folders: readonly Folder[], id: string): string =>
   folders.find((folder) => folder.id === id)?.name ?? id
@@ -66,17 +87,21 @@ const nameOf = (folders: readonly Folder[], id: string): string =>
  * tela: mutar no lugar faria a recusa deixar a interface mostrando um estado
  * que o banco não tem.
  */
+/** A mesma pergunta, na forma que interrompe — para quem escreve sem remapear a árvore. */
+export function assertNoCycle(
+  folders: readonly Folder[],
+  id: string,
+  parentId: string | null,
+): void {
+  if (!wouldCycle(folders, id, parentId)) return
+  throw new FolderCycleError(nameOf(folders, id), nameOf(folders, parentId ?? id))
+}
+
 export function reparent(
   folders: readonly Folder[],
   id: string,
   parentId: string | null,
 ): Folder[] {
-  if (parentId !== null) {
-    if (parentId === id) throw new FolderCycleError(nameOf(folders, id), nameOf(folders, id))
-    if (descendantsOf(folders, id).includes(parentId)) {
-      throw new FolderCycleError(nameOf(folders, id), nameOf(folders, parentId))
-    }
-  }
-
+  assertNoCycle(folders, id, parentId)
   return folders.map((folder) => (folder.id === id ? { ...folder, parentId } : folder))
 }

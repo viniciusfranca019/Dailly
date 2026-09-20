@@ -7,6 +7,25 @@ export interface SavedRequest extends ProtocolSpec {
   readonly position: number
 }
 
+/**
+ * O `spec` guardado não é JSON — e isso não pode derrubar a coleção inteira.
+ *
+ * O C4 diz que o banco é fronteira de confiança e que a recusa nomeia o campo
+ * em vez de virar 500. Um spec que **não parseia** escapava de todo esse
+ * mecanismo: o erro subia de dentro do store, abaixo de qualquer `catch`, e
+ * levava junto o `GET /requests` — então a interface nem conseguia mostrar
+ * qual request apagar.
+ */
+export class CorruptSpecError extends Error {
+  override readonly name = 'CorruptSpecError'
+  constructor(readonly id: string) {
+    super(
+      `a request ${id} tem um spec que não é JSON válido. ` +
+        'Ela aparece na listagem com `spec: null` para poder ser apagada.',
+    )
+  }
+}
+
 export class FolderNotFoundError extends Error {
   override readonly name = 'FolderNotFoundError'
   constructor(id: string) {

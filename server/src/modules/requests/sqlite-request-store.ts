@@ -1,5 +1,5 @@
-import { type Folder, type RequestStore, type SavedRequest, reparent } from '@dailly/requests-core'
-import { FolderNotFoundError } from '@dailly/requests-core'
+import { type Folder, type RequestStore, type SavedRequest, assertNoCycle } from '@dailly/requests-core'
+import { CorruptSpecError, FolderNotFoundError } from '@dailly/requests-core'
 import type { Database } from 'better-sqlite3'
 
 interface RequestRow {
@@ -37,16 +37,33 @@ interface FolderRow {
  * problema que lá foi aceito a contragosto.
  */
 export function sqliteRequestStore({ db }: { db: Database }): RequestStore {
-  const toRequest = (row: RequestRow): SavedRequest => ({
-    id: row.id,
-    name: row.name,
-    protocol: row.protocol,
-    // O `spec` é JSON opaco para o banco; quem o valida é o driver do
-    // protocolo, do outro lado desta fronteira.
-    spec: JSON.parse(row.spec) as unknown,
-    folderId: row.folder_id,
-    position: row.position,
-  })
+  /**
+   * `strict` separa os dois usos, e a diferença é o que salva a listagem.
+   *
+   * Executar uma request com spec ilegível é recusa nomeada (o `catch` das
+   * rotas a traduz). Listar, não: uma linha corrompida não pode derrubar a
+   * coleção, senão a interface não consegue nem mostrar o que apagar. Lá ela
+   * aparece com `spec: null`.
+   */
+  const toRequest = (row: RequestRow, strict: boolean): SavedRequest => {
+    let spec: unknown = null
+    try {
+      // O `spec` é JSON opaco para o banco; quem o valida é o driver do
+      // protocolo, do outro lado desta fronteira.
+      spec = JSON.parse(row.spec) as unknown
+    } catch {
+      if (strict) throw new CorruptSpecError(row.id)
+    }
+
+    return {
+      id: row.id,
+      name: row.name,
+      protocol: row.protocol,
+      spec,
+      folderId: row.folder_id,
+      position: row.position,
+    }
+  }
 
   const toFolder = (row: FolderRow): Folder => ({
     id: row.id,
@@ -54,6 +71,9 @@ export function sqliteRequestStore({ db }: { db: Database }): RequestStore {
     name: row.name,
     position: row.position,
   })
+
+  const allFolders = (): Folder[] =>
+    (db.prepare('SELECT * FROM request_folders').all() as FolderRow[]).map(toFolder)
 
   const assertFolderExists = (id: string | null): void => {
     if (id === null) return
@@ -85,14 +105,14 @@ export function sqliteRequestStore({ db }: { db: Database }): RequestStore {
       const rows = db
         .prepare('SELECT * FROM requests ORDER BY position, id')
         .all() as RequestRow[]
-      return rows.map(toRequest)
+      return rows.map((row) => toRequest(row, false))
     },
 
     async requestById(id) {
       const row = db.prepare('SELECT * FROM requests WHERE id = ?').get(id) as
         | RequestRow
         | undefined
-      return row ? toRequest(row) : undefined
+      return row ? toRequest(row, true) : undefined
     },
 
     async deleteRequest(id) {
@@ -101,6 +121,9 @@ export function sqliteRequestStore({ db }: { db: Database }): RequestStore {
 
     async saveFolder(folder) {
       assertFolderExists(folder.parentId)
+      // `ON CONFLICT DO UPDATE SET parent_id` também reparenta. A FK não ajuda:
+      // o pai existe, então a constraint está satisfeita e o laço passa.
+      assertNoCycle(allFolders(), folder.id, folder.parentId)
       db.prepare(
         `INSERT INTO request_folders (id, parent_id, name, position)
          VALUES (@id, @parentId, @name, @position)
@@ -118,12 +141,15 @@ export function sqliteRequestStore({ db }: { db: Database }): RequestStore {
     },
 
     async moveFolder(id, parentId) {
+      // Mover o que não existe respondia 204: o `UPDATE` batia em zero linhas
+      // e ninguém reclamava, então a UI era informada de um movimento que não
+      // aconteceu.
+      assertFolderExists(id)
       assertFolderExists(parentId)
-      const rows = db.prepare('SELECT * FROM request_folders').all() as FolderRow[]
       // A regra de ciclo é do modelo e roda antes do `UPDATE`: em SQL ela
       // seria um `CHECK` recursivo que só o SQLite entenderia, e ela precisa
       // valer igual no fake em memória.
-      reparent(rows.map(toFolder), id, parentId)
+      assertNoCycle(allFolders(), id, parentId)
       db.prepare('UPDATE request_folders SET parent_id = ? WHERE id = ?').run(parentId, id)
     },
   }

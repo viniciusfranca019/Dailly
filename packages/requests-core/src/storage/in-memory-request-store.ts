@@ -1,4 +1,4 @@
-import { FolderCycleError, type Folder, reparent } from './folder.js'
+import { FolderCycleError, type Folder, assertNoCycle } from './folder.js'
 import { FolderNotFoundError, type RequestStore, type SavedRequest } from './request-store.js'
 
 /**
@@ -11,6 +11,11 @@ import { FolderNotFoundError, type RequestStore, type SavedRequest } from './req
 export function inMemoryRequestStore(): RequestStore {
   let requests: SavedRequest[] = []
   let folders: Folder[] = []
+
+  /** Mover o que não existe respondia sucesso: o `UPDATE` batia em zero linhas. */
+  const assertMovedExists = (id: string): void => {
+    if (!folders.some((folder) => folder.id === id)) throw new FolderNotFoundError(id)
+  }
 
   const assertFolderExists = (id: string | null): void => {
     if (id !== null && !folders.some((folder) => folder.id === id)) {
@@ -39,6 +44,9 @@ export function inMemoryRequestStore(): RequestStore {
 
     async saveFolder(folder) {
       assertFolderExists(folder.parentId)
+      // Salvar é upsert, então ele também reparenta — e C6 é propriedade da
+      // árvore, não do verbo "mover".
+      assertNoCycle(folders, folder.id, folder.parentId)
       folders = [...folders.filter((saved) => saved.id !== folder.id), folder]
       return folder
     },
@@ -48,10 +56,12 @@ export function inMemoryRequestStore(): RequestStore {
     },
 
     async moveFolder(id, parentId) {
+      assertMovedExists(id)
       assertFolderExists(parentId)
       // A regra mora no modelo e é a mesma nas duas implementações — é por isso
       // que ela é função pura e não `CHECK` de SQL.
-      folders = reparent(folders, id, parentId)
+      assertNoCycle(folders, id, parentId)
+      folders = folders.map((folder) => (folder.id === id ? { ...folder, parentId } : folder))
     },
   }
 }

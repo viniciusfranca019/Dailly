@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { LATEST_VERSION, createServer, type RunningServer } from './index.js'
 import { MODULES } from './modules.js'
 import { buildApp } from './shell/app.js'
-import { ManifestError, assertManifest, type ServerModule } from './shell/module.js'
+import { ManifestError, assertManifest, type AnyServerModule } from './shell/module.js'
 
 /**
  * C3 — um módulo entra pelo manifest, não por import no shell.
@@ -23,7 +23,7 @@ import { ManifestError, assertManifest, type ServerModule } from './shell/module
 /** Um handle de banco que nunca é tocado — o `provide` do fake não consulta nada. */
 const fakeDb = () => ({ marca: 'banco falso' }) as never
 
-const fakeModule = (over: Partial<ServerModule<unknown>> = {}): ServerModule<unknown> => ({
+const fakeModule = (over: Partial<AnyServerModule> = {}): AnyServerModule => ({
   id: 'fake',
   migrations: [],
   register(app) {
@@ -155,7 +155,7 @@ describe('a isenção do /health é a rota, não o prefixo da URL', () => {
    * usuário — passa pelo hook como todas as outras. Com prefixo, um
    * `/health/executor` não passaria.
    */
-  const probing = (): ServerModule => ({
+  const probing = (): AnyServerModule => ({
     id: 'sondas',
     migrations: [],
     register(app) {
