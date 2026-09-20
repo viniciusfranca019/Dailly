@@ -326,6 +326,41 @@ toggle list.
 - `1. [ ] x` é capturado pelo checkbox (prioridade 20 < 31), então corta uma
   sequência numerada: `1. a / 2. [ ] b / 3. c` volta como `1. a / [] b / 1. c`.
 
+## Requests
+
+Um cliente de API no estilo Apidog/Postman: cola um `curl`, ele vira uma request
+editável, e a resposta aparece. Hoje só HTTP; a estrutura aceita gRPC e AMQP
+amanhã sem reescrever o modelo ([ADR 0011](docs/adrs/0011-requests-modulo-e-execucao.md)).
+
+O que decide a forma inteira é **onde a requisição é executada: no servidor.**
+Não pelo custo do hop — pelo que o renderer não consegue fazer. `Host`,
+`Origin`, `Cookie`, `Referer` e `User-Agent` não podem ser definidos por `fetch`
+no browser, e um cliente de API que não manda `Cookie` não testa autenticação.
+A origem do renderer é `file://` em produção, então a resposta volta opaca por
+CORS — sem status, sem headers, sem corpo. E gRPC não existe num webview.
+
+Daí o corte em duas metades:
+
+```
+packages/requests-core/    puro: ProtocolSpec · ProtocolRegistry · fromRaw · resolve
+  http/                    o driver HTTP, atrás do subpath @dailly/requests-core/http
+server/src/modules/requests/   a metade que executa  (ainda não existe)
+```
+
+A metade pura roda nos dois runtimes: o renderer importa um curl e mostra o
+preview literal com `resolve()`, sem viagem nenhuma — era a única virtude do
+híbrido "o servidor monta, a UI executa", e ela sai de graça aqui.
+
+Dois comportamentos que separam isto de um parser ingênuo:
+
+- **Variável sem valor recusa a requisição**, nomeando todas as que faltam. Todo
+  cliente de API deixa `{{token}}` virar texto e sair na rede; o servidor
+  responde 401 e a pessoa procura o erro na autenticação.
+- **Flag desconhecida é ignorada e relatada**, nunca aplicada em silêncio. O
+  DevTools põe `--compressed` em quase todo curl, então recusar tudo tornaria a
+  função inútil; ignorar calado é o que faz alguém colar um `--cert` achando que
+  foi aplicado.
+
 ## Adicionando um novo tipo de bloco
 
 Duas peças, nenhuma delas dentro do core. Ex.: um callout `!! texto`.
@@ -394,38 +429,3 @@ Cada teste mora ao lado do que testa, então o módulo carrega a própria suíte
 Copyright 2026 Vinicius França (@viniciusfranca019)
 
 Apache License 2.0 — o texto completo está em [`LICENSE`](LICENSE).
-
-## Requests
-
-Um cliente de API no estilo Apidog/Postman: cola um `curl`, ele vira uma request
-editável, e a resposta aparece. Hoje só HTTP; a estrutura aceita gRPC e AMQP
-amanhã sem reescrever o modelo ([ADR 0011](docs/adrs/0011-requests-modulo-e-execucao.md)).
-
-O que decide a forma inteira é **onde a requisição é executada: no servidor.**
-Não pelo custo do hop — pelo que o renderer não consegue fazer. `Host`,
-`Origin`, `Cookie`, `Referer` e `User-Agent` não podem ser definidos por `fetch`
-no browser, e um cliente de API que não manda `Cookie` não testa autenticação.
-A origem do renderer é `file://` em produção, então a resposta volta opaca por
-CORS — sem status, sem headers, sem corpo. E gRPC não existe num webview.
-
-Daí o corte em duas metades:
-
-```
-packages/requests-core/    puro: ProtocolSpec · ProtocolRegistry · fromRaw · resolve
-  http/                    o driver HTTP, atrás do subpath @dailly/requests-core/http
-server/src/modules/requests/   a metade que executa  (ainda não existe)
-```
-
-A metade pura roda nos dois runtimes: o renderer importa um curl e mostra o
-preview literal com `resolve()`, sem viagem nenhuma — era a única virtude do
-híbrido "o servidor monta, a UI executa", e ela sai de graça aqui.
-
-Dois comportamentos que separam isto de um parser ingênuo:
-
-- **Variável sem valor recusa a requisição**, nomeando todas as que faltam. Todo
-  cliente de API deixa `{{token}}` virar texto e sair na rede; o servidor
-  responde 401 e a pessoa procura o erro na autenticação.
-- **Flag desconhecida é ignorada e relatada**, nunca aplicada em silêncio. O
-  DevTools põe `--compressed` em quase todo curl, então recusar tudo tornaria a
-  função inútil; ignorar calado é o que faz alguém colar um `--cert` achando que
-  foi aplicado.

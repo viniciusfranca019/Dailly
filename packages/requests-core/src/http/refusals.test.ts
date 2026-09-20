@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { NotACurlError, UnterminatedQuoteError, httpDriver } from '@dailly/requests-core/http'
+import { NotACurlError, UnterminatedQuoteError, httpDriver } from './index.js'
 
 const importing = (raw: string) => httpDriver.fromRaw(raw)
 
@@ -32,7 +32,7 @@ describe('C2: o curl que não dá pra entender é recusado dizendo onde', () => 
   it('nenhuma request parcial nasce de um texto recusado', () => {
     // A recusa é total. Devolver o que deu para ler é como um parser que
     // entrega meia árvore: o consumidor não tem como saber o que falta.
-    expect(() => importing(`curl 'https://x.dev/a -H 'A: 1'`)).toThrow()
+    expect(() => importing(`curl 'https://x.dev/a -H 'A: 1'`)).toThrow(UnterminatedQuoteError)
   })
 })
 

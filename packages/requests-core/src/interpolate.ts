@@ -25,10 +25,13 @@ export function interpolate<T>(value: T, env: Env): Interpolated<T> {
   const walk = (node: unknown): unknown => {
     if (typeof node === 'string') {
       return node.replaceAll(VARIABLE, (whole, name: string) => {
-        // `in` e não `??`: uma variável declarada como string vazia é um valor
-        // que alguém escolheu, não uma ausência. Tratá-la como ausente
-        // obrigaria a pessoa a inventar um texto para dizer "nenhum".
-        if (name in env) return env[name]!
+        // `Object.hasOwn` e não `in`: `in` percorre o prototype, e
+        // `{{constructor}}` resolvia para o código-fonte de `Object` — sem
+        // reclamar, e daí direto para a fita. E não é `??` porque uma variável
+        // declarada como string vazia é um valor que alguém escolheu, não uma
+        // ausência: tratá-la como ausente obrigaria a pessoa a inventar um
+        // texto para dizer "nenhum".
+        if (Object.hasOwn(env, name)) return env[name]!
         missing.add(name)
         return whole
       })

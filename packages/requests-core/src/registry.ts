@@ -13,14 +13,28 @@ export class UnknownProtocolError extends Error {
 /**
  * O ponto de extensão do pacote — e é ele que a ADR 0011 promete.
  *
- * Mesma forma do `BlockRegistry` do whiteboard-core, pela mesma razão: um lugar
- * onde acrescentar um caso é **um arquivo novo mais um `register()`**, nunca
- * uma edição no núcleo. Amanhã um driver gRPC entra aqui sem que nada em
- * `protocol.ts`, `resolve.ts` ou `interpolate.ts` saiba que ele existe.
+ * Mesmo **propósito** do `BlockRegistry` do whiteboard-core, e o mesmo idioma
+ * de armazenamento — os drivers ficam guardados alargados, tratados de forma
+ * uniforme, enquanto cada um continua estritamente tipado no seu arquivo de
+ * declaração. Acrescentar um caso é um arquivo novo mais um `register()`, e
+ * amanhã um driver gRPC entra aqui sem que `protocol.ts`, `resolve.ts` ou
+ * `interpolate.ts` saibam que ele existe.
  *
- * Os drivers são guardados alargados, como lá: o registry os trata de forma
- * uniforme enquanto cada um continua estritamente tipado no seu próprio
- * arquivo de declaração.
+ * **Onde ele diverge, de propósito:**
+ *
+ * - `get()` lança em vez de devolver `undefined`. Lá a busca é por casamento e
+ *   não achar é rotina — o parágrafo cai no parágrafo. Aqui a busca é por
+ *   chave exata, e não achar significa que alguém compôs errado: um erro com
+ *   nome vale mais que um `undefined` viajando.
+ * - Não há `priority`. Lá as definições são **tentadas em ordem** contra uma
+ *   linha; aqui a busca é por chave, e não existe ordem para impor.
+ * - Não há `clone()`. Lá o parser precisa de um registry por documento; aqui
+ *   nada muta um registry depois da composição.
+ *
+ * As duas últimas seriam violação da Lei 3 se existissem: abstração sem
+ * chamador.
+ *
+ * Registrar o mesmo protocolo duas vezes substitui o driver anterior, como lá.
  */
 export class ProtocolRegistry {
   #byProtocol = new Map<string, ProtocolDriver<unknown, WireRequest>>()
