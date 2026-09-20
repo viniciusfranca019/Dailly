@@ -1,7 +1,26 @@
 import type { RequestStore, SavedRequest } from '@dailly/requests-core'
-import { FolderCycleError, FolderNotFoundError } from '@dailly/requests-core'
+import {
+  FolderCycleError,
+  FolderNotFoundError,
+  InvalidSpecError,
+  ProtocolRegistry,
+  UnknownProtocolError,
+  UnresolvedVariableError,
+  resolve,
+} from '@dailly/requests-core'
+import { type HttpWire, httpDriver } from '@dailly/requests-core/http'
 import type { FastifyInstance } from 'fastify'
+import { TargetUnreachableError, executeHttp } from './execute.js'
 import { validateFolder, validateSavedRequest } from './validate.js'
+
+/**
+ * Os protocolos que este servidor sabe montar — hoje um.
+ *
+ * O registry é montado aqui e não importado do pacote porque registrar é
+ * composição: o dia em que existir um driver gRPC, ele entra nesta linha e
+ * nada mais muda.
+ */
+const registry = new ProtocolRegistry().register(httpDriver)
 
 /**
  * As rotas de coleção: guardar, listar, apagar, organizar.
@@ -39,6 +58,63 @@ export function registerRequestRoutes(app: FastifyInstance, store: RequestStore)
       const saved = await store.saveRequest(validated.request as SavedRequest)
       return reply.code(201).send(saved)
     })
+  })
+
+  /**
+   * Executar: a rota mais sensível desta API.
+   *
+   * Ela é egresso arbitrário para a internet a partir da máquina do usuário, e
+   * a [ADR 0011](../../../../docs/adrs/0011-requests-modulo-e-execucao.md)
+   * escreveu que ela fica **dentro** do hook do token, nunca na isenção do
+   * `/health`. O hook é do shell e o caminho não começa com `/health`, então a
+   * garantia é estrutural — e o teste a prende, porque uma garantia que só
+   * existe no comentário não é garantia.
+   *
+   * A resposta não é guardada: ela vive enquanto a tela a mostra. Histórico de
+   * execução é outra feature, com outro schema, e ninguém pediu.
+   */
+  app.post('/requests/:id/execute', async (request, reply) => {
+    const saved = await store.requestById((request.params as { id: string }).id)
+    if (!saved) return reply.code(404).send({ error: 'não existe request com esse id' })
+
+    const body = request.body as { env?: unknown } | undefined
+    const env = body?.env
+    if (env !== undefined && (typeof env !== 'object' || env === null || Array.isArray(env))) {
+      return reply.code(400).send({ errors: [{ field: 'env', message: 'deve ser um objeto' }] })
+    }
+
+    let wire: HttpWire
+    try {
+      wire = resolve<HttpWire>(registry, saved, (env ?? {}) as Record<string, string>)
+    } catch (error) {
+      // As três recusas são do cliente, não do servidor — e cada uma diz o que
+      // falta consertar. Um 500 mandaria procurar defeito aqui dentro.
+      if (error instanceof UnresolvedVariableError) {
+        return reply.code(400).send({
+          error: error.message,
+          missing: error.missing,
+          surviving: error.surviving,
+        })
+      }
+      if (error instanceof InvalidSpecError) {
+        return reply.code(422).send({ error: error.message, errors: error.errors })
+      }
+      if (error instanceof UnknownProtocolError) {
+        return reply.code(422).send({ error: error.message })
+      }
+      throw error
+    }
+
+    try {
+      return await executeHttp(wire)
+    } catch (error) {
+      if (error instanceof TargetUnreachableError) {
+        // 502: quem falhou foi o alvo. Dizer 500 seria assumir a culpa de
+        // outro processo, e mandar a pessoa depurar o lugar errado.
+        return reply.code(502).send({ error: error.message })
+      }
+      throw error
+    }
   })
 
   app.delete('/requests/:id', async (request, reply) => {
