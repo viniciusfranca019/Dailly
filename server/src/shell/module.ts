@@ -123,7 +123,18 @@ export function assertManifest(modules: readonly AnyServerModule[]): void {
  * trata todos igual. Usar o de autoria como tipo de lista obrigaria todo
  * módulo a ter `provide` — que é o oposto do que a união existe para dizer.
  */
+declare const checked: unique symbol
+
 export type AnyServerModule = ServerModuleBase & {
+  /**
+   * A marca que só o `defineModule` sabe produzir.
+   *
+   * Sem ela este tipo era uma porta destrancada: um literal cru anotado
+   * direto com ele passava pela checagem, porque parâmetro de método é
+   * bivariante — e o próprio diff já pulava a porta em três fixtures. Prosa
+   * dizendo "não anote com este tipo" é enforcement que o tipo não tem.
+   */
+  readonly [checked]: true
   provide?(context: ProvideContext): unknown
   register(app: FastifyInstance, deps: ServerModuleDeps, own: unknown): void
 }
@@ -141,5 +152,7 @@ export type AnyServerModule = ServerModuleBase & {
  * não deixar ninguém anotar com ele: passando por aqui, a checagem acontece no
  * tipo de autoria e o alargamento vira consequência, não escolha.
  */
-export const defineModule = <TOwn>(module: ServerModule<TOwn>): AnyServerModule =>
-  module as AnyServerModule
+export const defineModule = <TOwn = void>(module: ServerModule<TOwn>): AnyServerModule =>
+  // `as unknown as` porque a marca não existe no tipo de autoria — é
+  // exatamente essa não-sobreposição que faz a marca valer.
+  module as unknown as AnyServerModule
