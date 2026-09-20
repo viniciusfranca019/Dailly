@@ -19,7 +19,14 @@ export interface HttpHeader {
  */
 export interface HttpAuth {
   readonly user: string
-  readonly password: string
+  /**
+   * `null` quando o comando não trouxe dois-pontos fora de uma chave.
+   *
+   * `-u '{{cred}}'` é o caso: cortar ali daria usuário `{{cred}}` e senha
+   * vazia, e a fita levaria `u:p:`. Sem corte, a credencial inteira atravessa
+   * a interpolação e o `:` de verdade aparece do outro lado.
+   */
+  readonly password: string | null
 }
 
 /** O schema do protocolo HTTP. Só ele conhece estes campos. */
