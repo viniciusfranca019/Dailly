@@ -198,9 +198,19 @@ porque é raro um trade-off se pagar de forma tão direta: `module.ts` — manif
 flags, `load()` preguiçoso — atravessou sem uma linha alterada, porque ele nunca
 soube como um módulo é desenhado. Só a metade que sabia foi trocada.
 
-O custo listado acima ("admite um tipo de DOM em `shared/`, que deixa de ser
-totalmente neutro") deixou de existir junto com o arquivo: o contrato novo não
-menciona `HTMLElement`.
+O custo listado acima — "admite um tipo de DOM em `shared/`, que deixa de ser
+totalmente neutro" — **não deixou de existir: foi trocado**, e a primeira
+redação desta emenda dizia o contrário. O contrato novo não menciona
+`HTMLElement`, é verdade, mas importa `type { Component } from 'vue'`. Um tipo
+de plataforma virou um tipo de framework, o que é discutivelmente o acoplamento
+mais apertado dos dois — DOM existe em qualquer renderer, Vue não.
+
+O que atenua, dito para não virar a correção oposta: nada sob `capabilities/`
+importa `@shared`, então o tipo do Vue alcança só o shell e os SFCs, e é
+`type`-only, portanto apagado no build. E a troca está registrada como decisão
+na [ADR 0010, Emenda 2](0010-vue-no-renderer.md) — *"um módulo não-Vue deixa de
+ser possível sem mudar o contrato de novo"*. O defeito aqui era de redação, não
+de decisão: uma conclusão com a causa errada pendurada.
 
 ## Alternativas consideradas
 
