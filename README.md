@@ -5,6 +5,7 @@ do Notion. TypeScript; o editor em si não usa framework.
 
 ```
 packages/whiteboard-core/  o modelo: markdown → blocos → markdown. Sem DOM, sem framework
+packages/requests-core/    o modelo: curl → ProtocolSpec → o que sai na fita. Sem DOM, sem rede
 ui/src/capabilities/       adapters que os módulos consomem (o renderer DOM do whiteboard, …)
 ui/src/modules/            os módulos de produto (Daily Log, Analyse, …)
 ui/src/playground/         harness do whiteboard
@@ -163,7 +164,7 @@ derrube o boot sem ter escrito nada.
 
 ### A fronteira é testada, não combinada
 
-Quatro testes varrem o source e falham nomeando o arquivo culpado, cada um onde
+Cinco testes varrem o source e falham nomeando o arquivo culpado, cada um onde
 a regra é verificável:
 
 - `ui/src/architecture.test.ts` — as camadas da `ui/`: o whiteboard importando um
@@ -172,6 +173,11 @@ a regra é verificável:
 - `server/src/architecture.test.ts` — as mesmas duas setas do outro lado: o
   shell conhece o manifest e nunca um módulo, e um módulo alcança outro só pelo
   index público.
+- `packages/requests-core/src/architecture.test.ts` — duas regras: o modelo não
+  conhece protocolo nenhum (nem por import, nem por string), e a metade pura não
+  executa (`node:http`, `undici`, `fetch`). A primeira é o que torna gRPC um
+  arquivo novo em vez de uma edição no núcleo; a segunda é a fronteira da
+  [ADR 0011](docs/adrs/0011-requests-modulo-e-execucao.md).
 - `packages/whiteboard-core/src/architecture.test.ts` — DOM no core. O
   `tsconfig` do pacote já não carrega a lib DOM, então o compilador pega o caso
   tipado; o teste pega o que tipo não vê.
@@ -388,3 +394,38 @@ Cada teste mora ao lado do que testa, então o módulo carrega a própria suíte
 Copyright 2026 Vinicius França (@viniciusfranca019)
 
 Apache License 2.0 — o texto completo está em [`LICENSE`](LICENSE).
+
+## Requests
+
+Um cliente de API no estilo Apidog/Postman: cola um `curl`, ele vira uma request
+editável, e a resposta aparece. Hoje só HTTP; a estrutura aceita gRPC e AMQP
+amanhã sem reescrever o modelo ([ADR 0011](docs/adrs/0011-requests-modulo-e-execucao.md)).
+
+O que decide a forma inteira é **onde a requisição é executada: no servidor.**
+Não pelo custo do hop — pelo que o renderer não consegue fazer. `Host`,
+`Origin`, `Cookie`, `Referer` e `User-Agent` não podem ser definidos por `fetch`
+no browser, e um cliente de API que não manda `Cookie` não testa autenticação.
+A origem do renderer é `file://` em produção, então a resposta volta opaca por
+CORS — sem status, sem headers, sem corpo. E gRPC não existe num webview.
+
+Daí o corte em duas metades:
+
+```
+packages/requests-core/    puro: ProtocolSpec · ProtocolRegistry · fromRaw · resolve
+  http/                    o driver HTTP, atrás do subpath @dailly/requests-core/http
+server/src/modules/requests/   a metade que executa  (ainda não existe)
+```
+
+A metade pura roda nos dois runtimes: o renderer importa um curl e mostra o
+preview literal com `resolve()`, sem viagem nenhuma — era a única virtude do
+híbrido "o servidor monta, a UI executa", e ela sai de graça aqui.
+
+Dois comportamentos que separam isto de um parser ingênuo:
+
+- **Variável sem valor recusa a requisição**, nomeando todas as que faltam. Todo
+  cliente de API deixa `{{token}}` virar texto e sair na rede; o servidor
+  responde 401 e a pessoa procura o erro na autenticação.
+- **Flag desconhecida é ignorada e relatada**, nunca aplicada em silêncio. O
+  DevTools põe `--compressed` em quase todo curl, então recusar tudo tornaria a
+  função inútil; ignorar calado é o que faz alguém colar um `--cert` achando que
+  foi aplicado.
