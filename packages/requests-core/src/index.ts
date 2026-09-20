@@ -35,3 +35,9 @@ export { resolve, UnresolvedVariableError, InvalidSpecError } from './resolve.js
 export { interpolate, placeholdersOf } from './interpolate.js'
 export { hasPlaceholder, placeholdersIn } from './placeholder.js'
 export type { Env, Interpolated } from './interpolate.js'
+
+export type { Folder } from './storage/folder.js'
+export { FolderCycleError, descendantsOf, reparent } from './storage/folder.js'
+export type { RequestStore, SavedRequest } from './storage/request-store.js'
+export { FolderNotFoundError } from './storage/request-store.js'
+export { inMemoryRequestStore } from './storage/in-memory-request-store.js'

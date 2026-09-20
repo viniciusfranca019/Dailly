@@ -11,6 +11,10 @@
       "types": "./src/index.ts",
       "default": "./src/index.ts"
     },
+    "./testing": {
+      "types": "./src/testing/index.ts",
+      "default": "./src/testing/index.ts"
+    },
     "./http": {
       "types": "./src/http/index.ts",
       "default": "./src/http/index.ts"
