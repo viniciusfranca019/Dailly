@@ -187,15 +187,30 @@ const removeHeader = (at: number) => draft.value.headers.splice(at, 1)
           credencial única — o <code>:</code> é fechado na hora de sair.
         </p>
       </template>
-      <input
-        v-else
-        :value="draft.auth.password"
-        data-testid="auth-password"
-        aria-label="Senha"
-        type="password"
-        class="w-56 rounded border border-[#1e2638] bg-[#0a0d16] px-2 py-1 font-mono text-xs text-gray-300"
-        @input="draft.auth.password = ($event.target as HTMLInputElement).value"
-      />
+      <template v-else>
+        <!-- `v-model` direto: dentro deste ramo a senha é `string`, então o
+             `:value` + `@input` com cast só existia para contornar o `null`
+             que este ramo já excluiu. -->
+        <input
+          v-model="draft.auth.password"
+          data-testid="auth-password"
+          aria-label="Senha"
+          type="password"
+          class="w-56 rounded border border-[#1e2638] bg-[#0a0d16] px-2 py-1 font-mono text-xs text-gray-300"
+        />
+        <!-- A volta. Entrar no estado separado era um clique que dizia o que
+             fazia e sair dele não existia: um clique errado mudava a semântica
+             do `Authorization` para sempre, e a única saída era recolar o
+             curl. -->
+        <button
+          type="button"
+          data-testid="join-credential"
+          class="rounded border border-[#1e2638] px-2 py-1 text-xs text-gray-300 hover:bg-white/5"
+          @click="draft.auth.password = null"
+        >
+          voltar a credencial única
+        </button>
+      </template>
     </fieldset>
 
     <label class="flex flex-col gap-1">

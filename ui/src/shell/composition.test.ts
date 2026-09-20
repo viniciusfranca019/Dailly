@@ -51,11 +51,14 @@ describe('the real composition', () => {
       return
     }
 
-    expect(requests?.route).toBe('/requests')
-    expect(requests?.title).toBe('Requests')
+    expect(requests).toBeDefined()
+    if (requests === undefined) return
+
+    expect(requests.route).toBe('/requests')
+    expect(requests.title).toBe('Requests')
     // Listing it is not loading it: a descriptor whose `load()` throws would
     // keep every assertion above intact and still give a dead entry in the nav.
-    expect((await requests!.load()).component).toBeDefined()
+    expect((await requests.load()).component).toBeDefined()
   })
 
   it('always has Daily Log, whatever the flags say', () => {

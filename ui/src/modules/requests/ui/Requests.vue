@@ -40,6 +40,8 @@ const error = ref<string | null>(null)
 const selected = ref<SavedRequest | null>(null)
 const draft = ref<Draft | null>(null)
 const saving = ref(false)
+const deleting = ref(false)
+const savingFolder = ref(false)
 
 const pasting = ref(false)
 const curl = ref('')
@@ -78,7 +80,10 @@ let reading = 0
 
 async function load(): Promise<void> {
   const ticket = (reading += 1)
-  loading.value = true
+  // "Lendo" só quando não há o que mostrar. Marcar toda releitura branqueava a
+  // coleção inteira a cada salvar, criar pasta ou apagar — dado bom que já
+  // está na tela não devia piscar por causa de um refetch.
+  loading.value = folders.value.length === 0 && requests.value.length === 0
   loadError.value = null
   try {
     const [readFolders, readRequests] = await Promise.all([
@@ -111,6 +116,12 @@ function clearResponse(): void {
  * que já não é dela — a resposta de `r2` aparecendo embaixo do nome de `r1`.
  * E o `running` atravessava a troca junto, deixando o botão da request nova
  * desabilitado pela execução da velha.
+ *
+ * Chamado por `pick`, `startPaste` e `remove`, e **não** por `save` — decisão,
+ * não esquecimento. Salvar não troca de request: a resposta em voo é da mesma
+ * `id` e continua sendo sobre ela, então descartá-la jogaria fora um resultado
+ * que a pessoa pediu. O que muda é o spec guardado, e isso a resposta já
+ * anterior não afirma ser.
  */
 let generation = 0
 
@@ -120,7 +131,33 @@ function invalidate(): void {
   clearResponse()
 }
 
+/**
+ * Quem é dono do editor — uma sequência à parte da execução.
+ *
+ * `save()` e `remove()` também escrevem `selected` e `draft` depois de um
+ * `await`, e sem isto faziam o mesmo estrago que a execução fazia: salvar uma
+ * request lenta e ir para outra trazia a tela de volta sozinha, e apagar com
+ * outra já aberta levava junto o editor dela.
+ *
+ * Separada de `generation` de propósito. Uma execução termina e a tela segue;
+ * o editor muda por outra razão e em outro ritmo, e juntar as duas faria
+ * qualquer execução cancelar uma gravação em voo.
+ */
+let editor = 0
+
 function pick(request: SavedRequest): void {
+  /**
+   * Clicar em quem já está na tela não é navegar.
+   *
+   * Sem esta linha o reclique zerava `running` — furando a guarda de clique
+   * duplo do `execute`, que existe porque num POST a requisição sairia duas
+   * vezes — e ainda jogava fora a edição não salva e a resposta que a pessoa
+   * estava lendo. Mesma lição do `requested` no `mount.ts`: a pergunta certa é
+   * "é aqui que eu já estou?".
+   */
+  if (request.id === selected.value?.id) return
+
+  editor += 1
   selected.value = request
   pasting.value = false
   importError.value = null
@@ -142,6 +179,7 @@ function startPaste(): void {
   importError.value = null
   error.value = null
   folderError.value = null
+  editor += 1
   selected.value = null
   draft.value = null
   invalidate()
@@ -172,16 +210,28 @@ async function save(): Promise<void> {
     return
   }
 
+  const ticket = editor
   saving.value = true
   error.value = null
   try {
     const stored = await props.deps.requests.saveRequest(request)
-    selected.value = stored
-    // Relê os campos do que **ficou gravado**. Sem isto, salvar sem nome
-    // batizava a request com a URL (`savedOf`), a árvore passava a mostrar a
-    // URL e o campo Nome continuava vazio: dois nomes para a mesma coisa, e o
-    // certo era o que a pessoa não estava vendo.
-    draft.value = draftOf(stored) ?? draft.value
+    // A gravação segue valendo — ela já está no banco —, mas a tela pode ter
+    // virado enquanto ela ia e voltava. Escrever aqui traria de volta a
+    // request que a pessoa acabou de deixar.
+    if (ticket === editor) {
+      selected.value = stored
+      /**
+       * Só o **nome** vem do que ficou gravado.
+       *
+       * Salvar sem nome batiza a request com a URL (`savedOf`), e sem isto a
+       * árvore mostrava a URL enquanto o campo Nome continuava vazio. Trocar o
+       * rascunho inteiro consertava aquilo e estragava dois: apagava o que a
+       * pessoa digitou durante a ida e volta, e — porque `draftOf` gera
+       * `rowId()` novo — remontava todas as linhas de header, que é o oposto
+       * do que o `rowId` existe para garantir.
+       */
+      if (draft.value !== null) draft.value.name = stored.name
+    }
     await load()
   } catch (cause) {
     error.value = reason(cause, 'não consegui salvar')
@@ -191,6 +241,12 @@ async function save(): Promise<void> {
 }
 
 async function createFolder(input: { name: string; parentId: string | null }): Promise<void> {
+  // Sem esta guarda, dois cliques criavam duas pastas com `newId()` diferentes
+  // — nem o servidor deduplica. E como não há rota de apagar pasta neste
+  // corte, a duplicata não teria como sair pela tela.
+  if (savingFolder.value) return
+
+  savingFolder.value = true
   folderError.value = null
   try {
     await props.deps.requests.saveFolder({
@@ -209,6 +265,8 @@ async function createFolder(input: { name: string; parentId: string | null }): P
     // possível criar a pasta" faria a pessoa tentar de novo igual. E ela
     // aparece **no formulário**, que é onde a pessoa está olhando.
     folderError.value = reason(cause, 'não consegui criar a pasta')
+  } finally {
+    savingFolder.value = false
   }
 }
 
@@ -216,15 +274,26 @@ async function remove(): Promise<void> {
   const id = selected.value?.id
   if (id === undefined) return
 
+  // Mesma guarda do salvar, pela mesma razão — e mais uma: dois cliques rápidos
+  // em Apagar mandavam dois DELETE. O servidor é idempotente hoje, o que faz
+  // disto omissão e não defeito visível; a omissão é a mesma.
+  if (deleting.value) return
+
+  const ticket = editor
+  deleting.value = true
   error.value = null
   try {
     await props.deps.requests.deleteRequest(id)
-    selected.value = null
-    draft.value = null
-    invalidate()
+    if (ticket === editor) {
+      selected.value = null
+      draft.value = null
+      invalidate()
+    }
     await load()
   } catch (cause) {
     error.value = reason(cause, 'não consegui apagar')
+  } finally {
+    deleting.value = false
   }
 }
 
@@ -413,6 +482,8 @@ onMounted(load)
         :selected="selected?.id ?? null"
         :folder-error="folderError"
         :folder-saved="folderSaved"
+        :saving-folder="savingFolder"
+        @clear-folder-error="folderError = null"
         @pick="pick"
         @retry="load"
         @paste="startPaste"
