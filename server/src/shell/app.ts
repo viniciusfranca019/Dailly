@@ -33,10 +33,13 @@ export function buildApp(
       // servidor subiu, e ele não responde nada que um processo desta máquina
       // não pudesse descobrir olhando a porta.
       //
-      // A isenção é nominal de propósito. Qualquer rota de módulo — inclusive
-      // uma que faça requisição para fora — entra pelo hook como todas as
-      // outras.
-      if (request.url.startsWith('/health')) return
+      // **A isenção é a rota registrada, não o prefixo da URL.** Com
+      // `startsWith('/health')` a linha era correta enquanto o shell era dono
+      // de toda rota — `/health` era a única string que casava. Módulo no
+      // manifest muda isso: `/healthz` e `/health/executor` casam também, e aí
+      // a isenção vira bypass de autenticação. O `url` também carrega query
+      // string, então comparar com ele quebraria `/health?probe=1`.
+      if (request.routeOptions.url === '/health') return
 
       const header = request.headers.authorization
       if (header !== `Bearer ${token}`) {
