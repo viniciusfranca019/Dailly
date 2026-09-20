@@ -102,6 +102,16 @@ que a ADR 0006 já isolou atrás de `shared/dom-shell.ts`.
 - **Testing Library para Vue** em vez do harness DOM cru: os testes atuais do
   adapter não mudam; a pergunta só aparece quando existir componente Vue com
   comportamento próprio.
+- **`vue-tsc` rodando** (adicionada em 2026-09-20). Nenhuma linha de SFC é
+  typechecada hoje — nem template, nem `<script setup>`. O `env.d.ts` afirmava
+  que só o template ficava de fora e isso era falso: o shim `declare module
+  '*.vue'` resolve o arquivo inteiro para um `DefineComponent` opaco, e
+  `const zzz: number = 'não é número'` dentro de um `<script setup lang="ts">`
+  passa no `tsc --noEmit`. O bloqueio é conhecido e não é nosso — vue-tsc 3.3
+  carrega `typescript/lib/tsc`, que o TypeScript 7 nativo não exporta mais. A
+  pendência fica registrada porque a Emenda 2 levou a exposição de 4 SFCs para
+  6, uma delas a moldura de roteamento, e porque "typecheck limpo" vinha sendo
+  lido como uma garantia que ele não dá.
 
 ## Emendas
 
