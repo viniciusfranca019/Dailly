@@ -18,3 +18,5 @@ export const httpDriver = {
 } satisfies ProtocolDriver<HttpSpec>
 
 export type { HttpSpec, HttpHeader } from './spec.js'
+export { NotACurlError, AmbiguousUrlError } from './from-raw.js'
+export { UnterminatedQuoteError, tokenize } from './tokenize.js'
