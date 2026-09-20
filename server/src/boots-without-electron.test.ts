@@ -1,7 +1,7 @@
 import { uuidIds } from '@dailly/domain'
 import { afterEach, describe, expect, it } from 'vitest'
 import { createServer, type RunningServer } from './index.js'
-import { InvalidTimeZoneError } from './config.js'
+import { InvalidTimeZoneError } from './shell/config.js'
 
 /**
  * The rule ADR 0009 made executable, and the reason it is a test and not a
