@@ -1,4 +1,4 @@
-.PHONY: help install dev dev-api dev-ui dev-all desktop desktop-dev test test-watch build build-all check clean-db clean-db-app clean
+.PHONY: help install dev dev-api dev-ui dev-all desktop desktop-dev test test-all test-watch build build-all check clean-db clean-db-app clean
 
 # Os dois bancos, que têm riscos bem diferentes.
 DEV_DB  := server/dailly.dev.sqlite
@@ -26,6 +26,12 @@ dev-all: ## Sobe API + app com todos os módulos ligados por flag
 test: ## Roda os testes de todo o workspace
 	pnpm test
 
+test-all: ## Testes com todos os módulos ligados por flag
+	@echo "com VITE_ANALYSE=true o manifesto tem 2 módulos, então o loop da"
+	@echo "composition.test.ts passa pelo Analyse de verdade — com a flag"
+	@echo "desligada ele tem uma iteração só e nunca exercita esse caminho."
+	VITE_ANALYSE=true pnpm test
+
 test-watch: ## Testes em watch
 	pnpm test:watch
 
@@ -43,9 +49,10 @@ desktop-dev: ## Electron apontado para o vite (rode `make dev` em outro terminal
 	pnpm --filter @dailly/desktop build
 	cd desktop && DAILLY_DEV_URL=http://localhost:5173 pnpm exec electron .
 
-check: ## Typecheck + testes
+check: ## Typecheck + testes, com e sem as flags de módulo
 	pnpm -r typecheck
 	$(MAKE) test
+	$(MAKE) test-all
 
 clean-db: ## Apaga o banco de desenvolvimento (o que `make dev` usa)
 	@rm -f $(DEV_DB) $(DEV_DB)-wal $(DEV_DB)-shm

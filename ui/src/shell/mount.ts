@@ -31,6 +31,16 @@ export interface ShellOptions {
 export interface ShellHandle {
   /** Route currently mounted. */
   readonly current: string
+  /**
+   * Navigate, resolving once the new module is on screen — **except** when the
+   * route asked for is already the one being navigated to, in which case the
+   * call is a no-op and resolves straight away while the earlier navigation is
+   * still in flight.
+   *
+   * Said out loud because "resolved" and "arrived" are the same thing on every
+   * other path, and a caller that awaits a duplicate click would otherwise be
+   * entitled to assume it here too.
+   */
   go(route: string): Promise<void>
   destroy(): void
 }
@@ -106,14 +116,25 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
     requested = route
     const ticket = ++navigation
 
-    let next = loaded.get(route)
-    if (!next) {
-      next = descriptor.load().then((module) => module.component)
-      loaded.set(route, next)
-    }
-
     let resolved: Component
     try {
+      /**
+       * Inside the `try`, not before it.
+       *
+       * `descriptor.load()` is called here, and a `load` that throws
+       * *synchronously* instead of returning a rejected promise would escape
+       * this function entirely — rejecting `mountShell` at boot, or leaving an
+       * unhandled rejection from a click, with `requested` still holding the
+       * route so it could never be clicked again. Unreachable with a real
+       * `() => import(...)`, which always returns a promise; inside the `try`
+       * because "`go` never rejects" should be true of the code and not only
+       * of the inputs it happens to get.
+       */
+      let next = loaded.get(route)
+      if (!next) {
+        next = descriptor.load().then((module) => module.component)
+        loaded.set(route, next)
+      }
       resolved = await next
     } catch {
       // Evicted so the same click can be tried again; a cached rejection would

@@ -22,6 +22,22 @@ describe('the real composition', () => {
     expect(() => assertManifest(MODULES)).not.toThrow()
   })
 
+  it('has exactly the modules the flags asked for', () => {
+    /**
+     * Proves the flag reaches the manifest, in whichever mode the suite is run.
+     *
+     * `make test` runs with Analyse off and `make test-all` with it on, and the
+     * difference has to be observable from inside — otherwise `test-all` is a
+     * target that passes for two reasons and tells them apart for neither:
+     * because the flag worked, or because it never arrived and both runs were
+     * the same run.
+     */
+    const withAnalyse = import.meta.env.VITE_ANALYSE === 'true'
+    expect(MODULES.map((module) => module.id)).toEqual(
+      withAnalyse ? ['daily-log', 'analyse'] : ['daily-log'],
+    )
+  })
+
   it('always has Daily Log, whatever the flags say', () => {
     // Flags may remove modules; removing this one would leave an empty product.
     expect(MODULES.map((module) => module.id)).toContain('daily-log')
