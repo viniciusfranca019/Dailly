@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { NotACurlError, UnterminatedQuoteError, httpDriver } from './index.js'
+import { NotACurlError, UnterminatedQuoteError, httpDriver } from '@dailly/requests-core/http'
 
 const importing = (raw: string) => httpDriver.fromRaw(raw)
 

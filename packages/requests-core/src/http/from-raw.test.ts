@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { httpDriver } from './index.js'
+import { httpDriver } from '@dailly/requests-core/http'
 
 /**
  * C1 — um curl colado vira a request que ele descreve.

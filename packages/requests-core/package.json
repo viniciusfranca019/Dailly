@@ -10,6 +10,10 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./http": {
+      "types": "./src/http/index.ts",
+      "default": "./src/http/index.ts"
     }
   },
   "scripts": {
@@ -17,6 +21,7 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@dailly/requests-core": "workspace:*",
     "typescript": "^7.0.2",
     "vitest": "^5.0.0"
   }
