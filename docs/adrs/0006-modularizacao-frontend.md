@@ -183,6 +183,25 @@ whiteboard se confere a olho — o README já apontava `make dev` para lá. No V
   totalmente neutro. Isolado num arquivo próprio justamente para ser
   descartável; a neutralidade que importa (`capabilities/whiteboard/core`) é testada.
 
+## Emendas
+
+### Emenda 1 (2026-09-20) — a previsão do `dom-shell.ts` se cumpriu
+
+Esta ADR chamou `shared/dom-shell.ts` de *"o arquivo que morre se a UI virar
+React"*, e o isolou num arquivo próprio justamente para ser descartável. A UI
+não virou React — virou Vue ([ADR 0010](0010-vue-no-renderer.md)) — e o arquivo
+morreu assim mesmo, substituído por `shared/vue-module.ts` na
+[Emenda 2 da ADR 0010](0010-vue-no-renderer.md#emenda-2-2026-09-20--o-módulo-passa-a-ser-um-componente).
+
+**A separação que esta ADR fez é o que tornou a troca barata**, e vale registrar
+porque é raro um trade-off se pagar de forma tão direta: `module.ts` — manifesto,
+flags, `load()` preguiçoso — atravessou sem uma linha alterada, porque ele nunca
+soube como um módulo é desenhado. Só a metade que sabia foi trocada.
+
+O custo listado acima ("admite um tipo de DOM em `shared/`, que deixa de ser
+totalmente neutro") deixou de existir junto com o arquivo: o contrato novo não
+menciona `HTMLElement`.
+
 ## Alternativas consideradas
 
 - **pnpm workspace com um pacote por módulo** — a fronteira sairia do teste para

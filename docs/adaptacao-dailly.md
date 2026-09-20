@@ -117,8 +117,12 @@ dependências de runtime"; o que não se ganha é shadcn/ui, que é React.
 
 A [ADR 0006](adrs/0006-modularizacao-frontend.md) **não** tomou essa decisão —
 ela só garantiu que tomá-la depois não obrigasse a remexer no core: cada módulo
-tem seu próprio `ui/`, e o contrato de montagem está isolado em
-`shared/dom-shell.ts`. Foi exatamente o que aconteceu.
+tem seu próprio `ui/`, e o contrato de montagem estava isolado num arquivo só
+seu. Foi exatamente o que aconteceu — e foi até mais longe do que o previsto.
+Em 2026-09-20 o `shared/dom-shell.ts` **morreu**, substituído por
+`shared/vue-module.ts` quando o contrato de módulo virou um componente
+([ADR 0010](adrs/0010-vue-no-renderer.md), Emenda 2). O `module.ts` ao lado dele
+— manifesto, flags, carregamento preguiçoso — não mudou uma linha.
 
 ### 2. Alvo de execução — ~~em aberto~~ decidido pela [ADR 0007](adrs/0007-api-local-e-tempo.md)
 
