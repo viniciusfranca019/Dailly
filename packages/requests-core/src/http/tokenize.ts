@@ -55,6 +55,27 @@ export function tokenize(raw: string): string[] {
         quote = null
         continue
       }
+      // Dentro de aspas **duplas** a barra invertida escapa — e só estes
+      // quatro, que é o que o POSIX diz. É por aqui que passa todo JSON
+      // colado do Stripe, do Postman ou do `cmd` do Windows: sem isto o `\"`
+      // fecha a citação e o corpo vira `{\a\:1}`, sem erro e sem relato.
+      //
+      // Dentro de aspas **simples** nada escapa; a aspa simples do shell é
+      // literal de verdade. Daí a checagem do tipo da aspa.
+      if (quote === '"' && char === '\\') {
+        const next = raw[i + 1]
+        if (next === '"' || next === '\\' || next === '$' || next === '`') {
+          current += next
+          i++
+          started = true
+          continue
+        }
+        if (next === '\n') {
+          i++
+          started = true
+          continue
+        }
+      }
       current += char
       started = true
       continue
@@ -77,10 +98,14 @@ export function tokenize(raw: string): string[] {
       continue
     }
 
-    if (char === '\\' && raw[i + 1] === '\n') {
+    if (char === '\\' && (raw[i + 1] === '\n' || (raw[i + 1] === '\r' && raw[i + 2] === '\n'))) {
       // A quebra de linha do DevTools: `\` seguido de newline junta as duas
       // linhas numa só, e não produz palavra.
-      i++
+      //
+      // O `\r\n` não é zelo: sem ele, todo curl copiado no Windows deixa a
+      // barra invertida virar token, sobra token solto, e a pessoa recebe um
+      // erro falando de URL ambígua por causa do sistema operacional dela.
+      i += raw[i + 1] === '\r' ? 2 : 1
       continue
     }
 

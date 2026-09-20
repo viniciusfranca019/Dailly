@@ -31,6 +31,6 @@ export type { ProtocolSpec, ProtocolDriver, WireRequest, Invalid, Imported } fro
 
 export { ProtocolRegistry, UnknownProtocolError } from './registry.js'
 
-export { resolve, UnresolvedVariableError } from './resolve.js'
+export { resolve, UnresolvedVariableError, InvalidSpecError } from './resolve.js'
 export { interpolate } from './interpolate.js'
 export type { Env, Interpolated } from './interpolate.js'

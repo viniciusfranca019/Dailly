@@ -1,12 +1,18 @@
 import type { Imported } from '../protocol.js'
-import { toBase64 } from './base64.js'
-import type { HttpHeader, HttpSpec } from './spec.js'
+import type { HttpAuth, HttpHeader, HttpSpec } from './spec.js'
 import { tokenize } from './tokenize.js'
 
 export class NotACurlError extends Error {
   override readonly name = 'NotACurlError'
   constructor() {
     super('o texto não começa com `curl` — cole o comando inteiro, como o DevTools copia')
+  }
+}
+
+export class MissingUrlError extends Error {
+  override readonly name = 'MissingUrlError'
+  constructor() {
+    super('o comando não tem URL — sem ela não há requisição para montar')
   }
 }
 
@@ -21,16 +27,22 @@ export class AmbiguousUrlError extends Error {
   }
 }
 
+/** Corpo cru, nas três grafias que o curl aceita e que significam o mesmo aqui. */
+const BODY_FLAGS = new Set(['-d', '--data', '--data-raw', '--data-binary', '--data-ascii'])
+
 /**
- * Opções que **consomem o próximo token**, e por que a lista existe.
+ * Opções que **consomem o próximo token** e que este importador não aplica.
  *
- * Sem ela, `--cert cliente.pem` deixaria `cliente.pem` solto, e o token solto
- * vira a URL — a request apontaria para um arquivo e *pareceria* ter
- * funcionado. Reconhecer que a opção leva valor é o que permite ignorá-la
- * inteira, valor incluído, e relatá-la assim.
+ * Sem a lista, `--cert cliente.pem` deixaria `cliente.pem` solto, e token solto
+ * vira URL — a request apontaria para um arquivo e *pareceria* ter funcionado.
+ * Reconhecer que a opção leva valor é o que permite ignorá-la inteira, valor
+ * incluído, e relatá-la assim.
  *
- * A lista cobre o que curl de verdade traz. O que ela não cobrir cai na guarda
- * do token solto, logo abaixo — que recusa em vez de escolher.
+ * `-F` está aqui porque multipart não cabe num corpo de texto: relatar é
+ * honesto, e derrubar o comando inteiro por causa disso não é.
+ *
+ * O que a lista não cobrir cai na guarda do token solto — que recusa em vez de
+ * escolher.
  */
 const IGNORED_WITH_VALUE = new Set([
   '--cert',
@@ -46,7 +58,29 @@ const IGNORED_WITH_VALUE = new Set([
   '--user-agent',
   '-e',
   '--referer',
+  '-F',
+  '--form',
+  '-o',
+  '--output',
+  '-w',
+  '--write-out',
 ])
+
+/**
+ * A codificação do `--data-urlencode`, nas formas que não tocam em arquivo.
+ *
+ * `conteudo`, `=conteudo` e `nome=conteudo` — em todas, o que é codificado é o
+ * conteúdo, nunca o nome. As formas com `@` leem arquivo, e arquivo não existe
+ * neste lado: elas são relatadas.
+ */
+function urlEncoded(argument: string): string | null {
+  if (argument.includes('@')) return null
+  const at = argument.indexOf('=')
+  if (at < 0) return encodeURIComponent(argument)
+  const name = argument.slice(0, at)
+  const content = encodeURIComponent(argument.slice(at + 1))
+  return name === '' ? content : `${name}=${content}`
+}
 
 /**
  * Interpreta as palavras de um comando curl como uma request HTTP.
@@ -57,46 +91,76 @@ const IGNORED_WITH_VALUE = new Set([
  */
 export function fromRaw(raw: string): Imported<HttpSpec> {
   const tokens = tokenize(raw)
-  if (tokens[0] !== 'curl') throw new NotACurlError()
+  // `curl.exe` é o que o histórico de um terminal do Windows devolve.
+  if (tokens[0] !== 'curl' && tokens[0] !== 'curl.exe') throw new NotACurlError()
 
   let method: string | null = null
   const headers: HttpHeader[] = []
-  let body: string | null = null
+  const data: string[] = []
+  let auth: HttpAuth | null = null
   const loose: string[] = []
   const ignored: string[] = []
+
+  const nextOf = (index: number) => tokens[index] ?? ''
 
   for (let i = 1; i < tokens.length; i++) {
     const token = tokens[i]!
 
     if (token === '-X' || token === '--request') {
-      method = tokens[++i] ?? ''
+      method = nextOf(++i)
       continue
     }
 
-    if (token === '-d' || token === '--data' || token === '--data-raw') {
-      body = tokens[++i] ?? ''
+    if (BODY_FLAGS.has(token)) {
+      // Repetido, o curl junta com `&` — `-d a=1 -d b=2` manda `a=1&b=2`.
+      // Ficar com o último perderia metade do corpo em silêncio, e o C1 já
+      // decidiu, para o `-H`, que repetição é legítima e se preserva.
+      data.push(nextOf(++i))
+      continue
+    }
+
+    if (token === '--data-urlencode') {
+      const argument = nextOf(++i)
+      const encoded = urlEncoded(argument)
+      if (encoded === null) ignored.push(`${token} ${argument}`)
+      else data.push(encoded)
       continue
     }
 
     if (token === '-H' || token === '--header') {
-      const header = tokens[++i] ?? ''
+      const header = nextOf(++i)
       const at = header.indexOf(':')
-      if (at > 0) {
-        headers.push({ name: header.slice(0, at).trim(), value: header.slice(at + 1).trim() })
-      }
+      // `-H 'X-Foo'` é erro de digitação plausível. Sumir com ele seria
+      // exatamente o silêncio que o C6 proíbe.
+      if (at > 0) headers.push({ name: header.slice(0, at).trim(), value: header.slice(at + 1).trim() })
+      else ignored.push(`${token} ${header}`.trimEnd())
+      continue
+    }
+
+    if (token === '-b' || token === '--cookie') {
+      const argument = nextOf(++i)
+      // Com `=` é cookie; sem, é arquivo de cookies, e arquivo não existe deste
+      // lado. A ADR 0011 apoia a decisão inteira de executar no servidor em
+      // `Cookie` ser metade do uso real — recusar a flag que o carrega seria
+      // irônico.
+      if (argument.includes('=')) headers.push({ name: 'Cookie', value: argument })
+      else ignored.push(`${token} ${argument}`.trimEnd())
       continue
     }
 
     if (token === '-u' || token === '--user') {
-      // O curl materializa isto em `Authorization: Basic`, e é o que sai na
-      // fita. Guardar `user`/`pass` separados daria uma UI melhor para editar
-      // credencial — fica anotado como decisão da UI, não deste pacote.
-      headers.push({ name: 'Authorization', value: `Basic ${toBase64(tokens[++i] ?? '')}` })
+      const credential = nextOf(++i)
+      const at = credential.indexOf(':')
+      // Só o primeiro dois-pontos separa: `-u u:a:b` é senha `a:b`.
+      auth =
+        at < 0
+          ? { user: credential, password: '' }
+          : { user: credential.slice(0, at), password: credential.slice(at + 1) }
       continue
     }
 
     if (IGNORED_WITH_VALUE.has(token)) {
-      ignored.push(`${token} ${tokens[++i] ?? ''}`.trimEnd())
+      ignored.push(`${token} ${nextOf(++i)}`.trimEnd())
       continue
     }
 
@@ -109,17 +173,22 @@ export function fromRaw(raw: string): Imported<HttpSpec> {
   }
 
   // Um token solto é a URL. Dois é sinal de que alguma opção desconhecida levou
-  // um valor junto, e escolher entre eles seria inventar.
+  // um valor junto, e escolher entre eles seria inventar. Zero é uma request
+  // oca — e request oca é pior que erro, porque parece ter funcionado.
   if (loose.length > 1) throw new AmbiguousUrlError(loose)
+  if (loose.length === 0) throw new MissingUrlError()
+
+  const body = data.length === 0 ? null : data.join('&')
 
   return {
     spec: {
       // A regra é do curl, não nossa: `-d` sem `-X` manda POST. Quem cola um
       // `-d` espera o mesmo verbo que o terminal usaria.
       method: method ?? (body === null ? 'GET' : 'POST'),
-      url: loose[0] ?? '',
+      url: loose[0]!,
       headers,
       body,
+      auth,
     },
     ignored,
   }

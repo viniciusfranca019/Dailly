@@ -60,11 +60,50 @@ const MODEL = FILES.filter(
   (file) => !file.path.endsWith('.test.ts') && !file.path.includes('/'),
 )
 
+/** Os protocolos que existem ou podem existir — o nome de uma pasta de driver. */
+const PROTOCOLS = ['http', 'grpc', 'amqp', 'graphql', 'websocket']
+
+/**
+ * Um import de driver, nas quatro grafias que alcançam o mesmo arquivo.
+ *
+ * A versão anterior exigia a barra final, e o gate mostrou o preço: `'./http'`,
+ * `'./http.js'` e a auto-referência pelo nome do pacote atravessavam a regra
+ * intactas. Comparar o **último segmento**, com a extensão retirada, cobre as
+ * quatro de uma vez — e não dispara em `node:http` nem em `./http-headers.js`,
+ * que só contêm a palavra.
+ */
+const isDriverImport = (specifier: string): boolean => {
+  if (specifier.startsWith('node:')) return false
+  const last = specifier.split('/').pop() ?? ''
+  const name = last.replace(/\.(js|ts)$/, '')
+  if (PROTOCOLS.includes(name)) return true
+  // `./http/index.js` — o penúltimo segmento é a pasta do driver.
+  const segments = specifier.split('/')
+  return segments.length > 1 && PROTOCOLS.includes(segments[segments.length - 2] ?? '')
+}
+
 describe('C5: o modelo não conhece protocolo nenhum', () => {
   it('encontra modelo para inspecionar (guarda contra varredura vazia)', () => {
     expect(FILES.length).toBeGreaterThan(8)
     expect(MODEL.length).toBeGreaterThan(3)
     expect(MODEL.map((file) => file.path)).toContain('registry.ts')
+  })
+
+  it('distingue as grafias de um import de driver, que são quatro', () => {
+    // A primeira versão desta regra exigia barra depois do nome, e o gate a
+    // furou: `'./http'`, `'./http.js'` e `'@dailly/requests-core/http'`
+    // passavam intactos. Um deles foi provado contra a árvore de verdade — o
+    // modelo importando o driver, cinco testes verdes.
+    expect(isDriverImport('./http/index.js')).toBe(true)
+    expect(isDriverImport('./http')).toBe(true)
+    expect(isDriverImport('./http.js')).toBe(true)
+    expect(isDriverImport('@dailly/requests-core/http')).toBe(true)
+    expect(isDriverImport('../grpc/index.js')).toBe(true)
+
+    // E o que não pode disparar: nomes que apenas contêm a palavra.
+    expect(isDriverImport('node:http')).toBe(false)
+    expect(isDriverImport('./http-headers.js')).toBe(false)
+    expect(isDriverImport('./protocol.js')).toBe(false)
   })
 
   it('nenhum arquivo do modelo importa um driver', () => {
@@ -73,7 +112,7 @@ describe('C5: o modelo não conhece protocolo nenhum', () => {
     // núcleo — que é exatamente o que a ADR 0011 comprou ao escolher registry.
     const found = MODEL.flatMap((file) =>
       importsOf(file.code)
-        .filter((specifier) => /(^|\/)(http|grpc|amqp|graphql|websocket)\//.test(specifier))
+        .filter(isDriverImport)
         .map((specifier) => `${file.path} → ${specifier}`),
     )
 

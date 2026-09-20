@@ -21,7 +21,6 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@dailly/requests-core": "workspace:*",
     "typescript": "^7.0.2",
     "vitest": "^5.0.0"
   }

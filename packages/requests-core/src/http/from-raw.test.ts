@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { httpDriver } from '@dailly/requests-core/http'
+import { httpDriver } from './index.js'
 
 /**
  * C1 — um curl colado vira a request que ele descreve.
@@ -22,6 +22,7 @@ describe('C1: um curl colado vira a request que ele descreve', () => {
       url: 'https://api.exemplo.com/entries',
       headers: [],
       body: null,
+      auth: null,
     })
   })
 
@@ -71,11 +72,13 @@ describe('C1: um curl colado vira a request que ele descreve', () => {
     expect(spec.body).toBe('linha1\nlinha2')
   })
 
-  it('transforma -u em header de autorização', () => {
+  it('lê o -u para dentro do spec, em claro', () => {
+    // A tabela do C1 diz "vira header de autorização", e vira — mas na fita,
+    // não na importação. Materializar aqui fecharia a credencial em base64
+    // antes da interpolação rodar, e `{{user}}` deixaria de ser variável.
+    // `auth.test.ts` prova a volta inteira, do texto colado até o header.
     const { spec } = importing(`curl https://x.dev/a -u 'aladdin:opensesame'`)
 
-    expect(spec.headers).toEqual([
-      { name: 'Authorization', value: 'Basic YWxhZGRpbjpvcGVuc2VzYW1l' },
-    ])
+    expect(spec.auth).toEqual({ user: 'aladdin', password: 'opensesame' })
   })
 })

@@ -64,9 +64,6 @@ importers:
 
   packages/requests-core:
     devDependencies:
-      '@dailly/requests-core':
-        specifier: workspace:*
-        version: 'link:'
       typescript:
         specifier: ^7.0.2
         version: 7.0.2

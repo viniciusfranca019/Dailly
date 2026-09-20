@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { type HttpWire, httpDriver } from '@dailly/requests-core/http'
+import { type HttpWire, httpDriver } from './http/index.js'
 import { ProtocolRegistry } from './registry.js'
-import { UnresolvedVariableError, resolve } from './resolve.js'
+import { InvalidSpecError, UnresolvedVariableError, resolve } from './resolve.js'
 
 /**
  * C4 — o que vai na fita é literal, e variável não resolvida é recusada.
@@ -22,6 +22,7 @@ const spec = (over: Partial<Record<string, unknown>> = {}) => ({
     url: 'https://{{host}}/entries',
     headers: [{ name: 'Authorization', value: 'Bearer {{token}}' }],
     body: null,
+    auth: null,
     ...over,
   },
 })
@@ -84,5 +85,74 @@ describe('C4: variável não resolvida é recusada nomeando qual', () => {
     const wire = resolve<HttpWire>(registry(), spec(), { host: 'x.dev', token: '' })
 
     expect(wire.headers).toEqual([{ name: 'Authorization', value: 'Bearer ' }])
+  })
+})
+
+describe('C4: nenhuma chave sobrevive, venha ela de onde vier', () => {
+  it('recusa quando o valor de uma variável traz outra variável dentro', () => {
+    // `{{baseUrl}}` = `{{scheme}}://{{host}}` é rotina nesta classe de
+    // ferramenta. Uma passada só resolve a primeira camada e manda a segunda
+    // para a rede — e o C4 diz "nunca sai `{{token}}` na fita", sem ressalva.
+    //
+    // A recusa não é recursão: resolver em cadeia exigiria detectar ciclo, e
+    // o valor disso não está provado. Recusar é honesto e barato.
+    const boom = () =>
+      resolve(registry(), spec(), { host: '{{interno}}', token: 't' })
+
+    expect(boom).toThrow(UnresolvedVariableError)
+    expect(boom).toThrow(/interno/)
+  })
+
+  it('deixa passar chave incompleta, que não é chave', () => {
+    // O limite da guarda, dito em vez de suposto: ela procura `{{nome}}`
+    // inteiro. Um `{{` solto não é placeholder de ninguém e vai para a fita
+    // como texto — que é o certo, e é o que permite mandar chaves literais
+    // desde que não formem um nome.
+    const wire = resolve<HttpWire>(registry(), spec(), { host: 'x.dev', token: '{{' })
+
+    expect(wire.headers).toEqual([{ name: 'Authorization', value: 'Bearer {{' }])
+  })
+
+  it('não resolve nome herdado do prototype em vez de dizer que falta', () => {
+    // `{{constructor}}` devolvia o código-fonte de `Object` e seguia adiante
+    // como se tivesse resolvido. O comentário do `in` existia para tratar
+    // string vazia como valor; `Object.hasOwn` mantém isso sem a cadeia.
+    const boom = () =>
+      resolve(registry(), spec({ url: 'https://api/{{constructor}}' }), { host: 'x', token: 't' })
+
+    expect(boom).toThrow(UnresolvedVariableError)
+    expect(boom).toThrow(/constructor/)
+  })
+})
+
+describe('C4: um spec inválido falha com classe própria, não com Error solto', () => {
+  it('carrega os campos inválidos em vez de achatá-los em prosa', () => {
+    // Quem chama precisa distinguir "o spec está errado" (400, destacar o
+    // campo) de "algo quebrou" (500). Um `Error` sem tipo não permite isso, e
+    // os pares campo/mensagem que o driver montou eram jogados fora.
+    let caught: unknown
+    try {
+      resolve(
+        registry(),
+        { ...spec(), spec: { method: '', url: '', headers: 'nao', body: 1, auth: null } },
+        {},
+      )
+    } catch (error) {
+      caught = error
+    }
+
+    expect(caught).toBeInstanceOf(InvalidSpecError)
+    expect((caught as InvalidSpecError).errors.map((e) => e.field).sort()).toEqual([
+      'body',
+      'headers',
+      'method',
+      'url',
+    ])
+  })
+
+  it('recusa header cuja forma não é par de textos, que chega do banco como JSON', () => {
+    const invalid = { ...spec(), spec: { ...spec().spec, headers: [1, 'nao', null] } }
+
+    expect(() => resolve(registry(), invalid, { host: 'x', token: 't' })).toThrow(InvalidSpecError)
   })
 })
