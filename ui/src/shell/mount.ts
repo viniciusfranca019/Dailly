@@ -56,15 +56,32 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
   /** Loaded once per route: revisiting a module must not re-run its `load`. */
   const loaded = new Map<string, Component>()
 
+  /**
+   * Which navigation currently owns the screen.
+   *
+   * Two clicks race across the `await` below, and without this the *earlier*
+   * one wins whenever its chunk is slower — a double-click on the navigation
+   * lands on the first destination. Bumping it in `destroy` covers the same
+   * hazard at the end of life: a navigation still in flight must not render
+   * into a host the shell has already given back.
+   */
+  let navigation = 0
+
   async function go(route: string): Promise<void> {
     const descriptor = findByRoute(modules, route)
     if (!descriptor || route === current.value) return
+
+    const ticket = ++navigation
 
     let next = loaded.get(route)
     if (!next) {
       next = (await descriptor.load()).component
       loaded.set(route, next)
     }
+
+    // Someone asked for somewhere else while this was loading. They win: the
+    // last thing the user asked for is the thing they are waiting to see.
+    if (ticket !== navigation) return
 
     component.value = next
     current.value = route
@@ -109,6 +126,7 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
     },
     go,
     destroy() {
+      navigation++
       app.unmount()
       current.value = ''
       component.value = null

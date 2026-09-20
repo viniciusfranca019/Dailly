@@ -221,3 +221,69 @@ describe('C4: the current route is reported only once the screen has changed', (
     expect((active as HTMLElement | null)?.dataset['route']).toBe('/analyse')
   })
 })
+
+describe('overlapping navigation', () => {
+  /**
+   * Found by the author, not by the gate, and not one of the agreed scenarios.
+   *
+   * It is a defect the vanilla `go` had in exactly the same shape — two clicks
+   * race and the *earlier* one wins if its module loads slower. It is fixed
+   * here rather than carried forward because this diff rewrote the function
+   * that holds it, and "the reviewer did not catch it" is not a reason to ship
+   * a race you have already proven.
+   */
+  const slowModule = (marker: string, delay: number) => {
+    const module: VueModule = {
+      component: defineComponent({ setup: () => () => h('p', { 'data-marker': marker }) }),
+    }
+    return vi.fn(() => new Promise<VueModule>((resolve) => setTimeout(() => resolve(module), delay)))
+  }
+
+  it('lands on the route asked for last, not the one that loaded first', async () => {
+    const a = descriptorFor('daily-log', '/', fakeModule('daily-log').module)
+    const slow: ModuleDescriptor<VueModule> = {
+      id: 'analyse',
+      title: 'analyse',
+      route: '/analyse',
+      load: slowModule('analyse', 50),
+    }
+    const quick: ModuleDescriptor<VueModule> = {
+      id: 'third',
+      title: 'third',
+      route: '/third',
+      load: slowModule('third', 1),
+    }
+
+    const shell = await mountShell(host, {
+      modules: [a.descriptor, slow, quick],
+      deps: testModuleDeps(),
+    })
+
+    // Two clicks in a row, the slow destination first — a double-click on the
+    // navigation, or a click while a chunk is still in flight.
+    await Promise.all([shell.go('/analyse'), shell.go('/third')])
+
+    expect(shell.current).toBe('/third')
+    expect(host.querySelector('[data-marker="third"]')).not.toBeNull()
+    expect(host.querySelector('[data-marker="analyse"]')).toBeNull()
+  })
+
+  it('abandons a navigation that was still loading when the shell was destroyed', async () => {
+    const a = descriptorFor('daily-log', '/', fakeModule('daily-log').module)
+    const slow: ModuleDescriptor<VueModule> = {
+      id: 'analyse',
+      title: 'analyse',
+      route: '/analyse',
+      load: slowModule('analyse', 20),
+    }
+
+    const shell = await mountShell(host, { modules: [a.descriptor, slow], deps: testModuleDeps() })
+    const pending = shell.go('/analyse')
+    shell.destroy()
+    await pending
+
+    // Nothing may be rendered into a host the shell has already given back.
+    expect(host.children.length).toBe(0)
+    expect(shell.current).toBe('')
+  })
+})
