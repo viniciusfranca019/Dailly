@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Database from 'better-sqlite3'
 import { afterEach, describe, expect, it } from 'vitest'
-import { createServer, type RunningServer } from './index.js'
+import { LATEST_VERSION, createServer, type RunningServer } from './index.js'
 
 /**
  * C1 — um banco existente abre sem reaplicar migration.
@@ -25,7 +25,7 @@ import { createServer, type RunningServer } from './index.js'
  */
 const FIXTURE = fileURLToPath(new URL('./__fixtures__/v1.sqlite', import.meta.url))
 
-describe('C1: um banco existente abre sem reaplicar migration', () => {
+describe('C1: um banco existente sobe de versão sem reaplicar o que já rodou', () => {
   let server: RunningServer | undefined
   let dir: string | undefined
 
@@ -43,7 +43,16 @@ describe('C1: um banco existente abre sem reaplicar migration', () => {
     dir = undefined
   })
 
-  it('mantém o user_version em 1 depois de abrir', async () => {
+  it('leva o arquivo até a versão deste build, sem reaplicar a migration 1', async () => {
+    // **O cenário mudou, e a mudança estava prevista.** Quando ele foi
+    // aprovado, o build conhecia uma migration só, e "o `user_version`
+    // continua 1" era a mesma frase que "nada foi reaplicado". O módulo
+    // Requests trouxe a migration 2, e as duas frases se separaram: continuar
+    // em 1 passou a significar que o schema novo *não* chegou.
+    //
+    // O invariante que valia continua valendo, e é este: a migration 1 não
+    // roda de novo. A prova é dupla — se ela rodasse, o `CREATE TABLE entries`
+    // estouraria com tabela já existente, e a linha que estava lá sumiria.
     const file = await openCopy()
 
     server = await createServer({ databaseFile: file })
@@ -51,7 +60,12 @@ describe('C1: um banco existente abre sem reaplicar migration', () => {
     server = undefined
 
     const db = new Database(file, { readonly: true })
-    expect(db.pragma('user_version', { simple: true })).toBe(1)
+    expect(db.pragma('user_version', { simple: true })).toBe(LATEST_VERSION)
+    expect(LATEST_VERSION).toBeGreaterThan(1)
+    // A linha da fixture sobreviveu à subida de versão.
+    expect(db.prepare('SELECT count(*) AS total FROM entries').get()).toEqual({ total: 1 })
+    // E o schema novo chegou junto.
+    expect(db.prepare("SELECT name FROM sqlite_master WHERE name = 'requests'").get()).toBeTruthy()
     db.close()
   })
 
