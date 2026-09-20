@@ -45,7 +45,14 @@ const FILES = sourceFiles(SRC)
 const stripComments = (code: string) =>
   code.replaceAll(/\/\*[\s\S]*?\*\//g, '').replaceAll(/\/\/[^\n]*/g, '')
 
-/** Todo especificador que um arquivo puxa — estático, dinâmico e de efeito. */
+/**
+ * Todo especificador que um arquivo puxa — estático, dinâmico e de efeito.
+ *
+ * Limite conhecido, dito em vez de escondido: isto lê **literal de string**.
+ * Um `await import(caminho)` com variável escapa de todas as regras abaixo.
+ * Fechar isso exigiria resolver o grafo de verdade, e o preço não se paga
+ * enquanto ninguém no servidor constrói especificador em runtime.
+ */
 function importsOf(code: string): string[] {
   const clean = stripComments(code)
   const specifiers: string[] = []
@@ -114,10 +121,26 @@ const intoAnotherModule = (from: string, specifier: string): boolean => {
  */
 const OUT_OF_MODULE = ['shell/module.js', 'shell/module.ts']
 
+/**
+ * O próprio pacote, referenciado pelo nome.
+ *
+ * `import { LATEST_VERSION } from '@dailly/server'` alcança o mesmo interior
+ * que `../../index.js`, e é especificador **bare** — uma regra que só olha
+ * import relativo nunca dispara nele. O `desktop/` importa por esse nome (e
+ * deve), então o especificador resolve; o que não pode é um arquivo de dentro
+ * do pacote entrar por ele.
+ */
+const SELF_REFERENCE = '@dailly/server'
+
 const illegalFromModule = (from: string, specifier: string): string | undefined => {
   // Especificador não-relativo é pacote (`fastify`, `@dailly/domain`), e
-  // pacote é sempre legítimo — a fronteira desta regra é a árvore, não o npm.
-  if (!specifier.startsWith('.')) return undefined
+  // pacote é legítimo — com uma exceção: o nome do próprio pacote, que é a
+  // porta dos fundos para o mesmo interior.
+  if (!specifier.startsWith('.')) {
+    return specifier === SELF_REFERENCE || specifier.startsWith(`${SELF_REFERENCE}/`)
+      ? specifier
+      : undefined
+  }
 
   const self = moduleOf(from)
   if (self === undefined) return undefined
@@ -198,6 +221,42 @@ describe('C5: a seta do servidor só aponta para onde pode', () => {
         .map((specifier) => illegalFromModule(file.path, specifier))
         .filter((target): target is string => target !== undefined)
         .map((target) => `${file.path} → ${target}`),
+    )
+
+    expect(found).toEqual([])
+  })
+
+  it('o interior do pacote não importa o próprio ponto de entrada', () => {
+    // A regra gêmea da `ui/` ("nada fora do shell importa o composition
+    // root"), na forma que o servidor permite.
+    //
+    // Ela existe porque o `index.ts` reexporta o interior do shell inteiro:
+    // sem isto, um arquivo novo no interior — um `cli.ts` sob `shell/` — refaz
+    // o ciclo de import de **valor** sem passar por `modules/`, que é o único
+    // lado que a lista branca vigia. E o sintoma desse ciclo é cruel: o boot
+    // morre com `MODULES` indefinido e o stack acusa `shell/migrations.ts`,
+    // que é a vítima.
+    //
+    // O escopo é o **interior**, e a razão é de grafo, não de gosto: o ciclo
+    // só se fecha entre arquivos que o `index.ts` alcança. Um teste e um ponto
+    // de entrada (`dev.ts`) são folhas — ninguém os importa, então eles não
+    // podem fechar ciclo nenhum. Escopo largo demais aqui proibiria o
+    // `boots-without-electron.test.ts`, que o C6 congelou.
+    const INTERIOR = ['shell/', 'modules/', 'adapters/']
+    const found = FILES.filter(
+      (file) =>
+        !file.path.endsWith('.test.ts') &&
+        (file.path === 'modules.ts' || INTERIOR.some((dir) => file.path.startsWith(dir))),
+    ).flatMap((file) =>
+      importsOf(file.code)
+        .filter((specifier) => {
+          if (specifier === SELF_REFERENCE || specifier.startsWith(`${SELF_REFERENCE}/`)) {
+            return true
+          }
+          const target = resolved(file.path, specifier)
+          return target === 'index.js' || target === 'index.ts'
+        })
+        .map((specifier) => `${file.path} → ${specifier}`),
     )
 
     expect(found).toEqual([])
