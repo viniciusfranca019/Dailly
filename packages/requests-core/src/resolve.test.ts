@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type HttpWire, httpDriver } from './http/index.js'
+import { type HttpWire, httpDriver } from '@dailly/requests-core/http'
 import { ProtocolRegistry } from './registry.js'
 import { UnresolvedVariableError, resolve } from './resolve.js'
 
