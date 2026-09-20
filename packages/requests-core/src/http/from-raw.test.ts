@@ -22,6 +22,7 @@ describe('C1: um curl colado vira a request que ele descreve', () => {
       url: 'https://api.exemplo.com/entries',
       headers: [],
       body: null,
+      query: [],
       auth: null,
     })
   })

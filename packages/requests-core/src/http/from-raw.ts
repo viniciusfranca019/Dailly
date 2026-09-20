@@ -226,14 +226,11 @@ export function fromRaw(raw: string): Imported<HttpSpec> {
   if (loose.length > 1) throw new AmbiguousUrlError(loose)
   if (loose.length === 0) throw new MissingUrlError()
 
-  const joined = data.length === 0 ? null : data.join('&')
-  const body = dataToQuery ? null : joined
-
-  // `?` e `&` são estruturais: vêm da flag e da URL, nunca de dentro de um
-  // valor. Uma chave que atravesse para a query passa inteira, e continua
-  // visível ao `resolve`.
-  let url = loose[0]!
-  if (dataToQuery && joined !== null) url += `${url.includes('?') ? '&' : '?'}${joined}`
+  // O join com `&` entre as flags é seguro: a fronteira vem das flags, nunca
+  // de dentro de um valor. A escolha entre `?` e `&` **não** é — ela lê o
+  // texto literal da URL, e a URL pode ser uma chave. Por isso ela não
+  // acontece aqui.
+  const body = dataToQuery ? null : data.length === 0 ? null : data.join('&')
 
   return {
     spec: {
@@ -241,9 +238,10 @@ export function fromRaw(raw: string): Imported<HttpSpec> {
       // `-d` espera o mesmo verbo que o terminal usaria — e com `-G` o mesmo
       // `-d` não faz corpo nenhum, então o verbo continua GET.
       method: method ?? (body === null ? 'GET' : 'POST'),
-      url,
+      url: loose[0]!,
       headers,
       body,
+      query: dataToQuery ? data : [],
       auth,
     },
     ignored,
