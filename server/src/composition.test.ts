@@ -5,7 +5,7 @@ import { inMemoryEntryRepository } from '@dailly/domain'
 import { UTC } from '@dailly/periods'
 import Database from 'better-sqlite3'
 import { afterEach, describe, expect, it } from 'vitest'
-import { createServer, type RunningServer } from './index.js'
+import { LATEST_VERSION, createServer, type RunningServer } from './index.js'
 import { MODULES } from './modules.js'
 import { buildApp } from './shell/app.js'
 import { ManifestError, assertManifest, type ServerModule } from './shell/module.js'
@@ -111,9 +111,16 @@ describe('C3: a migration do módulo é a que roda de verdade', () => {
       // metade da migration aqui, onde ele sobe ao lado do manifest real.
       // Registrado na ADR 0006, Emenda 2, com o gatilho que resolve.
       ...MODULES,
+      // A versão é derivada, não escrita à mão. `modules/entries/migrations.ts`
+      // anuncia por extenso que `labels` e companhia "chegam como migration 2";
+      // fixar 2 aqui reservaria o número que a produção já reivindicou, e no
+      // dia da Fase 2 este teste falharia com `ManifestError` — acusando a
+      // fixture em vez do código que ele existe para provar.
       fakeModule({
         id: 'com-schema',
-        migrations: [{ version: 2, up: 'CREATE TABLE extra (id TEXT PRIMARY KEY);' }],
+        migrations: [
+          { version: LATEST_VERSION + 1, up: 'CREATE TABLE extra (id TEXT PRIMARY KEY);' },
+        ],
       }),
     ])
     await server.close()
@@ -125,7 +132,7 @@ describe('C3: a migration do módulo é a que roda de verdade', () => {
     ).map((row) => row.name)
 
     expect(tables).toContain('extra')
-    expect(db.pragma('user_version', { simple: true })).toBe(2)
+    expect(db.pragma('user_version', { simple: true })).toBe(LATEST_VERSION + 1)
     db.close()
   })
 })
