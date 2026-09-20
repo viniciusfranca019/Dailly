@@ -98,22 +98,41 @@ const intoAnotherModule = (from: string, specifier: string): boolean => {
 }
 
 /**
- * Entrar no shell por qualquer porta que não seja o contrato.
+ * O que um módulo pode alcançar fora de si — dito como lista branca, e o
+ * motivo de ser branca.
  *
- * `shell/module.js` é a superfície: é por ele que um módulo declara o que é.
- * `shell/migrations.js`, `shell/database.js`, `shell/config.js` e
- * `shell/app.js` são o interior — e o primeiro deles calcula `MIGRATIONS` a
- * partir do manifest, então um módulo que o importe fecha o ciclo
- * `shell/migrations → modules → modules/entries → shell/migrations`.
+ * A primeira versão desta regra nomeava o proibido: "não entre em `shell/`
+ * fora do contrato". O gate a furou com um `../` a mais — `index.js`, o
+ * composition root, reexporta `openDatabase`, `MIGRATIONS` e `migrate`, então
+ * o interior do shell continuava alcançável por uma porta que a regra não
+ * nomeava. E era pior que o ciclo original: ali toda aresta é import de
+ * **valor**, então o boot morre de verdade, com `MODULES` ainda indefinido, e
+ * o stack acusa `shell/migrations.ts` — a vítima, não o culpado.
  *
- * O ciclo é seguro hoje porque toda seta de volta é `import type` e some na
- * compilação. Esta regra é o que transforma "seguro por acidente" em "seguro
- * por regra que falha no CI" — que é a diferença de que este repo vive.
+ * Lista de proibidos envelhece a cada arquivo novo. Lista branca não: o que
+ * um módulo legitimamente alcança são três coisas, e elas não crescem.
  */
-const intoTheShell = (from: string, specifier: string): boolean => {
-  const target = /(?:^|\/)shell\/(.+)$/.exec(resolved(from, specifier))
-  if (!target) return false
-  return target[1] !== 'module.js' && target[1] !== 'module.ts'
+const OUT_OF_MODULE = ['shell/module.js', 'shell/module.ts']
+
+const illegalFromModule = (from: string, specifier: string): string | undefined => {
+  // Especificador não-relativo é pacote (`fastify`, `@dailly/domain`), e
+  // pacote é sempre legítimo — a fronteira desta regra é a árvore, não o npm.
+  if (!specifier.startsWith('.')) return undefined
+
+  const self = moduleOf(from)
+  if (self === undefined) return undefined
+
+  const target = resolved(from, specifier)
+
+  // 1. Dentro do próprio módulo, caminho fundo é a forma normal de importar.
+  if (target.startsWith(`modules/${self}/`)) return undefined
+  // 2. O contrato do shell — a única porta de entrada, e só tipo.
+  if (OUT_OF_MODULE.includes(target)) return undefined
+  // 3. O index público de outro módulo, que é o que o C5 permite.
+  const other = /^modules\/([^/]+)\/(.+)$/.exec(target)
+  if (other && (other[2] === 'index.js' || other[2] === 'index.ts')) return undefined
+
+  return target
 }
 
 describe('C5: a seta do servidor só aponta para onde pode', () => {
@@ -149,35 +168,50 @@ describe('C5: a seta do servidor só aponta para onde pode', () => {
     )
   })
 
-  it('distingue o contrato do shell do interior dele', () => {
-    const from = 'modules/entries/index.ts'
-    expect(intoTheShell(from, '../../shell/module.js')).toBe(false)
-    expect(intoTheShell(from, '../../shell/migrations.js')).toBe(true)
-    expect(intoTheShell(from, '../../shell/database.js')).toBe(true)
-    expect(intoTheShell(from, '../../shell/config.js')).toBe(true)
-    // Dentro do próprio shell, tudo é caminho normal.
-    expect(intoTheShell('shell/app.ts', './module.js')).toBe(false)
-    expect(intoTheShell('shell/database.ts', './migrations.js')).toBe(true)
+  it('sabe o que um módulo pode alcançar fora de si, e o que não pode', () => {
+    const from = 'modules/entries/routes.ts'
+
+    // Permitido
+    expect(illegalFromModule(from, './validate.js')).toBeUndefined()
+    expect(illegalFromModule(from, '../../shell/module.js')).toBeUndefined()
+    expect(illegalFromModule(from, '../outro/index.js')).toBeUndefined()
+    expect(illegalFromModule(from, 'fastify')).toBeUndefined()
+    expect(illegalFromModule(from, '@dailly/domain')).toBeUndefined()
+
+    // Proibido — o interior do shell, por qualquer porta
+    expect(illegalFromModule(from, '../../shell/config.js')).toBe('shell/config.js')
+    expect(illegalFromModule(from, '../../shell/migrations.js')).toBe('shell/migrations.js')
+    // A porta que o gate achou: o composition root reexporta o shell inteiro.
+    expect(illegalFromModule(from, '../../index.js')).toBe('index.js')
+    // O manifest, que carrega todos os módulos.
+    expect(illegalFromModule(from, '../../modules.js')).toBe('modules.js')
+    // O interior de outro módulo, e o adapter que saiu de dentro deles.
+    expect(illegalFromModule(from, '../outro/validate.js')).toBe('modules/outro/validate.js')
+    expect(illegalFromModule(from, '../../adapters/sqlite-entry-repository.js')).toBe(
+      'adapters/sqlite-entry-repository.js',
+    )
   })
 
-  it('um módulo alcança o shell só pelo contrato', () => {
-    // A seta de volta que sobra é `shell/module.js`, e ela é só tipo. O que
-    // esta regra impede é um módulo pendurado no arquivo que lê o manifest —
-    // o ciclo que hoje só não morde porque `import type` some na compilação.
-    const found = FILES.filter((file) => file.path.startsWith('modules/')).flatMap((file) =>
+  it('um módulo só alcança o que a lista branca permite', () => {
+    const found = FILES.flatMap((file) =>
       importsOf(file.code)
-        .filter((specifier) => intoTheShell(file.path, specifier))
-        .map((specifier) => `${file.path} → ${specifier}`),
+        .map((specifier) => illegalFromModule(file.path, specifier))
+        .filter((target): target is string => target !== undefined)
+        .map((target) => `${file.path} → ${target}`),
     )
 
     expect(found).toEqual([])
   })
 
-  it('o shell conhece o manifest, nunca um módulo', () => {
-    // O laço que monta as rotas recebe a lista; ele não sabe o nome de ninguém.
-    // No dia em que souber, o manifest virou decoração e a flag de módulo
-    // deixou de significar alguma coisa.
-    const found = FILES.filter((file) => file.path.startsWith('shell/')).flatMap((file) =>
+  it('fora de modules/, só o manifest importa um módulo', () => {
+    // A regra valia só para `shell/` e isentava justamente o arquivo que fazia
+    // o que ela proíbe: o composition root importava o adapter *através* do
+    // módulo. Com o adapter em `adapters/`, ela passa a valer para a árvore
+    // inteira, que é o que o C3 diz — "o shell não importa o módulo em lugar
+    // nenhum", não "nenhum arquivo sob shell/".
+    const found = FILES.filter(
+      (file) => !file.path.startsWith('modules/') && file.path !== 'modules.ts',
+    ).flatMap((file) =>
       importsOf(file.code)
         .filter((specifier) => intoAModule(file.path, specifier))
         .map((specifier) => `${file.path} → ${specifier}`),

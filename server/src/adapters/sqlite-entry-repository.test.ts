@@ -2,26 +2,22 @@ import { entryRepositoryContract } from '@dailly/domain/testing'
 import { NotImplementedError } from '@dailly/domain'
 import { UTC } from '@dailly/periods'
 import { describe, expect, it } from 'vitest'
-import Database from 'better-sqlite3'
-import { ENTRIES_MIGRATIONS } from './migrations.js'
+import { openDatabase } from '../shell/database.js'
 import { sqliteEntryRepository } from './sqlite-entry-repository.js'
 
 /**
- * O banco deste teste é construído pela fatia do próprio módulo, não pelo
- * `openDatabase` do shell.
+ * O banco vem do `openDatabase`, que roda as migrations coletadas do manifest.
  *
- * Não é purismo: `shell/database.js` importa `shell/migrations.js`, que lê o
- * manifest, que carrega todos os módulos — este teste passava por dentro desse
- * ciclo para pedir um `:memory:`. O módulo é dono do próprio schema, então
- * aplicá-lo aqui é mais curto *e* deixa o teste em pé sem o resto do servidor.
+ * Não é comodidade: é o que mantém o acoplamento visível. Este adapter lê a
+ * tabela `entries`, criada pela migration de `modules/entries/` — schema de um
+ * módulo, lido de fora dele. Se aquela migration parar de criar a tabela, este
+ * teste cai.
+ *
+ * Passar `ENTRIES_MIGRATIONS` explicitamente seria mais direto e exigiria
+ * importar de `modules/`, que a regra de fronteira proíbe daqui. A regra
+ * empurra o teste de volta para a forma que preserva o acoplamento.
  */
-const migrated = () => {
-  const db = new Database(':memory:')
-  for (const migration of ENTRIES_MIGRATIONS) db.exec(migration.up)
-  return db
-}
-
-const make = (zone = UTC) => sqliteEntryRepository({ db: migrated(), zone })
+const make = (zone = UTC) => sqliteEntryRepository({ db: openDatabase(':memory:'), zone })
 
 // The same suite the in-memory fake passes. This is the whole point of the
 // port: two implementations, one set of promises, proven rather than assumed.

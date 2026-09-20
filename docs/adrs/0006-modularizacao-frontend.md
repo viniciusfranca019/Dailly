@@ -262,7 +262,8 @@ server/src/
   shell/        config · database · runner de migrations · buildApp · /health
   modules.ts    o manifest
   modules/
-    entries/    routes · validate · sqlite-entry-repository · migrations · index
+    entries/    routes · validate · migrations · index
+  adapters/     sqlite-entry-repository — implementa port de pacote, não de módulo
   index.ts      composition root
 ```
 
@@ -295,12 +296,72 @@ restaurar um `.sqlite` antigo e abri-lo roda as migrations que faltam sem
 contabilidade externa nenhuma. Coordenar à mão e falhar alto é o lado barato
 desse par.
 
+### O adapter fica fora dos módulos — e o que isso deixa descoberto
+
+`sqliteEntryRepository` implementa `EntryRepository`, que é port do **pacote**
+`@dailly/domain`, não do módulo entries. É a mesma razão pela qual o
+`http-entry-repository.ts` da `ui/` mora em `ui/src/adapters/` e não dentro de
+um módulo. Ele vai para `server/src/adapters/`.
+
+A causa imediata é a regra: com o adapter dentro do módulo, o composition root
+precisava importar `modules/entries/index.js` **pelo nome** para montar o saco
+de dependências, e a fronteira ficava escopada em `shell/` — isentando o único
+arquivo que fazia o que ela proíbe. Fora de `modules/`, agora, só o `modules.ts`
+importa de `modules/`, e a regra vale para a árvore inteira.
+
+**O que essa mudança não conserta, dito aqui porque o próximo leitor não deve
+supor que consertou.**
+
+O `ServerModuleDeps` continua sendo um struct fechado que nomeia `entries`.
+Trazer o Requests ainda vai exigir editar este arquivo para acrescentar um
+campo — o tell da Lei 4, intacto. A saída conhecida é um `provide(db, zone)`
+opcional no `ServerModule`, chamado pelo composition root e fundido ao saco; ela
+é compatível com os testes congelados, e não foi construída porque hoje teria um
+chamador só (Lei 3). O segundo chamador é o próprio Requests, e é ele que paga a
+abstração.
+
+**E a propriedade nova, que a `ui/` não tem.** O adapter da `ui/` implementa um
+port de domínio sobre um *transporte*; ele não conhece o interior de módulo
+nenhum. O do servidor implementa um port de domínio sobre o **schema privado de
+outro módulo** — a tabela `entries`, criada por `modules/entries/migrations.ts`.
+Depois da mudança, a tabela e o código que a lê moram em camadas diferentes.
+
+O ponto que decide o registro: **esse acoplamento não carrega import nenhum.**
+Ele é um nome de tabela, uma string. O teste de fronteira julga o grafo de
+imports, então ele não vê isso hoje e não vai ver nunca — não é dívida a cercar
+depois, é uma propriedade a conhecer.
+
+O que sobra segurando é teste, não regra: o teste do adapter usa `openDatabase`,
+que roda as migrations coletadas do manifest, então perder a tabela derruba o
+teste. A guarda é estreita e vale enunciar o tamanho dela: pega perda, não
+deriva — uma migration futura que renomeie uma coluna que o adapter não lê não
+dispara nada; acopla ao *manifest*, não ao módulo; e quem edita a migration vê
+um teste de *adapter* ficar vermelho, então vai razoavelmente consertar o
+adapter.
+
+Um reforço que não foi projetado e vale manter: a mitigação só existe enquanto
+esse teste usa a lista default do `openDatabase`. Passar `ENTRIES_MIGRATIONS`
+explicitamente exigiria importar de `modules/entries/`, que a regra nova proíbe
+de fora. A regra empurra o teste de volta para a forma que preserva o
+acoplamento — é isso que torna a garantia durável em vez de acidental.
+
 **A fronteira ganhou o teste que esta ADR exige dela**, em
 `server/src/architecture.test.ts`: o shell conhece o manifest e nunca um
-módulo; um módulo alcança outro só pelo index público. O predicado resolve o
-caminho antes de julgar, porque um irmão alcançado por `../entries/validate.js`
-atravessa a fronteira sem conter a palavra `modules` em lugar nenhum — furo que
-o próprio teste pegou antes de o segundo módulo existir.
+módulo; um módulo só alcança fora de si o contrato do shell e o index público
+de outro módulo.
+
+Essa segunda regra é **lista branca**, e chegou nessa forma por duas falhas.
+O primeiro predicado era regex sobre o texto do import, e um irmão alcançado
+por `../entries/validate.js` atravessa a fronteira sem conter a palavra
+`modules` — resolver o caminho antes de julgar é o que vê isso. O segundo
+nomeava o proibido (`shell/`, fora do contrato), e foi furado por um `../` a
+mais: o composition root reexporta `openDatabase`, `migrate` e `MIGRATIONS`,
+então o interior do shell seguia alcançável por uma porta que a regra não
+nomeava — e por ali toda aresta é import de **valor**, o que mata o boot de
+verdade com `MODULES` ainda indefinido, acusando no stack o `shell/migrations.ts`,
+que é a vítima. Lista de proibidos envelhece a cada arquivo novo; lista branca
+não, porque o que um módulo legitimamente alcança são três coisas e elas não
+crescem.
 
 **O que não mudou, de propósito:** `desktop/`. É um arquivo, a execução das
 requests mora no servidor, e nenhum IPC novo nasce disto.
