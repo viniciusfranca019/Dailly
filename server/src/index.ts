@@ -50,7 +50,7 @@ export interface RunningServer {
  * precisa conter o módulo entries, ou a tabela que o repositório lê não existe.
  * Violada, quem reclama é o SQLite (`no such table: entries`), não o contrato.
  * A saída — um `provide(db, zone)` no `ServerModule` — está decidida e adiada
- * na ADR 0006, Emenda 1, com o Requests como gatilho.
+ * na ADR 0006, Emenda 2, com o Requests como gatilho.
  */
 export async function createServer(
   input: ConfigInput,

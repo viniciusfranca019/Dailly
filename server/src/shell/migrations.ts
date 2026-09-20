@@ -14,6 +14,8 @@ import { ManifestError, type Migration, type ServerModule } from './module.js'
  * coisas está em `collectMigrations`, logo abaixo.
  */
 
+export type { Migration } from './module.js'
+
 /**
  * Junta as fatias dos módulos numa sequência só, e recusa colisão.
  *
@@ -30,8 +32,6 @@ import { ManifestError, type Migration, type ServerModule } from './module.js'
  * A mensagem nomeia a versão e os dois módulos porque é exatamente o que falta
  * saber no momento em que o boot quebra.
  */
-export type { Migration } from './module.js'
-
 export function collectMigrations(modules: readonly ServerModule[]): readonly Migration[] {
   const owner = new Map<number, string>()
   const collected: Migration[] = []

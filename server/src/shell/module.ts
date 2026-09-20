@@ -1,19 +1,19 @@
+/**
+ * @file O contrato de módulo do servidor — o gêmeo do `ModuleDescriptor` da `ui/`.
+ *
+ * A ADR 0006 decidiu duas camadas no frontend e escreveu o critério de entrada
+ * em cada uma; a Emenda 2 aplicou a mesma decisão a este lado. O shell não sabe
+ * o nome de módulo nenhum: lê o manifest e monta o que estiver lá.
+ *
+ * As três divergências em relação ao gêmeo — sem flag de build, migrations numa
+ * sequência global, e um saco de dependências que nomeia tipo de produto — têm
+ * causa escrita na Emenda 2, e só lá, para não derivarem em três cópias.
+ */
+
 import type { EntryRepository } from '@dailly/domain'
 import type { TimeZone } from '@dailly/periods'
 import type { FastifyInstance } from 'fastify'
 
-/**
- * O contrato de módulo do servidor — o gêmeo do `ModuleDescriptor` da `ui/`.
- *
- * A ADR 0006 decidiu duas camadas no frontend e escreveu o critério de entrada
- * em cada uma. Esta é a mesma decisão aplicada ao outro lado: o shell não sabe
- * o nome de módulo nenhum, lê o manifest e monta o que estiver lá.
- *
- * Diferença deliberada em relação à `ui/`: **não há flag de build aqui**. Uma
- * rota desligada não custa bytes no bundle de ninguém, e uma flag de runtime no
- * servidor criaria exatamente a divergência ui/server que as flags existem para
- * evitar — um build do renderer sem Analyse falando com uma API que o tem.
- */
 /**
  * Uma fatia de schema, e o motivo de ela morar no arquivo do contrato.
  *

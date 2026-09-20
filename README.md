@@ -135,16 +135,21 @@ Não confunda com o outro nível de composição: `BlockRegistry` e
 
 `server/` nasceu plano e deixou de caber assim quando o segundo módulo foi
 decidido — ele ainda não existe. Hoje o servidor espelha a `ui/`
-([ADR 0006, Emenda 1](docs/adrs/0006-modularizacao-frontend.md)):
+([ADR 0006, Emenda 2](docs/adrs/0006-modularizacao-frontend.md)):
 
 ```
 server/src/
   shell/        config · database · runner de migrations · buildApp · /health
   modules.ts    o manifest — ServerModule { id, migrations, register(app, deps) }
   modules/
-    entries/    routes · validate · sqlite-entry-repository · migrations · index
+    entries/    routes · validate · migrations · index
+  adapters/     sqlite-entry-repository — implementa port de pacote, não de módulo
   index.ts      composition root
 ```
+
+O adapter mora fora de `modules/` porque implementa `EntryRepository`, port do
+**pacote** `@dailly/domain` — não do módulo. É o mesmo critério que põe o
+`http-entry-repository.ts` em `ui/src/adapters/`.
 
 Duas diferenças em relação ao frontend. **Não há flag de build**: lá a flag
 remove código de um bundle que o usuário baixa, e aqui não há bundle — uma rota
