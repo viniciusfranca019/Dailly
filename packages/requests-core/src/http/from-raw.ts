@@ -10,6 +10,44 @@ export class NotACurlError extends Error {
   }
 }
 
+export class AmbiguousUrlError extends Error {
+  override readonly name = 'AmbiguousUrlError'
+  constructor(candidates: readonly string[]) {
+    super(
+      `não dá para saber qual é a URL: sobraram ${candidates.length} tokens soltos ` +
+        `(${candidates.join(', ')}). ` +
+        'Isso costuma ser uma opção que este importador não conhece levando um valor junto.',
+    )
+  }
+}
+
+/**
+ * Opções que **consomem o próximo token**, e por que a lista existe.
+ *
+ * Sem ela, `--cert cliente.pem` deixaria `cliente.pem` solto, e o token solto
+ * vira a URL — a request apontaria para um arquivo e *pareceria* ter
+ * funcionado. Reconhecer que a opção leva valor é o que permite ignorá-la
+ * inteira, valor incluído, e relatá-la assim.
+ *
+ * A lista cobre o que curl de verdade traz. O que ela não cobrir cai na guarda
+ * do token solto, logo abaixo — que recusa em vez de escolher.
+ */
+const IGNORED_WITH_VALUE = new Set([
+  '--cert',
+  '--key',
+  '--cacert',
+  '--proxy',
+  '--connect-timeout',
+  '--max-time',
+  '-m',
+  '--resolve',
+  '--retry',
+  '-A',
+  '--user-agent',
+  '-e',
+  '--referer',
+])
+
 /**
  * Interpreta as palavras de um comando curl como uma request HTTP.
  *
@@ -22,9 +60,10 @@ export function fromRaw(raw: string): Imported<HttpSpec> {
   if (tokens[0] !== 'curl') throw new NotACurlError()
 
   let method: string | null = null
-  let url: string | null = null
   const headers: HttpHeader[] = []
   let body: string | null = null
+  const loose: string[] = []
+  const ignored: string[] = []
 
   for (let i = 1; i < tokens.length; i++) {
     const token = tokens[i]!
@@ -40,10 +79,10 @@ export function fromRaw(raw: string): Imported<HttpSpec> {
     }
 
     if (token === '-H' || token === '--header') {
-      const raw = tokens[++i] ?? ''
-      const at = raw.indexOf(':')
+      const header = tokens[++i] ?? ''
+      const at = header.indexOf(':')
       if (at > 0) {
-        headers.push({ name: raw.slice(0, at).trim(), value: raw.slice(at + 1).trim() })
+        headers.push({ name: header.slice(0, at).trim(), value: header.slice(at + 1).trim() })
       }
       continue
     }
@@ -56,21 +95,32 @@ export function fromRaw(raw: string): Imported<HttpSpec> {
       continue
     }
 
-    if (!token.startsWith('-')) {
-      url = token
+    if (IGNORED_WITH_VALUE.has(token)) {
+      ignored.push(`${token} ${tokens[++i] ?? ''}`.trimEnd())
       continue
     }
+
+    if (token.startsWith('-')) {
+      ignored.push(token)
+      continue
+    }
+
+    loose.push(token)
   }
+
+  // Um token solto é a URL. Dois é sinal de que alguma opção desconhecida levou
+  // um valor junto, e escolher entre eles seria inventar.
+  if (loose.length > 1) throw new AmbiguousUrlError(loose)
 
   return {
     spec: {
       // A regra é do curl, não nossa: `-d` sem `-X` manda POST. Quem cola um
       // `-d` espera o mesmo verbo que o terminal usaria.
       method: method ?? (body === null ? 'GET' : 'POST'),
-      url: url ?? '',
+      url: loose[0] ?? '',
       headers,
       body,
     },
-    ignored: [],
+    ignored,
   }
 }
