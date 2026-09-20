@@ -1,7 +1,6 @@
 import type { EntryRepository } from '@dailly/domain'
 import type { TimeZone } from '@dailly/periods'
 import type { FastifyInstance } from 'fastify'
-import type { Migration } from './migrations.js'
 
 /**
  * O contrato de módulo do servidor — o gêmeo do `ModuleDescriptor` da `ui/`.
@@ -15,6 +14,25 @@ import type { Migration } from './migrations.js'
  * servidor criaria exatamente a divergência ui/server que as flags existem para
  * evitar — um build do renderer sem Analyse falando com uma API que o tem.
  */
+/**
+ * Uma fatia de schema, e o motivo de ela morar no arquivo do contrato.
+ *
+ * O tipo é do contrato, não do runner: é por ele que um módulo declara o que
+ * precisa no banco. Deixá-lo em `shell/migrations.ts` obrigava todo módulo a
+ * importar o arquivo que **calcula `MIGRATIONS` a partir do manifest** — e
+ * essa é exatamente a aresta que fecha o ciclo
+ * `shell/migrations → modules → modules/entries → shell/migrations`.
+ *
+ * Hoje o ciclo existe e é seguro porque toda seta de volta é `import type` e
+ * some na compilação. Seguro por acidente, então. Com o tipo aqui, a única
+ * seta legítima de um módulo para o shell é este arquivo — e aí a regra fica
+ * enunciável sem exceção, que é o que o `architecture.test.ts` cobra.
+ */
+export interface Migration {
+  readonly version: number
+  readonly up: string
+}
+
 export interface ServerModuleDeps {
   readonly entries: EntryRepository
   readonly zone: TimeZone

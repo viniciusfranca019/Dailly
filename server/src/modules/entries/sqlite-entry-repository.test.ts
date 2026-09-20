@@ -2,10 +2,26 @@ import { entryRepositoryContract } from '@dailly/domain/testing'
 import { NotImplementedError } from '@dailly/domain'
 import { UTC } from '@dailly/periods'
 import { describe, expect, it } from 'vitest'
-import { openDatabase } from '../../shell/database.js'
+import Database from 'better-sqlite3'
+import { ENTRIES_MIGRATIONS } from './migrations.js'
 import { sqliteEntryRepository } from './sqlite-entry-repository.js'
 
-const make = (zone = UTC) => sqliteEntryRepository({ db: openDatabase(':memory:'), zone })
+/**
+ * O banco deste teste é construído pela fatia do próprio módulo, não pelo
+ * `openDatabase` do shell.
+ *
+ * Não é purismo: `shell/database.js` importa `shell/migrations.js`, que lê o
+ * manifest, que carrega todos os módulos — este teste passava por dentro desse
+ * ciclo para pedir um `:memory:`. O módulo é dono do próprio schema, então
+ * aplicá-lo aqui é mais curto *e* deixa o teste em pé sem o resto do servidor.
+ */
+const migrated = () => {
+  const db = new Database(':memory:')
+  for (const migration of ENTRIES_MIGRATIONS) db.exec(migration.up)
+  return db
+}
+
+const make = (zone = UTC) => sqliteEntryRepository({ db: migrated(), zone })
 
 // The same suite the in-memory fake passes. This is the whole point of the
 // port: two implementations, one set of promises, proven rather than assumed.

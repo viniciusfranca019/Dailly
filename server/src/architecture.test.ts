@@ -97,6 +97,25 @@ const intoAnotherModule = (from: string, specifier: string): boolean => {
   return rest !== 'index.js' && rest !== 'index.ts'
 }
 
+/**
+ * Entrar no shell por qualquer porta que não seja o contrato.
+ *
+ * `shell/module.js` é a superfície: é por ele que um módulo declara o que é.
+ * `shell/migrations.js`, `shell/database.js`, `shell/config.js` e
+ * `shell/app.js` são o interior — e o primeiro deles calcula `MIGRATIONS` a
+ * partir do manifest, então um módulo que o importe fecha o ciclo
+ * `shell/migrations → modules → modules/entries → shell/migrations`.
+ *
+ * O ciclo é seguro hoje porque toda seta de volta é `import type` e some na
+ * compilação. Esta regra é o que transforma "seguro por acidente" em "seguro
+ * por regra que falha no CI" — que é a diferença de que este repo vive.
+ */
+const intoTheShell = (from: string, specifier: string): boolean => {
+  const target = /(?:^|\/)shell\/(.+)$/.exec(resolved(from, specifier))
+  if (!target) return false
+  return target[1] !== 'module.js' && target[1] !== 'module.ts'
+}
+
 describe('C5: a seta do servidor só aponta para onde pode', () => {
   it('encontra fonte para inspecionar (guarda contra uma varredura vazia em silêncio)', () => {
     // Toda regra abaixo vale o tamanho desta lista. Uma varredura que não
@@ -128,6 +147,30 @@ describe('C5: a seta do servidor só aponta para onde pode', () => {
     expect(intoAnotherModule('modules/entries/index.ts', '../../modules/entries/routes.js')).toBe(
       false,
     )
+  })
+
+  it('distingue o contrato do shell do interior dele', () => {
+    const from = 'modules/entries/index.ts'
+    expect(intoTheShell(from, '../../shell/module.js')).toBe(false)
+    expect(intoTheShell(from, '../../shell/migrations.js')).toBe(true)
+    expect(intoTheShell(from, '../../shell/database.js')).toBe(true)
+    expect(intoTheShell(from, '../../shell/config.js')).toBe(true)
+    // Dentro do próprio shell, tudo é caminho normal.
+    expect(intoTheShell('shell/app.ts', './module.js')).toBe(false)
+    expect(intoTheShell('shell/database.ts', './migrations.js')).toBe(true)
+  })
+
+  it('um módulo alcança o shell só pelo contrato', () => {
+    // A seta de volta que sobra é `shell/module.js`, e ela é só tipo. O que
+    // esta regra impede é um módulo pendurado no arquivo que lê o manifest —
+    // o ciclo que hoje só não morde porque `import type` some na compilação.
+    const found = FILES.filter((file) => file.path.startsWith('modules/')).flatMap((file) =>
+      importsOf(file.code)
+        .filter((specifier) => intoTheShell(file.path, specifier))
+        .map((specifier) => `${file.path} → ${specifier}`),
+    )
+
+    expect(found).toEqual([])
   })
 
   it('o shell conhece o manifest, nunca um módulo', () => {
