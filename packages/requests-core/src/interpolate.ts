@@ -12,11 +12,37 @@
  */
 export type Env = Readonly<Record<string, string>>
 
-const VARIABLE = /\{\{\s*([^}\s]+)\s*\}\}/g
+import { placeholderPattern, placeholdersIn } from './placeholder.js'
 
 export interface Interpolated<T> {
   readonly value: T
   readonly missing: readonly string[]
+}
+
+/**
+ * As chaves que sobraram num valor, campo a campo.
+ *
+ * Caminhar a árvore e não o JSON serializado: varrer o texto serializado deixa
+ * o padrão comer **através** da fronteira entre campos, e aí a recusa nomeia
+ * uma variável que ninguém escreveu — ou pior, recusa uma requisição sem
+ * variável nenhuma, quando um campo termina em `{{` e o seguinte começa em
+ * `}}`.
+ */
+export function placeholdersOf(value: unknown): string[] {
+  const found = new Set<string>()
+  const walk = (node: unknown): void => {
+    if (typeof node === 'string') {
+      for (const name of placeholdersIn(node)) found.add(name)
+      return
+    }
+    if (Array.isArray(node)) {
+      node.forEach(walk)
+      return
+    }
+    if (node !== null && typeof node === 'object') Object.values(node).forEach(walk)
+  }
+  walk(value)
+  return [...found]
 }
 
 export function interpolate<T>(value: T, env: Env): Interpolated<T> {
@@ -24,7 +50,7 @@ export function interpolate<T>(value: T, env: Env): Interpolated<T> {
 
   const walk = (node: unknown): unknown => {
     if (typeof node === 'string') {
-      return node.replaceAll(VARIABLE, (whole, name: string) => {
+      return node.replaceAll(placeholderPattern(), (whole, name: string) => {
         // `Object.hasOwn` e não `in`: `in` percorre o prototype, e
         // `{{constructor}}` resolvia para o código-fonte de `Object` — sem
         // reclamar, e daí direto para a fita. E não é `??` porque uma variável

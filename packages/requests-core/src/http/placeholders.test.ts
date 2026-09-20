@@ -123,3 +123,76 @@ describe('C4: nem a montagem da query é decidida sobre uma chave', () => {
     expect(wireOf(spec, { termo: 'busca' }).url).toBe('https://x.dev/a?q=busca')
   })
 })
+
+describe('C4: o -H era o último sítio fora da regra', () => {
+  it('não corta num dois-pontos que está dentro de uma chave', () => {
+    // `-u` e `-b` já usavam `indexOutsidePlaceholder`; o `-H` continuava com
+    // `indexOf(':')` puro. Uma regra que vale em todos os lugares menos um
+    // não é uma regra — é um hábito com exceção.
+    const { headers, ignored } = (() => {
+      const r = importing(`curl https://x.dev/a -H '{{a:b}}'`)
+      return { headers: r.spec.headers, ignored: r.ignored }
+    })()
+
+    expect(headers).toEqual([])
+    expect(ignored).toEqual(['-H {{a:b}}'])
+  })
+
+  it('continua cortando no dois-pontos de fora', () => {
+    expect(importing(`curl https://x.dev/a -H 'X-Tenant: {{cliente}}'`).spec.headers).toEqual([
+      { name: 'X-Tenant', value: '{{cliente}}' },
+    ])
+  })
+})
+
+describe('C4: a recusa nomeia variáveis que existem, não pedaços de JSON', () => {
+  it('não inventa nome de variável atravessando a fronteira entre campos', () => {
+    // A varredura rodava sobre `JSON.stringify`, então `[^}\s]+` comia através
+    // de um campo e a mensagem saía com `{{a","value":"b}}` dentro.
+    const { spec } = importing(`curl https://x.dev/a -H 'X-A: {{um}}' -d '{{dois}}'`)
+    let caught: UnresolvedVariableError | undefined
+    try {
+      wireOf(spec, {})
+    } catch (error) {
+      caught = error as UnresolvedVariableError
+    }
+
+    expect(caught?.missing.sort()).toEqual(['dois', 'um'])
+    expect(caught?.message).not.toContain('"')
+  })
+
+  it('não recusa uma requisição que não tem variável nenhuma', () => {
+    // O falso positivo construível: um campo terminando em `{{` colado a
+    // outro começando em `}}` formava uma "chave" que só existe no JSON.
+    const { spec } = importing(`curl https://x.dev/a -d 'x{{' -u '}}y:p'`)
+
+    expect(() => wireOf(spec, {})).not.toThrow()
+  })
+})
+
+describe('C1: -A e -e são headers, e a ADR 0011 os nomeia', () => {
+  it('mapeia -A para User-Agent e -e para Referer', () => {
+    // A ADR 0011 cita `Referer` e `User-Agent` entre os headers que um
+    // renderer não consegue definir — é parte de *por que* a execução mora no
+    // servidor. O comentário do `-b` já faz esse argumento para o `Cookie`;
+    // descartar estes dois era fazer o argumento e ir para o outro lado.
+    const { spec, ignored } = importing(
+      `curl https://x.dev/a -A 'Mozilla/5.0' -e 'https://ref.dev'`,
+    )
+
+    expect(spec.headers).toEqual([
+      { name: 'User-Agent', value: 'Mozilla/5.0' },
+      { name: 'Referer', value: 'https://ref.dev' },
+    ])
+    expect(ignored).toEqual([])
+  })
+})
+
+describe('C6: o --url não é ignorado, ele diz qual é a URL', () => {
+  it('não relata como não aplicado algo cujo valor foi aplicado', () => {
+    const { spec, ignored } = importing(`curl --url https://x.dev/a -H 'A: 1'`)
+
+    expect(spec.url).toBe('https://x.dev/a')
+    expect(ignored).toEqual([])
+  })
+})

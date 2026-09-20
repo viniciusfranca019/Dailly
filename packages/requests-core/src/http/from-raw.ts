@@ -64,10 +64,6 @@ const IGNORED_WITH_VALUE = new Set([
   '-m',
   '--resolve',
   '--retry',
-  '-A',
-  '--user-agent',
-  '-e',
-  '--referer',
   '-F',
   '--form',
   '-o',
@@ -173,11 +169,35 @@ export function fromRaw(raw: string): Imported<HttpSpec> {
 
     if (token === '-H' || token === '--header') {
       const header = nextOf(++i)
-      const at = header.indexOf(':')
+      // Fora da chave, como em todos os outros sítios: uma regra que vale em
+      // todos os lugares menos um não é regra, é hábito com exceção.
+      const at = indexOutsidePlaceholder(header, ':')
       // `-H 'X-Foo'` é erro de digitação plausível. Sumir com ele seria
       // exatamente o silêncio que o C6 proíbe.
       if (at > 0) headers.push({ name: header.slice(0, at).trim(), value: header.slice(at + 1).trim() })
       else ignored.push(`${token} ${header}`.trimEnd())
+      continue
+    }
+
+    // `-A` e `-e` **são** headers. A ADR 0011 nomeia `User-Agent` e `Referer`
+    // entre os que um renderer não consegue definir — é parte de por que a
+    // execução inteira mora no servidor. Descartá-los era fazer esse argumento
+    // para o `Cookie` e ir para o outro lado com os vizinhos dele.
+    if (token === '-A' || token === '--user-agent') {
+      headers.push({ name: 'User-Agent', value: nextOf(++i) })
+      continue
+    }
+
+    if (token === '-e' || token === '--referer') {
+      headers.push({ name: 'Referer', value: nextOf(++i) })
+      continue
+    }
+
+    // `--url` não é opção a ignorar: ela **diz** qual é a URL. Relatá-la como
+    // não aplicada enquanto o valor dela era aplicado era um relato que se
+    // contradizia.
+    if (token === '--url') {
+      loose.push(nextOf(++i))
       continue
     }
 

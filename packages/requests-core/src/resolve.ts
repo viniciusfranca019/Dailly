@@ -1,4 +1,4 @@
-import { type Env, interpolate } from './interpolate.js'
+import { type Env, interpolate, placeholdersOf } from './interpolate.js'
 import type { Invalid, ProtocolSpec, WireRequest } from './protocol.js'
 import type { ProtocolRegistry } from './registry.js'
 
@@ -50,9 +50,6 @@ export class InvalidSpecError extends Error {
   }
 }
 
-/** O que sobrou parecendo variável depois da substituição. */
-const SURVIVING = /\{\{\s*([^}\s]+)\s*\}\}/g
-
 /**
  * O spec, mais o ambiente, viram a requisição literal — sem hop nenhum.
  *
@@ -84,7 +81,7 @@ export function resolve<W extends WireRequest = WireRequest>(
   // O que sobrou é de outra natureza que o que faltou, e a mensagem precisa
   // dizer qual é qual: uma chave que sobreviveu à substituição pode ter valor
   // no ambiente — ela só apareceu tarde demais.
-  const survivors = [...new Set([...JSON.stringify(value).matchAll(SURVIVING)].map((m) => m[1]!))]
+  const survivors = placeholdersOf(value)
   // Quem faltava também sobrevive no texto — a chave continua lá justamente
   // porque não havia com o que trocá-la. A subtração é no outro sentido: o que
   // sobrou *sem* ter faltado é o que apareceu tarde, através do valor de
