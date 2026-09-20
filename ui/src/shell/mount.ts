@@ -83,9 +83,13 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
    * Which navigation currently owns the screen.
    *
    * Two clicks race across the `await` below, and without this the *earlier*
-   * one wins whenever its chunk is slower. `destroy` bumps it too, which
-   * abandons anything in flight rather than rendering into a host the shell has
-   * already given back.
+   * one wins whenever its chunk is slower.
+   *
+   * It says nothing about teardown: `destroyed` covers that, and covers it
+   * better, because it also stops a navigation *started* after `destroy()`
+   * rather than only abandoning one already in flight. Bumping this counter in
+   * `destroy` as well would be a second mechanism guarding the same thing, and
+   * the one that guards less.
    */
   let navigation = 0
   let destroyed = false
@@ -183,7 +187,6 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
     go,
     destroy() {
       destroyed = true
-      navigation++
       app.unmount()
       current.value = ''
       requested.value = ''

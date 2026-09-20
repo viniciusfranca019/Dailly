@@ -57,6 +57,23 @@ describe('the real composition', () => {
     for (const module of MODULES) {
       await shell.go(module.route)
       expect(shell.current).toBe(module.route)
+
+      /**
+       * The route moving is no longer evidence that the module works.
+       *
+       * On `origin/main` a module that could not load rejected out of `go()`
+       * and this loop went red. `go()` now catches that and renders an error
+       * instead — which is the right behaviour for a user and the wrong
+       * behaviour for this assertion, because `current` advances either way.
+       * So the test has to look at the screen, which is the same distinction
+       * `mount.ts` draws: `current` is where you are, not what loaded.
+       *
+       * Without these two lines a module that throws at import time leaves the
+       * whole suite green — verified by breaking `modules/analyse/index.ts` on
+       * purpose.
+       */
+      expect(host.querySelector('[role="alert"]')).toBeNull()
+      expect(host.querySelector('[data-testid="outlet"]')?.children.length).toBeGreaterThan(0)
     }
 
     shell.destroy()
