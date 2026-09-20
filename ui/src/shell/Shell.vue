@@ -18,6 +18,8 @@ defineProps<{
   current: string
   /** The module to render, or `null` before the first one has loaded. */
   component: Component | null
+  /** Set when a module could not be loaded, so the outlet can say which. */
+  failed: { route: string; title: string } | null
 }>()
 
 const emit = defineEmits<{ navigate: [route: string] }>()
@@ -78,11 +80,27 @@ const emit = defineEmits<{ navigate: [route: string] }>()
       </footer>
     </aside>
 
+    <!--
+      `tabindex="0"` because this element scrolls. A scroll container with no
+      focusable child — the Analyse screen is exactly that — cannot be reached
+      by keyboard at all, so its content becomes unreadable past the fold for
+      anyone not using a mouse.
+    -->
     <main
       class="min-w-0 flex-1 overflow-y-auto bg-[#0c101b]"
       data-testid="outlet"
+      tabindex="0"
     >
-      <component :is="component" v-if="component" :deps="deps" />
+      <p
+        v-if="failed"
+        role="alert"
+        class="mx-auto max-w-2xl px-8 py-10 text-sm leading-relaxed text-[#747e8f]"
+      >
+        <strong class="font-medium text-gray-300">{{ failed.title }}</strong> não pôde ser
+        carregado. O módulo está no manifesto, mas o código dele não chegou — clique de
+        novo para tentar outra vez.
+      </p>
+      <component :is="component" v-else-if="component" :deps="deps" />
     </main>
   </div>
 </template>
