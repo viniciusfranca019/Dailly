@@ -131,3 +131,34 @@ validação do JSON é o que o driver puro já sabe fazer.
   resolveria os mesmos problemas, mas duplicaria no Electron um caminho que o
   `server/` já oferece, e quebraria a regra da [ADR 0009](0009-topologia-do-workspace.md)
   de que o servidor roda sem Electron. Rejeitada.
+
+## Emenda 1 — a tela, e o limite que ela tem
+
+*Escrita quando o módulo da `ui/` entrou (B2b).*
+
+A decisão desta ADR tem duas metades, e a segunda só ficou de pé agora: **se o
+servidor entrega o corpo comprimido marcado, quem abre é quem mostra.** A tela
+abre.
+
+Ela abre `gzip` e `deflate`, por `DecompressionStream`. Ela **não** abre
+`brotli`, e isso é um limite da plataforma, não um item de backlog: nenhum
+navegador expõe `br` por essa API. O caso não é raro — o copy-as-cURL do Firefox
+manda `Accept-Encoding: gzip, deflate, br` e o importador preserva o header,
+então `br` chega. Quando chega, a tela **diz** que chegou comprimido num formato
+que não abre, e mostra quantos bytes vieram.
+
+Dizer é a única saída honesta. Decodificar aqueles bytes como utf-8 produziria
+uma parede de U+FFFD com o status 200 ao lado — que é exatamente o defeito que o
+gate encontrou do lado do servidor, um corte antes. Abrir brotli custaria um
+wasm de terceiro no renderer, e o dia em que alguém precisar disso é o dia de
+pagar por ele.
+
+O teto de expansão é novo e não é o teto do servidor. O servidor corta em 5 MB o
+que **chega pela rede**; comprimido, isso são gigabytes depois de expandir, e o
+número que ele limitou viraria o que o renderer segura em memória. A tela para
+em 16 MB e marca.
+
+**O que a tela ainda não faz**, escrito aqui para não ser confundido com
+esquecimento: apagar e renomear pasta (o servidor não tem a rota), arrastar
+request entre pastas, e histórico de execução — a resposta continua vivendo
+enquanto a tela a mostra, como esta ADR decidiu.
