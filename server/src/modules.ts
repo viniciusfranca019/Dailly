@@ -10,4 +10,4 @@ import type { ServerModule } from './shell/module.js'
  * Sem flag de build, ao contrário da `ui/` — a causa está na ADR 0006,
  * Emenda 2, e fica só lá.
  */
-export const MODULES: readonly ServerModule[] = [entriesModule]
+export const MODULES: readonly ServerModule<unknown>[] = [entriesModule]
