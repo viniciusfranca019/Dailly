@@ -127,3 +127,19 @@ export type AnyServerModule = ServerModuleBase & {
   provide?(context: ProvideContext): unknown
   register(app: FastifyInstance, deps: ServerModuleDeps, own: unknown): void
 }
+
+/**
+ * A única porta para a lista — e o motivo de ela existir.
+ *
+ * `AnyServerModule` é tipo de **armazenamento**: ele alarga `TOwn` para
+ * `unknown`, e como `register` é método, a bivariância do TypeScript aceita
+ * `own: RequestStore` onde `own: unknown` está declarado. Consequência: um
+ * literal anotado direto como `AnyServerModule` volta a poder declarar uma
+ * dependência que nunca constrói — exatamente o buraco que a união fechou.
+ *
+ * Isso é inerente a um tipo alargado, não conserto possível nele. O conserto é
+ * não deixar ninguém anotar com ele: passando por aqui, a checagem acontece no
+ * tipo de autoria e o alargamento vira consequência, não escolha.
+ */
+export const defineModule = <TOwn>(module: ServerModule<TOwn>): AnyServerModule =>
+  module as AnyServerModule

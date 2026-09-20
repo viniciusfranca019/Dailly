@@ -19,6 +19,7 @@ export {
   DatabaseTooNewError,
 } from './shell/migrations.js'
 export { ManifestError, assertManifest } from './shell/module.js'
+export { defineModule } from './shell/module.js'
 export type {
   ServerModule,
   AnyServerModule,
