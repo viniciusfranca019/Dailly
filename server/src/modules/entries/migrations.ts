@@ -1,4 +1,4 @@
-import type { Migration } from '../../shell/migrations.js'
+import type { Migration } from '../../shell/module.js'
 
 /**
  * A fatia do módulo Entries no `user_version`.
