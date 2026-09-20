@@ -57,3 +57,24 @@ describe('C4: a credencial do -u passa pela interpolação como todo o resto', (
     expect(spec.auth).toEqual({ user: 'u', password: 'a:b' })
   })
 })
+
+describe('C1: o -u não duplica um Authorization que o comando já trouxe', () => {
+  it('deixa o -H vencer, como o curl faz', () => {
+    // Verificado contra curl de verdade: com `-u` e `-H 'Authorization: …'`
+    // juntos, só o header explícito vai para a fita. Mandar os dois é uma
+    // requisição que nenhum servidor interpreta como a pessoa espera.
+    const { spec } = httpDriver.fromRaw(
+      `curl https://x.dev/a -u 'u:p' -H 'Authorization: Bearer meu-token'`,
+    )
+    const wire = resolve<HttpWire>(registry(), { id: 'r', name: 'n', protocol: 'http', spec }, {})
+
+    expect(wire.headers).toEqual([{ name: 'Authorization', value: 'Bearer meu-token' }])
+  })
+
+  it('a comparação do nome ignora maiúsculas, porque header não distingue', () => {
+    const { spec } = httpDriver.fromRaw(`curl https://x.dev/a -u 'u:p' -H 'authorization: Bearer t'`)
+    const wire = resolve<HttpWire>(registry(), { id: 'r', name: 'n', protocol: 'http', spec }, {})
+
+    expect(wire.headers).toHaveLength(1)
+  })
+})
