@@ -12,7 +12,7 @@ import { createApp } from 'vue'
 import { describe, expect, it } from 'vitest'
 import Requests from './Requests.vue'
 import ResponseView from './ResponseView.vue'
-import type { DecodedBody } from './decode.js'
+import { MAX_DECOMPRESSED_BYTES, type DecodedBody } from './decode.js'
 
 /** Vue renderiza na fila de microtasks; um teste tem que deixar. */
 const settle = async () => {
@@ -76,6 +76,20 @@ const executed = (over: Partial<ExecutedResponse> = {}): ExecutedResponse => ({
 })
 
 const deps = (requests: RequestsPort) => testModuleDeps({ requests })
+
+/**
+ * Espera uma condição, em vez de um número fixo de turnos.
+ *
+ * `settle()` basta para quase tudo, mas descomprimir 16 MB não termina em
+ * quatro microtasks — e um `settle` maior seria um número mágico maior.
+ */
+async function until(condition: () => boolean, turns = 400): Promise<void> {
+  for (let turn = 0; turn < turns; turn++) {
+    if (condition()) return
+    await new Promise((resolve) => setTimeout(resolve, 5))
+  }
+  throw new Error('a condição não aconteceu a tempo')
+}
 
 /** Uma promessa que o teste solta quando quiser — para exercitar o "no meio". */
 const held = () => {
@@ -620,7 +634,7 @@ describe('BLOCKER: as duas marcas de corte são duas, e as duas aparecem', () =>
     // O servidor entregou inteiro — comprimido coube nos 5 MB dele. Quem corta
     // é esta tela, ao expandir. Sem a marca a pessoa lê um JSON que termina no
     // meio, com 200 do lado, e nada dizendo por quê.
-    const host = mountView({ kind: 'text', text: 'a'.repeat(10), truncated: true })
+    const host = mountView({ kind: 'text', text: 'a'.repeat(10), truncated: true, ceiling: true })
     await settle()
 
     expect(at(host, 'body-truncated')).not.toBeNull()
@@ -629,7 +643,8 @@ describe('BLOCKER: as duas marcas de corte são duas, e as duas aparecem', () =>
 
   it('não repete a marca quando quem cortou foi o servidor', async () => {
     const host = mountView(
-      { kind: 'text', text: 'a', truncated: true },
+      // Cortado na rede: `ceiling` falso, porque quem cortou não foi esta tela.
+      { kind: 'text', text: 'a', truncated: true, ceiling: false },
       { truncated: true, contentLength: 9000 },
     )
     await settle()
@@ -639,10 +654,339 @@ describe('BLOCKER: as duas marcas de corte são duas, e as duas aparecem', () =>
   })
 
   it('não marca nada quando nada foi cortado', async () => {
-    const host = mountView({ kind: 'text', text: 'a', truncated: false })
+    const host = mountView({ kind: 'text', text: 'a', truncated: false, ceiling: false })
     await settle()
 
     expect(at(host, 'body-truncated')).toBeNull()
     expect(at(host, 'response-truncated')).toBeNull()
   })
+})
+
+describe('gate 2 — o que a correção do gate 1 abriu', () => {
+  const two = () => [request('r1', 'uma'), { ...request('r2', 'outra'), position: 1 }]
+
+  it('BLOCKER: salvar não arrasta a tela de volta para a request que saiu dela', async () => {
+    // Mesmo mecanismo do blocker anterior por outra porta: `save()` escreve
+    // `selected` e `draft` depois do await sem perguntar de quem é a tela.
+    const gate = held()
+    const port = testRequestsPort({ requests: two() })
+    const slow: RequestsPort = {
+      ...port,
+      async saveRequest(saved) {
+        await gate.promise
+        return port.saveRequest(saved)
+      },
+    }
+    const { host } = mount(deps(slow))
+    await settle()
+
+    await click(allAt(host, 'request')[0]!)
+    await fill(at(host, 'name'), 'renomeada')
+    await click(at(host, 'save'))
+
+    await click(allAt(host, 'request')[1]!)
+    gate.release()
+    await settle()
+
+    expect(at<HTMLInputElement>(host, 'name')?.value).toBe('outra')
+  })
+
+  it('BLOCKER: apagar não leva junto o editor da request que a pessoa já abriu', async () => {
+    const gate = held()
+    const port = testRequestsPort({ requests: two() })
+    const slow: RequestsPort = {
+      ...port,
+      async deleteRequest(id) {
+        await gate.promise
+        return port.deleteRequest(id)
+      },
+    }
+    const { host } = mount(deps(slow))
+    await settle()
+
+    await click(allAt(host, 'request')[0]!)
+    await click(at(host, 'delete'))
+
+    await click(allAt(host, 'request')[1]!)
+    gate.release()
+    await settle()
+
+    expect(at(host, 'editor')).not.toBeNull()
+    expect(at<HTMLInputElement>(host, 'name')?.value).toBe('outra')
+  })
+
+  it('BLOCKER: salvar não descarta o que a pessoa digitou durante a ida e volta', async () => {
+    // Só o nome precisa vir do que ficou gravado. Trocar o rascunho inteiro
+    // pelo que o servidor devolveu apaga a edição feita enquanto o save
+    // estava em voo — e a janela é do tamanho da latência.
+    const gate = held()
+    const port = testRequestsPort()
+    const slow: RequestsPort = {
+      ...port,
+      async saveRequest(saved) {
+        await gate.promise
+        return port.saveRequest(saved)
+      },
+    }
+    const { host } = mount(deps(slow))
+    await settle()
+
+    await click(at(host, 'new-request'))
+    await fill(at(host, 'curl'), CURL)
+    await click(at(host, 'import-curl'))
+    await click(at(host, 'save'))
+
+    await fill(at(host, 'url'), 'https://api.stripe.com/v1/refunds')
+    gate.release()
+    await settle()
+
+    expect(at<HTMLInputElement>(host, 'url')?.value).toBe('https://api.stripe.com/v1/refunds')
+  })
+
+  it('BLOCKER: salvar não remonta as linhas de header', async () => {
+    // `draftOf` gera `rowId()` novo para cada linha, então trocar o rascunho
+    // inteiro destrói e recria todos os `<input>` — o oposto do que o `rowId`
+    // foi introduzido para garantir.
+    const port = testRequestsPort()
+    const { host } = mount(deps(port))
+    await settle()
+
+    await click(at(host, 'new-request'))
+    await fill(at(host, 'curl'), CURL)
+    await click(at(host, 'import-curl'))
+
+    const linha = allAt(host, 'header-value')[0]!
+    await click(at(host, 'save'))
+
+    expect(allAt(host, 'header-value')[0]).toBe(linha)
+  })
+
+  it('reclicar a request já selecionada não fura a guarda do clique duplo', async () => {
+    // `invalidate()` zera `running`, então reclicar reabilitava o botão com a
+    // execução ainda em voo — e o comentário do `execute` diz por que isso não
+    // pode acontecer: num POST a requisição sai duas vezes.
+    const gate = held()
+    let calls = 0
+    const port = testRequestsPort({
+      requests: [request('r1', 'uma')],
+      execute: async () => {
+        calls += 1
+        await gate.promise
+        return executed()
+      },
+    })
+    const { host } = mount(deps(port))
+    await settle()
+
+    await click(allAt(host, 'request')[0]!)
+    await click(at(host, 'execute'))
+    await click(allAt(host, 'request')[0]!)
+
+    expect(at(host, 'running')).not.toBeNull()
+    await click(at(host, 'execute'))
+    expect(calls).toBe(1)
+
+    gate.release()
+    await settle()
+  })
+
+  it('reclicar a request já selecionada não descarta a edição não salva', async () => {
+    const port = testRequestsPort({ requests: [request('r1', 'uma')] })
+    const { host } = mount(deps(port))
+    await settle()
+
+    await click(allAt(host, 'request')[0]!)
+    await fill(at(host, 'url'), 'https://x.dev/editada')
+    await click(allAt(host, 'request')[0]!)
+
+    expect(at<HTMLInputElement>(host, 'url')?.value).toBe('https://x.dev/editada')
+  })
+
+  it('dois cliques em Criar não criam duas pastas', async () => {
+    // Não há rota de apagar pasta neste corte, então a duplicata persistida
+    // não tem como sair pela tela.
+    const gate = held()
+    const port = testRequestsPort()
+    let calls = 0
+    const slow: RequestsPort = {
+      ...port,
+      async saveFolder(folder) {
+        calls += 1
+        await gate.promise
+        return port.saveFolder(folder)
+      },
+    }
+    const { host } = mount(deps(slow))
+    await settle()
+
+    await click(at(host, 'new-folder'))
+    await fill(at(host, 'folder-name'), 'Stripe')
+    await click(at(host, 'save-folder'))
+    expect(at<HTMLButtonElement>(host, 'save-folder')?.disabled).toBe(true)
+
+    // A segunda tentativa vai pelo **Enter**, não por um segundo clique: um
+    // botão desabilitado não recebe clique, mas Enter dentro do campo submete
+    // o formulário assim mesmo. É por esse caminho que a segunda pasta nascia,
+    // e é ele que a guarda do pai cobre — o `:disabled` só cobre o botão.
+    at(host, 'folder-name')?.closest('form')?.dispatchEvent(
+      new Event('submit', { bubbles: true, cancelable: true }),
+    )
+    await settle()
+
+    gate.release()
+    await settle()
+    expect(calls).toBe(1)
+    expect(await port.folders()).toHaveLength(1)
+  })
+
+  it('C6: uma pasta nasce dentro da pasta-mãe escolhida', async () => {
+    // A metade "aceita pasta-mãe" do C6 não tinha prova em lugar nenhum: o
+    // `folder-parent` não aparecia em teste algum, e forçar o pai a nulo
+    // deixava a suíte verde.
+    const port = testRequestsPort({ folders: [folder('f1', 'Stripe')] })
+    const { host } = mount(deps(port))
+    await settle()
+
+    await click(at(host, 'new-folder'))
+    await fill(at(host, 'folder-name'), 'Charges')
+    const parent = at<HTMLSelectElement>(host, 'folder-parent')!
+    parent.value = 'f1'
+    parent.dispatchEvent(new Event('change', { bubbles: true }))
+    await settle()
+    await click(at(host, 'save-folder'))
+
+    expect((await port.folders()).map((f) => [f.name, f.parentId])).toEqual([
+      ['Stripe', null],
+      ['Charges', 'f1'],
+    ])
+  })
+
+  it('C6: o formulário fecha e esquece a tentativa depois de um sucesso', async () => {
+    // Três mutações sobreviviam aqui: não fechar, não limpar o nome, não
+    // limpar a pasta-mãe — e a última fazia a pasta seguinte nascer num lugar
+    // que ninguém pediu.
+    const port = testRequestsPort({ folders: [folder('f1', 'Stripe')] })
+    const { host } = mount(deps(port))
+    await settle()
+
+    await click(at(host, 'new-folder'))
+    await fill(at(host, 'folder-name'), 'Charges')
+    const parent = at<HTMLSelectElement>(host, 'folder-parent')!
+    parent.value = 'f1'
+    parent.dispatchEvent(new Event('change', { bubbles: true }))
+    await settle()
+    await click(at(host, 'save-folder'))
+
+    // Fechou.
+    expect(at(host, 'folder-name')).toBeNull()
+
+    await click(at(host, 'new-folder'))
+    expect(at<HTMLInputElement>(host, 'folder-name')?.value).toBe('')
+
+    // E esqueceu a pasta-mãe: a prova é comportamental, porque um `<option>`
+    // com valor nulo reflete o texto no `.value` do DOM. A pasta seguinte tem
+    // que nascer na raiz, e não dentro da escolha da vez passada.
+    await fill(at(host, 'folder-name'), 'Refunds')
+    await click(at(host, 'save-folder'))
+
+    expect((await port.folders()).map((f) => [f.name, f.parentId])).toEqual([
+      ['Stripe', null],
+      ['Charges', 'f1'],
+      ['Refunds', null],
+    ])
+  })
+
+  it('a recusa de ontem não acusa a tentativa de hoje', async () => {
+    let refuse = true
+    const port = testRequestsPort()
+    const flaky: RequestsPort = {
+      ...port,
+      async saveFolder(folder) {
+        if (refuse) throw new Error('o resultado seria um laço')
+        return port.saveFolder(folder)
+      },
+    }
+    const { host } = mount(deps(flaky))
+    await settle()
+
+    await click(at(host, 'new-folder'))
+    await fill(at(host, 'folder-name'), 'Stripe')
+    await click(at(host, 'save-folder'))
+    expect(at(host, 'folder-error')).not.toBeNull()
+
+    refuse = false
+    await click(at(host, 'new-folder'))
+    await click(at(host, 'new-folder'))
+
+    expect(at(host, 'folder-error')).toBeNull()
+  })
+
+  it('uma releitura não branqueia a coleção que já está na tela', async () => {
+    // `loading = true` em toda releitura fazia salvar, criar pasta ou apagar
+    // sumirem com a árvore até a resposta voltar. Dado bom que já está na tela
+    // não devia piscar.
+    const gate = held()
+    const port = testRequestsPort({ folders: [folder('f1', 'Stripe')] })
+    let reads = 0
+    const slow: RequestsPort = {
+      ...port,
+      async folders() {
+        reads += 1
+        if (reads > 1) await gate.promise
+        return port.folders()
+      },
+    }
+    const { host } = mount(deps(slow))
+    await settle()
+    expect(allAt(host, 'folder')).toHaveLength(1)
+
+    await click(at(host, 'new-request'))
+    await fill(at(host, 'curl'), CURL)
+    await click(at(host, 'import-curl'))
+    await click(at(host, 'save'))
+
+    expect(at(host, 'collections-loading')).toBeNull()
+    expect(allAt(host, 'folder')).toHaveLength(1)
+
+    gate.release()
+    await settle()
+  })
+
+  it('a tela aplica um teto ao expandir, e não só o decodificador sabe disso', async () => {
+    // A mutação que ninguém matava: `decodeBody(result, Number.MAX_SAFE_INTEGER)`
+    // no ponto de chamada deixava a suíte inteira verde. O C9 estava provado em
+    // duas metades desconexas e nada ligava as duas.
+    const grande = 'a'.repeat(MAX_DECOMPRESSED_BYTES + 4096)
+    const source = new ReadableStream<BufferSource>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(grande))
+        controller.close()
+      },
+    })
+    const reader = source.pipeThrough(new CompressionStream('gzip')).getReader()
+    const bytes: number[] = []
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      bytes.push(...value)
+    }
+
+    const port = testRequestsPort({
+      requests: [request('r1', 'uma')],
+      execute: async () =>
+        executed({
+          encoding: 'base64',
+          body: btoa(String.fromCharCode(...bytes)),
+          headers: [{ name: 'content-encoding', value: 'gzip' }],
+        }),
+    })
+    const { host } = mount(deps(port))
+    await settle()
+
+    await click(allAt(host, 'request')[0]!)
+    await click(at(host, 'execute'))
+    await until(() => at(host, 'response') !== null)
+
+    expect(at(host, 'body-truncated')).not.toBeNull()
+  }, 60_000)
 })

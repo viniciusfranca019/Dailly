@@ -29,6 +29,8 @@ const props = defineProps<{
    * pai a devolver promessa por um `emit`.
    */
   folderSaved: number
+  /** Uma criação em voo — o botão não pode disparar a segunda. */
+  savingFolder: boolean
 }>()
 
 const emit = defineEmits<{
@@ -36,6 +38,7 @@ const emit = defineEmits<{
   retry: []
   paste: []
   createFolder: [input: { name: string; parentId: string | null }]
+  clearFolderError: []
 }>()
 
 const tree = computed(() => buildTree(props.folders, props.requests))
@@ -48,8 +51,21 @@ const name = ref('')
 const parentId = ref<string | null>(null)
 
 function createFolder(): void {
+  // O `:disabled` do botão é a barreira de quem usa; a guarda de verdade mora
+  // no pai, que é quem tem a operação em voo. Duplicar aqui dava duas mecânicas
+  // para a mesma coisa — e a que o teste mata não seria a que trabalha.
   if (name.value.trim() === '') return
   emit('createFolder', { name: name.value.trim(), parentId: parentId.value })
+}
+
+/**
+ * Reabrir o formulário é uma tentativa nova, e uma tentativa nova não começa
+ * acusada. Sem isto a recusa da vez passada reaparecia junto com o formulário
+ * vazio, culpando algo que ainda não aconteceu.
+ */
+function toggleNaming(): void {
+  naming.value = !naming.value
+  emit('clearFolderError')
 }
 
 watch(
@@ -76,8 +92,10 @@ watch(
       <button
         type="button"
         data-testid="new-folder"
+        :aria-expanded="naming"
+        aria-controls="requests-folder-form"
         class="rounded border border-[#1e2638] px-2 py-1 text-xs text-gray-300 hover:bg-white/5"
-        @click="naming = !naming"
+        @click="toggleNaming"
       >
         Nova pasta
       </button>
@@ -91,7 +109,12 @@ watch(
       </button>
     </div>
 
-    <form v-if="naming" class="mb-3 flex flex-col gap-2" @submit.prevent="createFolder">
+    <form
+      v-if="naming"
+      id="requests-folder-form"
+      class="mb-3 flex flex-col gap-2"
+      @submit.prevent="createFolder"
+    >
       <input
         v-model="name"
         data-testid="folder-name"
@@ -121,7 +144,8 @@ watch(
       <button
         type="submit"
         data-testid="save-folder"
-        class="rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-500"
+        :disabled="savingFolder"
+        class="rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-500 disabled:opacity-50"
       >
         Criar
       </button>

@@ -9,7 +9,22 @@ import type { ExecutedResponse } from '@shared'
  * o que o alvo respondeu é pior do que não mostrar.
  */
 export type DecodedBody =
-  | { readonly kind: 'text'; readonly text: string; readonly truncated: boolean }
+  | {
+      readonly kind: 'text'
+      readonly text: string
+      readonly truncated: boolean
+      /**
+       * O corte foi **desta tela**, no teto da expansão.
+       *
+       * Separado de `truncated` porque a causa é o que a tela diz, e há três:
+       * o servidor cortou na rede, o prazo estourou no meio, ou a expansão
+       * passou do teto daqui. Com um booleano só, um gzip cortado pelo prazo
+       * fazia a tela anunciar o teto de 16 MB sobre um corpo de 100 bytes —
+       * uma marca dizendo uma causa que não aconteceu, que é o defeito que a
+       * Emenda 1 escreveu que não se faz.
+       */
+      readonly ceiling: boolean
+    }
   | {
       readonly kind: 'opaque'
       readonly reason: string
@@ -96,14 +111,12 @@ async function inflate(
       controller.close()
     },
   })
-  let inflated: ReadableStream<Uint8Array> | null = null
+  let inflated: ReadableStream<Uint8Array> = source as ReadableStream<Uint8Array>
   for (const format of [...formats].reverse()) {
     const piped = source.pipeThrough(new DecompressionStream(format))
     source = piped
     inflated = piped
   }
-  // Só chega aqui com pelo menos um formato; sem nenhum não há o que expandir.
-  if (inflated === null) return { chunks: [bytes], truncated: false, failed: false }
 
   const reader = inflated.getReader()
   const chunks: Uint8Array[] = []
@@ -145,7 +158,12 @@ export async function decodeBody(
   limit: number = MAX_DECOMPRESSED_BYTES,
 ): Promise<DecodedBody> {
   if (response.encoding === 'utf-8') {
-    return { kind: 'text', text: response.body, truncated: response.truncated }
+    return {
+      kind: 'text',
+      text: response.body,
+      truncated: response.truncated,
+      ceiling: false,
+    }
   }
 
   const bytes = fromBase64(response.body)
@@ -171,17 +189,22 @@ export async function decodeBody(
 
   let chunks: Uint8Array[]
   let truncated = response.truncated
+  /** Só o teto **daqui** liga isto — o corte do servidor tem marca própria. */
+  let ceiling = false
   if (tokens.length === 0) {
     chunks = [bytes]
   } else {
-    const formats: CompressionFormat[] = []
-    for (const token of tokens) {
-      const format = Object.hasOwn(FORMATS, token) ? FORMATS[token] : undefined
-      if (format !== undefined) formats.push(format)
-    }
-
-    const inflated = await inflate(bytes, formats, limit)
+    // Todo token já passou pelo guarda do `unsupported` acima, então o mapa
+    // responde por todos. Um refiltro aqui seria código que só roda no dia em
+    // que aquele guarda parar de funcionar — e nesse dia ele esconderia a falha
+    // em vez de mostrá-la.
+    const inflated = await inflate(
+      bytes,
+      tokens.map((token) => FORMATS[token] as CompressionFormat),
+      limit,
+    )
     truncated = truncated || inflated.truncated
+    ceiling = inflated.truncated
 
     /**
      * Falhou: o prefixo vale se o servidor já tinha dito que cortou.
@@ -209,7 +232,7 @@ export async function decodeBody(
   }
 
   try {
-    return { kind: 'text', text: toText(chunks, truncated), truncated }
+    return { kind: 'text', text: toText(chunks, truncated), truncated, ceiling }
   } catch {
     return {
       kind: 'opaque',

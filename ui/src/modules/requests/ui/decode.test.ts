@@ -63,7 +63,7 @@ describe('C8: o corpo comprimido é descomprimido e mostrado como texto', () => 
       }),
     )
 
-    expect(decoded).toEqual({ kind: 'text', text: '{"ok":true}', truncated: false })
+    expect(decoded).toEqual({ kind: 'text', text: '{"ok":true}', truncated: false, ceiling: false })
   })
 
   it('descomprime deflate', async () => {
@@ -78,13 +78,13 @@ describe('C8: o corpo comprimido é descomprimido e mostrado como texto', () => 
 
     // O nome do header e o valor são comparados sem caixa: HTTP não distingue,
     // e um `Content-Encoding: GZIP` cairia no caminho do "não sei abrir".
-    expect(decoded).toEqual({ kind: 'text', text: '{"ok":true}', truncated: false })
+    expect(decoded).toEqual({ kind: 'text', text: '{"ok":true}', truncated: false, ceiling: false })
   })
 
   it('deixa passar o que o servidor já entregou como texto', async () => {
     const decoded = await decodeBody(response({ body: 'oi', encoding: 'utf-8', truncated: true }))
 
-    expect(decoded).toEqual({ kind: 'text', text: 'oi', truncated: true })
+    expect(decoded).toEqual({ kind: 'text', text: 'oi', truncated: true, ceiling: false })
   })
 
   it('lê base64 sem content-encoding quando o conteúdo é texto', async () => {
@@ -92,7 +92,7 @@ describe('C8: o corpo comprimido é descomprimido e mostrado como texto', () => 
       response({ encoding: 'base64', body: base64(new TextEncoder().encode('olá')) }),
     )
 
-    expect(decoded).toEqual({ kind: 'text', text: 'olá', truncated: false })
+    expect(decoded).toEqual({ kind: 'text', text: 'olá', truncated: false, ceiling: false })
   })
 })
 
@@ -188,7 +188,7 @@ describe('C9: a codificação que não sei abrir é dita, não fingida', () => {
       1024,
     )
 
-    expect(decoded).toEqual({ kind: 'text', text: 'a'.repeat(1024), truncated: false })
+    expect(decoded).toEqual({ kind: 'text', text: 'a'.repeat(1024), truncated: false, ceiling: false })
   })
 
   it('não confunde um nome herdado do protótipo com um formato que conhece', () => {
@@ -219,7 +219,7 @@ describe('C9: a codificação que não sei abrir é dita, não fingida', () => {
       }),
     )
 
-    expect(decoded).toEqual({ kind: 'text', text: 'oi', truncated: false })
+    expect(decoded).toEqual({ kind: 'text', text: 'oi', truncated: false, ceiling: false })
   })
 
   it('desfaz uma cadeia de codificações na ordem inversa', async () => {
@@ -237,7 +237,7 @@ describe('C9: a codificação que não sei abrir é dita, não fingida', () => {
       }),
     )
 
-    expect(decoded).toEqual({ kind: 'text', text: '{"ok":true}', truncated: false })
+    expect(decoded).toEqual({ kind: 'text', text: '{"ok":true}', truncated: false, ceiling: false })
   })
 
   it('recusa uma sequência utf-8 pendente no fim de um corpo completo', async () => {
@@ -265,7 +265,7 @@ describe('C9: a codificação que não sei abrir é dita, não fingida', () => {
       2,
     )
 
-    expect(decoded).toEqual({ kind: 'text', text: 'a', truncated: true })
+    expect(decoded).toEqual({ kind: 'text', text: 'a', truncated: true, ceiling: true })
   })
 
   it('mostra o prefixo que abriu quando o servidor já disse que cortou', async () => {
@@ -287,6 +287,9 @@ describe('C9: a codificação que não sei abrir é dita, não fingida', () => {
     expect(decoded.kind).toBe('text')
     if (decoded.kind !== 'text') throw new Error('esperava texto')
     expect(decoded.truncated).toBe(true)
+    // Cortado, sim — mas não por esta tela. Quem cortou foi a rede, e a marca
+    // do teto de 16 MB sobre um corpo de 1 KB seria uma causa inventada.
+    expect(decoded.ceiling).toBe(false)
     expect(decoded.text.startsWith('{"items"')).toBe(true)
   })
 
@@ -307,5 +310,38 @@ describe('C9: a codificação que não sei abrir é dita, não fingida', () => {
     )
 
     expect(decoded.kind).toBe('opaque')
+  })
+
+  it('um prefixo salvo por prazo estourado não é creditado ao teto desta tela', async () => {
+    // `timedOut` corta na rede, igual ao `truncated` — e é o ramo que ninguém
+    // exercitava: apagar `|| response.timedOut` deixava a suíte inteira verde.
+    const bytes = await compress('{"items":[1,2,3]}'.repeat(40), 'gzip')
+    const cut = bytes.subarray(0, Math.floor(bytes.length * 0.8))
+
+    const decoded = await decodeBody(
+      response({
+        encoding: 'base64',
+        body: base64(cut),
+        truncated: false,
+        timedOut: true,
+        headers: [{ name: 'content-encoding', value: 'gzip' }],
+      }),
+    )
+
+    expect(decoded).toMatchObject({ kind: 'text', truncated: true, ceiling: false })
+  })
+
+  it('o teto desta tela, e só ele, liga a marca do teto', async () => {
+    const bytes = await compress('a'.repeat(5_000), 'gzip')
+    const decoded = await decodeBody(
+      response({
+        encoding: 'base64',
+        body: base64(bytes),
+        headers: [{ name: 'content-encoding', value: 'gzip' }],
+      }),
+      64,
+    )
+
+    expect(decoded).toMatchObject({ kind: 'text', truncated: true, ceiling: true })
   })
 })

@@ -28,10 +28,15 @@ const size = computed(() => {
 </script>
 
 <template>
+  <!--
+    `aria-live` porque a resposta chega sozinha, depois de um clique que já
+    aconteceu: sem isto quem usa leitor de tela não fica sabendo que chegou.
+  -->
   <section
     class="flex min-h-0 flex-col gap-2 border-t border-[#1e2638] pt-3"
     data-testid="response"
     aria-label="Resposta"
+    aria-live="polite"
   >
     <div class="flex flex-wrap items-center gap-4 text-xs text-[#747e8f]">
       <span :class="tone" class="font-semibold" data-testid="response-status">
@@ -59,9 +64,14 @@ const size = computed(() => {
         Sem esta linha o `truncated` do decodificador existia no dado e não na
         tela: a pessoa lia um JSON que termina no meio, com 200 do lado, e nada
         dizendo por quê.
+
+        A condição é `decoded.ceiling` e não `truncated && !response.truncated`:
+        um gzip cortado pelo **prazo** também chega truncado sem a marca do
+        servidor, e a versão anterior anunciava o teto de 16 MB sobre um corpo
+        de 100 bytes. A causa é do decodificador dizer, não da view deduzir.
       -->
       <span
-        v-if="decoded.kind === 'text' && decoded.truncated && !response.truncated"
+        v-if="decoded.kind === 'text' && decoded.ceiling"
         data-testid="body-truncated"
         class="text-amber-300"
       >

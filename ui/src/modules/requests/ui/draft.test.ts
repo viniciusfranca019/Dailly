@@ -1,4 +1,5 @@
-import type { SavedRequest } from '@dailly/requests-core'
+import { ProtocolRegistry, resolve, type SavedRequest } from '@dailly/requests-core'
+import { httpDriver, type HttpWire } from '@dailly/requests-core/http'
 import { describe, expect, it } from 'vitest'
 import { draftOf, importCurl, savedOf } from './draft.js'
 
@@ -199,5 +200,46 @@ describe('o rascunho vai e volta sem perder nada', () => {
     expect(savedOf(imported.draft, { id: 'r1', position: 0 })?.spec).toMatchObject({
       auth: { user: '{{credencial}}', password: null },
     })
+  })
+})
+
+describe('a razão de o botão de separar credencial existir', () => {
+  const registry = new ProtocolRegistry().register(httpDriver)
+
+  const authorizationOf = (draft: ReturnType<typeof draftOf>, env: Record<string, string>) => {
+    if (draft === null) throw new Error('esperava rascunho')
+    const saved = savedOf(draft, { id: 'r1', position: 0 })
+    if (saved === null) throw new Error('esperava request')
+    const wire = resolve<HttpWire>(registry, saved, env)
+    return wire.headers.find((header) => header.name === 'Authorization')?.value
+  }
+
+  it('senha nula e senha vazia produzem credenciais diferentes na fita', () => {
+    /**
+     * Esta asserção é o motivo de a tela ter um botão em vez de um campo.
+     *
+     * A afirmação circulou como "provado por execução" e era leitura de
+     * `basicCredential`. Vira teste aqui porque a diferença é **invisível**:
+     * as duas viajam em base64, e uma conclusão errada só apareceria como um
+     * 401 num curl que funciona no terminal — o mesmo formato do defeito do
+     * `-u` sem dois-pontos que o B1 já pagou uma vez.
+     *
+     * Se as duas produzissem o mesmo header, o botão seria cerimônia e o
+     * achado do gate não existiria. Produzem coisas diferentes.
+     */
+    const imported = importCurl(`curl https://x.dev -u '{{cred}}'`)
+    if (imported.kind !== 'imported') throw new Error('esperava import')
+    const env = { cred: 'sk_live:s3nha' }
+
+    const comNulo = authorizationOf(imported.draft, env)
+    const comVazio = authorizationOf(
+      { ...imported.draft, auth: { user: '{{cred}}', password: '' } },
+      env,
+    )
+
+    expect(comNulo).not.toBe(comVazio)
+    expect(atob(String(comNulo).replace('Basic ', ''))).toBe('sk_live:s3nha')
+    // A senha vira `s3nha:` — o alvo responde 401 e a razão está codificada.
+    expect(atob(String(comVazio).replace('Basic ', ''))).toBe('sk_live:s3nha:')
   })
 })
