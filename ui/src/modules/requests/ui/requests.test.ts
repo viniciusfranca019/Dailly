@@ -1484,3 +1484,159 @@ describe('C16, C17: um + no lugar dos dois botões', () => {
     ])
   })
 })
+
+describe('o que o caminho novo do C15 abriu', () => {
+  /** Clique de verdade: `mousedown`, `mouseup`, `click` — é o `mousedown` que fecha menu. */
+  const realClick = async (element: HTMLElement | null) => {
+    for (const type of ['mousedown', 'mouseup', 'click']) {
+      element?.dispatchEvent(new MouseEvent(type, { bubbles: true }))
+    }
+    await settle()
+  }
+
+  it('BLOCKER: a resposta da request velha não cai embaixo do curl novo', async () => {
+    // `startPaste` movia as duas sequências antes de importar; `importInto`,
+    // que o substituiu, não movia nenhuma. É o blocker do gate 3 de novo, pela
+    // porta que o C15 abriu.
+    const gate = held()
+    const port = testRequestsPort({
+      requests: [request('r1', 'uma')],
+      execute: async () => {
+        await gate.promise
+        return executed({ status: 418 })
+      },
+    })
+    const { host } = mount(deps(port))
+    await settle()
+
+    await click(allAt(host, 'request')[0]!)
+    await click(at(host, 'execute'))
+
+    await fill(at(host, 'url'), CURL)
+    expect(at<HTMLInputElement>(host, 'method')?.value).toBe('POST')
+    // O editor já é outra request: o botão dela não pode estar travado pela
+    // execução da anterior.
+    expect(at(host, 'running')).toBeNull()
+    expect(at<HTMLButtonElement>(host, 'execute')?.disabled).toBe(false)
+
+    gate.release()
+    await settle()
+    expect(at(host, 'response')).toBeNull()
+  })
+
+  it('BLOCKER: a gravação em voo não batiza o curl novo com a URL velha', async () => {
+    const gate = held()
+    const port = testRequestsPort()
+    const slow: RequestsPort = {
+      ...port,
+      async saveRequest(saved) {
+        await gate.promise
+        return port.saveRequest(saved)
+      },
+    }
+    const { host } = mount(deps(slow))
+    await settle()
+
+    await novaRequest(host)
+    await fill(at(host, 'url'), 'https://velha.dev/a')
+    await click(at(host, 'save'))
+
+    await fill(at(host, 'url'), CURL)
+    gate.release()
+    await settle()
+
+    expect(at<HTMLInputElement>(host, 'name')?.value).not.toBe('https://velha.dev/a')
+  })
+
+  it('MAJOR: abrir um + fecha o outro', async () => {
+    // O `@mousedown.stop` matava o gesto antes de ele chegar ao documento, e o
+    // menu anterior nunca sabia que devia fechar. Dois menus `absolute z-10`
+    // sobrepostos: clicar no que parece ser o item de um acerta o do outro, e a
+    // request nasce na pasta errada — o oposto do que o C17 promete.
+    const { host } = mount(deps(testRequestsPort({ folders: [folder('f1', 'Stripe')] })))
+    await settle()
+
+    await realClick(at(host, 'add-root'))
+    expect(allAt(host, 'menu-new-request')).toHaveLength(1)
+
+    await realClick(allAt(host, 'add-in-folder')[0]!)
+    expect(allAt(host, 'menu-new-request')).toHaveLength(1)
+    expect(at(host, 'add-root')?.getAttribute('aria-expanded')).toBe('false')
+  })
+
+  it('o menu não fecha no próprio gesto que o abre', async () => {
+    const { host } = mount(deps(testRequestsPort()))
+    await settle()
+
+    await realClick(at(host, 'add-root'))
+    expect(at(host, 'menu-new-request')).not.toBeNull()
+  })
+
+  it('clicar no + de novo fecha, em vez de piscar e reabrir', async () => {
+    // O teste acima não morde sozinho: o ouvinte de fora só é instalado
+    // **depois** do `mousedown` que abre, então esse gesto nunca chega nele.
+    // O caminho que morde é o segundo clique — sem o teste de alvo, o
+    // `mousedown` fecha e o `click` seguinte reabre, e o menu nunca fecha pelo
+    // botão que o abriu.
+    const { host } = mount(deps(testRequestsPort()))
+    await settle()
+
+    await realClick(at(host, 'add-root'))
+    await realClick(at(host, 'add-root'))
+
+    expect(at(host, 'menu-new-request')).toBeNull()
+    expect(at(host, 'add-root')?.getAttribute('aria-expanded')).toBe('false')
+  })
+})
+
+describe('MAJOR: o formulário de pasta nasce onde o + foi clicado', () => {
+  it('aparece dentro da pasta, e não no topo do aside', async () => {
+    // `namingIn` guardava a pasta-mãe e não a mostrava: o formulário abria
+    // sempre no topo, qualquer que fosse o `+`. Quem clica dez linhas abaixo
+    // não vê nada acontecer perto de onde clicou — a pasta-mãe voltou a ser
+    // invisível, que é o defeito que o `+` existia para matar.
+    const { host } = mount(deps(testRequestsPort({ folders: [folder('f1', 'Stripe')] })))
+    await settle()
+
+    await click(allAt(host, 'add-in-folder')[0]!)
+    await click(at(host, 'menu-new-folder'))
+
+    const campo = at(host, 'folder-name')
+    expect(campo).not.toBeNull()
+    const pasta = host.querySelector('[data-folder-id="f1"]')?.closest('li')
+    expect(pasta?.contains(campo!)).toBe(true)
+  })
+
+  it('pelo + do cabeçalho, aparece no topo', async () => {
+    const { host } = mount(deps(testRequestsPort({ folders: [folder('f1', 'Stripe')] })))
+    await settle()
+
+    await novaPasta(host)
+
+    const campo = at(host, 'folder-name')
+    const pasta = host.querySelector('[data-folder-id="f1"]')?.closest('li')
+    expect(pasta?.contains(campo!)).toBe(false)
+  })
+
+  it('o campo recebe o foco, porque foi ele que a pessoa pediu', async () => {
+    const { host } = mount(deps(testRequestsPort()))
+    await settle()
+
+    await novaPasta(host)
+
+    expect(document.activeElement).toBe(at(host, 'folder-name'))
+  })
+
+  it('pedir uma request nova fecha o formulário de pasta', async () => {
+    // Senão ele fica aberto atrás, e o próximo Criar cria a pasta que a pessoa
+    // já tinha desistido de criar.
+    const { host } = mount(deps(testRequestsPort()))
+    await settle()
+
+    await novaPasta(host)
+    await fill(at(host, 'folder-name'), 'Stripe')
+    await novaRequest(host)
+
+    expect(at(host, 'folder-name')).toBeNull()
+  })
+})

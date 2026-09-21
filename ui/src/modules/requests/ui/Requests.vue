@@ -124,7 +124,8 @@ function clearResponse(): void {
  * E o `running` atravessava a troca junto, deixando o botão da request nova
  * desabilitado pela execução da velha.
  *
- * Chamado por `pick`, `startPaste` e `remove`, e **não** por `save` — decisão,
+ * Chamado por `pick`, `startDraft`, `importInto` e `remove`, e **não** por
+ * `save` — decisão,
  * não esquecimento. Salvar não troca de request: a resposta em voo é da mesma
  * `id` e continua sendo sobre ela, então descartá-la jogaria fora um resultado
  * que a pessoa pediu. O que muda é o spec guardado, e isso a resposta já
@@ -219,6 +220,7 @@ function startDraft(parentId: string | null = null): void {
 function importInto(raw: string): void {
   const result = importCurl(raw)
   if (result.kind === 'rejected') {
+    // Recusa não troca de request: nada em voo muda de dono.
     // O texto colado fica no campo para a pessoa consertar, e o resto da
     // request não é tocado — recusar não é motivo para apagar trabalho feito.
     importError.value = result.reason
@@ -227,6 +229,19 @@ function importInto(raw: string): void {
 
   importError.value = null
   ignored.value = result.ignored
+
+  /**
+   * Colar um curl **troca de request**, mesmo sem trocar de linha na árvore.
+   *
+   * O botão de colar que existia antes movia as duas sequências antes de
+   * importar; este caminho o substituiu e não movia nenhuma — então a resposta
+   * de uma execução em voo caía embaixo do curl novo, e uma gravação em voo
+   * batizava a request nova com a URL da que foi substituída. O mesmo blocker
+   * de duas rodadas atrás, pela porta que este caminho abriu.
+   */
+  editor += 1
+  invalidate()
+
   draft.value = {
     ...result.draft,
     name: draft.value?.name ?? result.draft.name,
