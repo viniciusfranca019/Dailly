@@ -502,7 +502,7 @@ describe('o que o gate achou que a tela prometia e não entregava', () => {
     await settle()
 
     await click(allAt(host, 'request')[0]!)
-    expect(text(host, 'error')).toContain('apag')
+    expect(text(host, 'notice')).toContain('apag')
 
     await click(at(host, 'delete'))
     expect(await port.requests()).toEqual([])
@@ -988,5 +988,171 @@ describe('gate 2 — o que a correção do gate 1 abriu', () => {
     await until(() => at(host, 'response') !== null)
 
     expect(at(host, 'body-truncated')).not.toBeNull()
-  }, 60_000)
+  }, 10_000)
+})
+
+describe('gate 3 — a terceira porta', () => {
+  const two = () => [request('r1', 'uma'), { ...request('r2', 'outra'), position: 1 }]
+
+  it('BLOCKER: um salvar em voo não ressuscita a request que foi apagada', async () => {
+    // `save()` e `remove()` **liam** a sequência do editor e nenhum dos dois a
+    // escrevia, e os dois botões eram clicáveis ao mesmo tempo. O DELETE
+    // resolvia, a árvore esvaziava, e o POST atrasado reinseria a linha — o
+    // que a pessoa mandou apagar voltava, sem nada dizendo.
+    const gate = held()
+    const port = testRequestsPort({ requests: two() })
+    const slow: RequestsPort = {
+      ...port,
+      async saveRequest(saved) {
+        await gate.promise
+        return port.saveRequest(saved)
+      },
+    }
+    const { host } = mount(deps(slow))
+    await settle()
+
+    await click(allAt(host, 'request')[0]!)
+    await fill(at(host, 'name'), 'renomeada')
+    await click(at(host, 'save'))
+
+    // Enquanto a gravação está em voo, Apagar não pode disparar.
+    expect(at<HTMLButtonElement>(host, 'delete')?.disabled).toBe(true)
+    await click(at(host, 'delete'))
+
+    gate.release()
+    await settle()
+
+    expect((await port.requests()).map((saved) => saved.id)).toEqual(['r1', 'r2'])
+  })
+
+  it('BLOCKER: gravar enquanto apaga é recusado, como apagar enquanto grava', async () => {
+    // A direção simétrica do mesmo guarda. É a exclusão mútua que fecha o
+    // buraco — e é por ela existir que não há um segundo mecanismo (mover a
+    // sequência do editor no apagar) que nenhum teste conseguiria alcançar.
+    const gate = held()
+    const port = testRequestsPort({ requests: two() })
+    let calls = 0
+    const slow: RequestsPort = {
+      ...port,
+      async deleteRequest(id) {
+        await gate.promise
+        return port.deleteRequest(id)
+      },
+      async saveRequest(saved) {
+        calls += 1
+        return port.saveRequest(saved)
+      },
+    }
+    const { host } = mount(deps(slow))
+    await settle()
+
+    await click(allAt(host, 'request')[0]!)
+    await click(at(host, 'delete'))
+
+    expect(at<HTMLButtonElement>(host, 'save')?.disabled).toBe(true)
+    await click(at(host, 'save'))
+    expect(calls).toBe(0)
+
+    gate.release()
+    await settle()
+    expect((await port.requests()).map((saved) => saved.id)).toEqual(['r2'])
+  })
+
+  it('MAJOR: a recusa de uma request não aparece anônima na tela de outra', async () => {
+    const gate = held()
+    const port = testRequestsPort({ requests: two() })
+    const refusing: RequestsPort = {
+      ...port,
+      async saveRequest() {
+        await gate.promise
+        throw new Error('o servidor recusou')
+      },
+    }
+    const { host } = mount(deps(refusing))
+    await settle()
+
+    await click(allAt(host, 'request')[0]!)
+    await click(at(host, 'save'))
+    await click(allAt(host, 'request')[1]!)
+    gate.release()
+    await settle()
+
+    // A notícia não some — perder "não gravou" é pior que mostrá-la fora de
+    // hora. Ela chega **nomeada**, dizendo de quem é.
+    expect(text(host, 'error')).toContain('uma')
+    expect(text(host, 'error')).toContain('o servidor recusou')
+  })
+
+  it('MAJOR: a recusa atrasada não apaga a explicação do spec ilegível', async () => {
+    // Eram duas coisas no mesmo lugar: o aviso sobre a request selecionada e o
+    // erro da última operação. O segundo comia o primeiro — e sumia com a
+    // única explicação de por que aquela tela só tem botão de apagar. Pior: o
+    // no-op do reclique tornava o erro grudento.
+    const gate = held()
+    const port = testRequestsPort({
+      requests: [request('r1', 'uma'), { ...request('r2', 'quebrada'), spec: null, position: 1 }],
+    })
+    const refusing: RequestsPort = {
+      ...port,
+      async saveRequest() {
+        await gate.promise
+        throw new Error('o servidor recusou')
+      },
+    }
+    const { host } = mount(deps(refusing))
+    await settle()
+
+    await click(allAt(host, 'request')[0]!)
+    await click(at(host, 'save'))
+    await click(allAt(host, 'request')[1]!)
+    gate.release()
+    await settle()
+
+    expect(text(host, 'notice')).toContain('apag')
+    expect(at(host, 'delete')).not.toBeNull()
+  })
+
+  it('um corpo que diz ser base64 e não é não leva junto status, tempo e headers', async () => {
+    // `atob` estourava fora de qualquer `try` e a execução inteira virava
+    // "Invalid character" — descartando o 200, os headers e o tempo, que
+    // chegaram e estavam certos.
+    const port = testRequestsPort({
+      requests: [request('r1', 'uma')],
+      execute: async () => executed({ encoding: 'base64', body: 'isto não é base64 %%%' }),
+    })
+    const { host } = mount(deps(port))
+    await settle()
+
+    await click(allAt(host, 'request')[0]!)
+    await click(at(host, 'execute'))
+
+    expect(text(host, 'response-status')).toContain('200')
+    expect(at(host, 'response-opaque')).not.toBeNull()
+    expect(at(host, 'execution-error')).toBeNull()
+  })
+
+  it('uma releitura que falha não troca a árvore correta por um banner', async () => {
+    let reads = 0
+    const port = testRequestsPort({ folders: [folder('f1', 'Stripe')] })
+    const flaky: RequestsPort = {
+      ...port,
+      async folders() {
+        reads += 1
+        if (reads > 1) throw new Error('a releitura falhou')
+        return port.folders()
+      },
+    }
+    const { host } = mount(deps(flaky))
+    await settle()
+    expect(allAt(host, 'folder')).toHaveLength(1)
+
+    await click(at(host, 'new-request'))
+    await fill(at(host, 'curl'), CURL)
+    await click(at(host, 'import-curl'))
+    await click(at(host, 'save'))
+
+    expect(text(host, 'collections-error')).toContain('a releitura falhou')
+    // E o que já estava certo continua na tela: o erro é aviso, não apagador.
+    expect(allAt(host, 'folder')).toHaveLength(1)
+  })
 })

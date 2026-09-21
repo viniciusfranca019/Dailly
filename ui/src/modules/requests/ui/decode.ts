@@ -166,7 +166,23 @@ export async function decodeBody(
     }
   }
 
-  const bytes = fromBase64(response.body)
+  /**
+   * `atob` estoura num corpo que não é base64 — e estourava fora de qualquer
+   * guarda, então a execução inteira virava "Invalid character": o 200, os
+   * headers e o tempo, que chegaram e estavam certos, iam junto. O corpo é o
+   * que se perde; o envelope não.
+   */
+  let bytes: Uint8Array
+  try {
+    bytes = fromBase64(response.body)
+  } catch {
+    return {
+      kind: 'opaque',
+      reason: 'o servidor marcou o corpo como base64 e ele não é base64',
+      encoding: headerValue(response, 'content-encoding'),
+      bytes: response.bytes,
+    }
+  }
   const declared = headerValue(response, 'content-encoding')
   const tokens = (declared ?? '')
     .split(',')

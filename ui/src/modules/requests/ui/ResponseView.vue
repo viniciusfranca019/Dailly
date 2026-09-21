@@ -29,14 +29,15 @@ const size = computed(() => {
 
 <template>
   <!--
-    `aria-live` porque a resposta chega sozinha, depois de um clique que já
-    aconteceu: sem isto quem usa leitor de tela não fica sabendo que chegou.
+    Sem `aria-live` aqui, de propósito: uma região que entra no DOM **junto**
+    com o conteúdo não anuncia nada — leitor de tela só lê mutação dentro de
+    região que já estava presente. O anúncio mora numa região fixa na tela,
+    que existe desde a montagem.
   -->
   <section
     class="flex min-h-0 flex-col gap-2 border-t border-[#1e2638] pt-3"
     data-testid="response"
     aria-label="Resposta"
-    aria-live="polite"
   >
     <div class="flex flex-wrap items-center gap-4 text-xs text-[#747e8f]">
       <span :class="tone" class="font-semibold" data-testid="response-status">

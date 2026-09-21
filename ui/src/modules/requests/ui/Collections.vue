@@ -43,7 +43,7 @@ const emit = defineEmits<{
 
 const tree = computed(() => buildTree(props.folders, props.requests))
 const empty = computed(
-  () => !props.loading && props.error === null && props.folders.length === 0 && props.requests.length === 0,
+  () => !props.loading && props.folders.length === 0 && props.requests.length === 0,
 )
 
 const naming = ref(false)
@@ -155,8 +155,13 @@ watch(
       lendo a coleção…
     </p>
 
+    <!--
+      O erro de uma **releitura** é aviso, não apagador: trocar a árvore certa
+      pelo banner tira da tela dado bom que já estava lá, e contraria o mesmo
+      raciocínio que fez o `loading` parar de marcar toda releitura.
+    -->
     <p
-      v-else-if="error"
+      v-if="error"
       role="alert"
       data-testid="collections-error"
       class="rounded-md border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-300"
@@ -172,12 +177,12 @@ watch(
       </button>
     </p>
 
-    <p v-else-if="empty" data-testid="collections-empty" class="px-2 text-sm leading-relaxed text-[#747e8f]">
+    <p v-else-if="empty && error === null" data-testid="collections-empty" class="px-2 text-sm leading-relaxed text-[#747e8f]">
       Nada guardado ainda. Cole um curl — do DevTools, da documentação de uma API — e ele
       vira uma request que dá para editar, salvar numa pasta e executar.
     </p>
 
-    <ul v-else class="min-h-0 flex-1 overflow-y-auto">
+    <ul v-if="!loading && !empty" class="min-h-0 flex-1 overflow-y-auto">
       <FolderNode
         v-for="node in tree.folders"
         :key="node.folder.id"

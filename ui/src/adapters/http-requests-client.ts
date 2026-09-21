@@ -3,6 +3,7 @@ import {
   ExecutionFailedError,
   MissingVariablesError,
   type ExecutedResponse,
+  type ExecutionFailure,
   type RequestsPort,
   type ResponseHeader,
 } from '@shared'
@@ -125,7 +126,11 @@ const parseExecuted = (value: unknown): ExecutedResponse => {
  * `missing` — traduzir todo 400 para "falta variável" mandaria quem não tem
  * variável nenhuma caçar uma.
  */
-const EXECUTION_FAILURES = { 422: 'refused', 502: 'unreachable', 504: 'timeout' } as const
+const EXECUTION_FAILURES: Readonly<Record<number, ExecutionFailure | undefined>> = {
+  422: 'refused',
+  502: 'unreachable',
+  504: 'timeout',
+}
 
 export const httpRequestsClient = ({ config, fetch }: HttpRequestsClientDeps): RequestsPort => {
   const send = httpClient({ config, ...(fetch ? { fetch } : {}) })
@@ -181,8 +186,11 @@ export const httpRequestsClient = ({ config, fetch }: HttpRequestsClientDeps): R
             throw new MissingVariablesError(names('missing'), names('surviving'), error.message)
           }
 
-          const kind = EXECUTION_FAILURES[error.status as keyof typeof EXECUTION_FAILURES]
-          if (kind) throw new ExecutionFailedError(kind, error.message)
+          // O tipo diz `| undefined` porque é isso que um mapa indexado por
+          // número devolve. Antes o cast prometia que nunca era, e o `if` logo
+          // abaixo só funcionava porque a promessa era falsa.
+          const kind = EXECUTION_FAILURES[error.status]
+          if (kind !== undefined) throw new ExecutionFailedError(kind, error.message)
         }
         throw error
       }

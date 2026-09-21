@@ -6,7 +6,7 @@ import {
   type ExecutedResponse,
   type ModuleDeps,
 } from '@shared'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import Collections from './Collections.vue'
 import RequestEditor from './RequestEditor.vue'
 import ResponseView from './ResponseView.vue'
@@ -35,7 +35,16 @@ const folders = ref<readonly Folder[]>([])
 const requests = ref<readonly SavedRequest[]>([])
 const loading = ref(true)
 const loadError = ref<string | null>(null)
+/** O que falhou na última operação — sempre dizendo **de qual** request. */
 const error = ref<string | null>(null)
+/**
+ * O que há para dizer sobre a request que está na tela.
+ *
+ * Separado do `error` porque eram duas coisas no mesmo lugar: uma recusa
+ * atrasada de outra request comia a explicação de por que aquela tela só tem
+ * botão de apagar — e o no-op do reclique tornava isso permanente.
+ */
+const notice = ref<string | null>(null)
 
 const selected = ref<SavedRequest | null>(null)
 const draft = ref<Draft | null>(null)
@@ -166,7 +175,7 @@ function pick(request: SavedRequest): void {
 
   const fields = draftOf(request)
   draft.value = fields
-  error.value =
+  notice.value =
     fields === null
       ? 'essa request tem um spec que não dá para ler — dá para apagá-la, e é só o que dá.'
       : null
@@ -178,6 +187,7 @@ function startPaste(): void {
   ignored.value = []
   importError.value = null
   error.value = null
+  notice.value = null
   folderError.value = null
   editor += 1
   selected.value = null
@@ -199,8 +209,20 @@ function doImport(): void {
   pasting.value = false
 }
 
+/**
+ * Gravar e apagar mexem na mesma request e não podem correr juntas.
+ *
+ * Sem isto os dois botões eram clicáveis ao mesmo tempo: o DELETE resolvia, a
+ * árvore esvaziava, e o POST atrasado reinseria a linha — o que a pessoa
+ * mandou apagar voltava sozinho, sem nada dizendo. Um guarda global é mais
+ * conservador do que precisaria (duas requests diferentes poderiam gravar em
+ * paralelo), e o preço é um botão desabilitado por alguns milissegundos.
+ * Barato perto de duas escritas disputando o mesmo `load()`.
+ */
+const busy = () => saving.value || deleting.value
+
 async function save(): Promise<void> {
-  if (draft.value === null) return
+  if (draft.value === null || busy()) return
   const request = savedOf(draft.value, {
     id: selected.value?.id ?? newId(),
     position: selected.value?.position ?? requests.value.length,
@@ -234,7 +256,10 @@ async function save(): Promise<void> {
     }
     await load()
   } catch (cause) {
-    error.value = reason(cause, 'não consegui salvar')
+    // Nomeada, e não suprimida. Perder a notícia de que **não gravou** é pior
+    // do que mostrá-la depois de a pessoa ter ido para outra request — o que
+    // não pode é ela chegar anônima e parecer ser sobre a tela atual.
+    error.value = `não consegui salvar «${request.name}»: ${reason(cause, 'a API recusou')}`
   } finally {
     saving.value = false
   }
@@ -277,21 +302,29 @@ async function remove(): Promise<void> {
   // Mesma guarda do salvar, pela mesma razão — e mais uma: dois cliques rápidos
   // em Apagar mandavam dois DELETE. O servidor é idempotente hoje, o que faz
   // disto omissão e não defeito visível; a omissão é a mesma.
-  if (deleting.value) return
+  if (busy()) return
 
+  const name = selected.value?.name ?? 'esta request'
   const ticket = editor
   deleting.value = true
   error.value = null
   try {
     await props.deps.requests.deleteRequest(id)
     if (ticket === editor) {
+      // Não incremento `editor` aqui. A tentação existe — ler uma sequência
+      // sem nunca movê-la foi o buraco desta rodada —, mas quem fecha essa
+      // porta é a exclusão mútua acima: nenhuma gravação pode estar em voo
+      // quando um apagar resolve. Um segundo mecanismo para o mesmo buraco
+      // seria código que nenhum teste consegue alcançar, e este diff já tirou
+      // um desses.
       selected.value = null
       draft.value = null
+      notice.value = null
       invalidate()
     }
     await load()
   } catch (cause) {
-    error.value = reason(cause, 'não consegui apagar')
+    error.value = `não consegui apagar «${name}»: ${reason(cause, 'a API recusou')}`
   } finally {
     deleting.value = false
   }
@@ -346,11 +379,29 @@ async function execute(): Promise<void> {
   }
 }
 
+/**
+ * O que a região viva anuncia — e por que ela é fixa.
+ *
+ * A resposta chega sozinha, depois de um clique que já passou. Pôr `aria-live`
+ * na própria seção não resolve: uma região que entra no DOM junto com o
+ * conteúdo não é anunciada. Esta fica montada desde o começo e só o texto
+ * muda, que é o que um leitor de tela de fato lê.
+ */
+const announcement = computed(() => {
+  if (running.value) return 'executando'
+  if (executionError.value !== null) return executionError.value
+  if (response.value !== null) {
+    return `resposta ${response.value.status} em ${response.value.durationMs} milissegundos`
+  }
+  return ''
+})
+
 onMounted(load)
 </script>
 
 <template>
   <div class="flex h-full min-h-0 flex-col" data-testid="requests">
+    <p class="sr-only" aria-live="polite" data-testid="announcement">{{ announcement }}</p>
     <nav class="flex items-center gap-2 px-6 py-4 text-sm text-[#747e8f]">
       <span>Requests</span>
       <span class="text-[#1e2638]">/</span>
@@ -412,6 +463,14 @@ onMounted(load)
         </p>
 
         <p
+          v-if="notice"
+          data-testid="notice"
+          class="rounded-md border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-sm text-amber-200"
+        >
+          {{ notice }}
+        </p>
+
+        <p
           v-if="error"
           role="alert"
           data-testid="error"
@@ -442,6 +501,7 @@ onMounted(load)
           :folders="folders"
           :saved-id="selected?.id ?? null"
           :saving="saving"
+          :deleting="deleting"
           :running="running"
           @save="save"
           @execute="execute"
