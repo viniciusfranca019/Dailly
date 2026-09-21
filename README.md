@@ -356,6 +356,12 @@ A metade pura roda nos dois runtimes: o renderer importa um curl e mostra o
 preview literal com `resolve()`, sem viagem nenhuma — era a única virtude do
 híbrido "o servidor monta, a UI executa", e ela sai de graça aqui.
 
+**Executar grava antes de rodar.** A rota é `POST /requests/:id/execute`, então o
+servidor executa o que está guardado — e sem gravar antes a tela mostraria uma URL
+enquanto a rede recebe outra. É o modelo do Insomnia, por clique em vez de por
+tecla, com o preço que ele cobra: todo experimento persiste. Em troca, o que está
+na tela é sempre o que sai, e colar um curl e executar é um clique.
+
 A tela é editar em cima, resposta embaixo, coleção **à direita**. À direita e
 não à esquerda como a categoria faz: a navegação do shell já é uma barra à
 esquerda, e duas coladas fazem a pessoa procurar em qual das duas está o que
