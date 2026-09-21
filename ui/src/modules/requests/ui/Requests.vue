@@ -220,10 +220,14 @@ function startDraft(parentId: string | null = null): void {
 function importInto(raw: string): void {
   const result = importCurl(raw)
   if (result.kind === 'rejected') {
-    // Recusa não troca de request: nada em voo muda de dono.
-    // O texto colado fica no campo para a pessoa consertar, e o resto da
-    // request não é tocado — recusar não é motivo para apagar trabalho feito.
+    // Recusa não troca de request: nada em voo muda de dono, e o texto colado
+    // fica no campo para a pessoa consertar — recusar não é motivo para apagar
+    // trabalho feito.
+    //
+    // O que **sai** é o que o import anterior ignorou: ao lado do erro do novo,
+    // ele afirma que algo foi aplicado que não foi.
     importError.value = result.reason
+    ignored.value = []
     return
   }
 
@@ -242,11 +246,13 @@ function importInto(raw: string): void {
   editor += 1
   invalidate()
 
-  draft.value = {
-    ...result.draft,
-    name: draft.value?.name ?? result.draft.name,
-    folderId: draft.value?.folderId ?? result.draft.folderId,
-  }
+  // `draft` nunca é nulo aqui: este caminho só existe dentro do editor, que só
+  // renderiza com rascunho. Os dois campos vêm dele sem fallback para dizer
+  // isso — um `??` sobre `folderId` esconderia que `null` ali é a raiz, um
+  // valor legítimo e não uma ausência.
+  const current = draft.value
+  if (current === null) return
+  draft.value = { ...result.draft, name: current.name, folderId: current.folderId }
 }
 
 /**

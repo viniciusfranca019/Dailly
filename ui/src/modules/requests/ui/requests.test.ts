@@ -41,8 +41,11 @@ const text = (host: HTMLElement, id: string) => at(host, id)?.textContent?.trim(
  * jeito que nenhum navegador clica prova menos do que parece.
  */
 const click = async (element: HTMLElement | null) => {
+  // Estoura em vez de não fazer nada: um clique num elemento ausente era um
+  // passo que sumia em silêncio, e o teste só falhava depois, noutro lugar.
+  if (!element) throw new Error('não há esse elemento na tela para clicar')
   for (const type of ['mousedown', 'mouseup', 'click']) {
-    element?.dispatchEvent(new MouseEvent(type, { bubbles: true }))
+    element.dispatchEvent(new MouseEvent(type, { bubbles: true }))
   }
   await settle()
 }
@@ -1684,5 +1687,86 @@ describe('o que só aparece quando o teste clica como um navegador clica', () =>
 
     expect(at<HTMLInputElement>(host, 'method')?.value).toBe('POST')
     expect(at<HTMLInputElement>(host, 'url')?.value).toBe('https://api.stripe.com/v1/charges')
+  })
+})
+
+describe('os padrões de teclado, inteiros em vez de pela metade', () => {
+  const key = async (element: HTMLElement | null, k: string) => {
+    element?.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true }))
+    await settle()
+  }
+
+  it('as abas são um tablist de verdade, com setas e painel ligado', async () => {
+    // `aria-selected` num botão sem `role="tab"` não é válido, e o
+    // `aria-controls` apontava para três ids que não existem — os painéis são
+    // `v-if`. Meia semântica anuncia um contrato que não se cumpre; foi o
+    // argumento que eu usei para recusar o padrão completo, e ele se vira
+    // contra a versão que eu entreguei.
+    const { host } = mount(deps(testRequestsPort()))
+    await settle()
+    await novaRequest(host)
+    await fill(at(host, 'url'), CURL)
+
+    const lista = host.querySelector('[role="tablist"]')
+    expect(lista).not.toBeNull()
+
+    const headers = at(host, 'tab-headers')!
+    expect(headers.getAttribute('role')).toBe('tab')
+    expect(headers.getAttribute('tabindex')).toBe('0')
+    expect(at(host, 'tab-body')?.getAttribute('tabindex')).toBe('-1')
+
+    // O painel existe e é o que a aba diz controlar.
+    const painel = host.querySelector(`#${headers.getAttribute('aria-controls')}`)
+    expect(painel?.getAttribute('role')).toBe('tabpanel')
+
+    await key(headers, 'ArrowRight')
+    expect(at(host, 'tab-body')?.getAttribute('aria-selected')).toBe('true')
+    await key(at(host, 'tab-body'), 'ArrowLeft')
+    expect(at(host, 'tab-headers')?.getAttribute('aria-selected')).toBe('true')
+  })
+
+  it('a aba Params avisa que tem algo lá dentro', async () => {
+    // Ela não é a aba padrão, então a query do `-G` ficava invisível até
+    // alguém clicar por acaso.
+    const { host } = mount(deps(testRequestsPort()))
+    await settle()
+    await novaRequest(host)
+    await fill(at(host, 'url'), 'curl -G https://x.dev -d q=1 -d p=2')
+
+    expect(text(host, 'tab-params')).toContain('2')
+  })
+
+  it('o menu devolve o foco ao + de onde saiu', async () => {
+    const { host } = mount(deps(testRequestsPort()))
+    await settle()
+
+    const mais = at(host, 'add-root')!
+    await click(mais)
+    // O foco vai para o primeiro item: um menu que abre e deixa o foco para
+    // trás obriga a caçar com Tab o que acabou de ser pedido.
+    expect(document.activeElement).toBe(at(host, 'menu-new-request'))
+
+    await key(at(host, 'menu-new-request'), 'ArrowDown')
+    expect(document.activeElement).toBe(at(host, 'menu-new-folder'))
+
+    await key(at(host, 'menu-new-folder'), 'Escape')
+    expect(at(host, 'menu-new-request')).toBeNull()
+    expect(document.activeElement).toBe(mais)
+  })
+
+  it('um import recusado não deixa na tela o aviso do import anterior', async () => {
+    const { host } = mount(deps(testRequestsPort()))
+    await settle()
+    await novaRequest(host)
+
+    await fill(at(host, 'url'), 'curl --compressed -k https://x.dev')
+    expect(text(host, 'ignored')).toContain('-k')
+
+    await fill(at(host, 'url'), 'curl -X POST -H "a: b"')
+
+    expect(at(host, 'import-error')).not.toBeNull()
+    // O que foi ignorado era do curl anterior; ao lado do erro do novo, ele diz
+    // que algo foi aplicado que não foi.
+    expect(at(host, 'ignored')).toBeNull()
   })
 })
