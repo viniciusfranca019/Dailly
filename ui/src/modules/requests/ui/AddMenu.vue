@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref, watch } from 'vue'
+import { onBeforeUnmount, ref, useTemplateRef, watch } from 'vue'
 
 /**
  * O `+` e as duas coisas que ele cria — uma peça, usada no cabeçalho e em cada
@@ -30,11 +30,22 @@ const open = ref(false)
  * `mousedown` e não `click`: um `click` fora só chega depois do `mouseup`, e
  * nesse intervalo o menu ainda está aberto por cima do que a pessoa quer
  * alcançar. Os ouvintes só existem enquanto o menu está aberto.
+ *
+ * O teste do alvo é feito **aqui**, e não com um `.stop` na raiz. O `.stop`
+ * resolvia o "não feche no gesto que abre" e criava outro problema: o gesto
+ * morria antes do documento, então abrir um segundo `+` não fechava o
+ * primeiro. Dois menus `absolute z-10` sobrepostos, e clicar no item de um
+ * acerta o do outro — a request nascendo na pasta errada, que é o oposto do
+ * que este menu existe para garantir.
  */
+const root = useTemplateRef<HTMLElement>('root')
+
 const onKey = (event: KeyboardEvent) => {
   if (event.key === 'Escape') open.value = false
 }
-const onOutside = () => (open.value = false)
+const onOutside = (event: MouseEvent) => {
+  if (!root.value?.contains(event.target as Node)) open.value = false
+}
 
 watch(open, (isOpen) => {
   if (isOpen) {
@@ -60,8 +71,7 @@ const choose = (what: 'request' | 'folder') => {
 </script>
 
 <template>
-  <!-- `@mousedown.stop` para o ouvinte de fora não fechar no mesmo gesto que abre. -->
-  <div class="relative" @mousedown.stop>
+  <div ref="root" class="relative">
     <button
       type="button"
       :data-testid="testid"

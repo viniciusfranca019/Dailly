@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { SavedRequest } from '@dailly/requests-core'
 import AddMenu from './AddMenu.vue'
+import FolderForm from './FolderForm.vue'
 import type { TreeFolder } from './tree.js'
 
 /**
@@ -10,11 +11,19 @@ import type { TreeFolder } from './tree.js'
  * arbitrária, e a única forma honesta de desenhar profundidade arbitrária é
  * um componente que se chama.
  */
-defineProps<{ node: TreeFolder; selected: string | null }>()
+defineProps<{
+  node: TreeFolder
+  selected: string | null
+  /** A pasta cujo formulário de nome está aberto — `undefined` é nenhum. */
+  namingIn: string | null | undefined
+  folderError: string | null
+  savingFolder: boolean
+}>()
 const emit = defineEmits<{
   pick: [request: SavedRequest]
   newRequest: [parentId: string | null]
   newFolder: [parentId: string | null]
+  createFolder: [input: { name: string; parentId: string | null }]
 }>()
 </script>
 
@@ -38,6 +47,15 @@ const emit = defineEmits<{
     </div>
 
     <ul class="border-l border-[#1e2638] pl-2">
+      <li v-if="namingIn === node.folder.id">
+        <FolderForm
+          :error="folderError"
+          :saving="savingFolder"
+          :where="node.folder.name"
+          @submit="emit('createFolder', { name: $event, parentId: node.folder.id })"
+        />
+      </li>
+
       <li v-for="request in node.requests" :key="request.id">
         <button
           type="button"
@@ -57,9 +75,13 @@ const emit = defineEmits<{
         :key="child.folder.id"
         :node="child"
         :selected="selected"
+        :naming-in="namingIn"
+        :folder-error="folderError"
+        :saving-folder="savingFolder"
         @pick="emit('pick', $event)"
         @new-request="emit('newRequest', $event)"
         @new-folder="emit('newFolder', $event)"
+        @create-folder="emit('createFolder', $event)"
       />
     </ul>
   </li>

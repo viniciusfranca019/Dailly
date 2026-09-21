@@ -2,6 +2,7 @@
 import type { Folder, SavedRequest } from '@dailly/requests-core'
 import { computed, ref, watch } from 'vue'
 import AddMenu from './AddMenu.vue'
+import FolderForm from './FolderForm.vue'
 import FolderNode from './FolderNode.vue'
 import { buildTree } from './tree.js'
 
@@ -56,29 +57,30 @@ const empty = computed(
  * seguinte.
  */
 const namingIn = ref<string | null | undefined>(undefined)
-const name = ref('')
 
 function startFolder(parentId: string | null): void {
   namingIn.value = parentId
-  name.value = ''
   emit('clearFolderError')
 }
 
-function createFolder(): void {
-  // O `:disabled` do botão é a barreira de quem usa; a guarda de verdade mora
-  // no pai, que é quem tem a operação em voo. Duplicar aqui dava duas mecânicas
-  // para a mesma coisa — e a que o teste mata não seria a que trabalha.
-  if (name.value.trim() === '' || namingIn.value === undefined) return
-  emit('createFolder', { name: name.value.trim(), parentId: namingIn.value })
+/**
+ * Pedir uma request nova fecha o formulário de pasta.
+ *
+ * Senão ele fica aberto atrás, e o próximo Criar cria a pasta que a pessoa já
+ * tinha desistido de criar.
+ */
+function startRequest(parentId: string | null): void {
+  namingIn.value = undefined
+  emit('newRequest', parentId)
 }
+
+
 
 watch(
   () => props.folderSaved,
-  () => {
-    name.value = ''
-    // E some o "onde": o próximo `+` o traz de novo, do lugar certo.
-    namingIn.value = undefined
-  },
+  // Some o "onde": o formulário é desmontado, e com ele o nome digitado. O
+  // próximo `+` traz os dois de volta, do lugar certo.
+  () => (namingIn.value = undefined),
 )
 </script>
 
@@ -94,41 +96,19 @@ watch(
         :parent-id="null"
         where="Coleções"
         testid="add-root"
-        @new-request="emit('newRequest', $event)"
+        @new-request="startRequest($event)"
         @new-folder="startFolder($event)"
       />
     </div>
 
-    <form
-      v-if="namingIn !== undefined"
-      id="requests-folder-form"
-      class="mb-3 flex flex-col gap-2"
-      @submit.prevent="createFolder"
-    >
-      <input
-        v-model="name"
-        data-testid="folder-name"
-        aria-label="Nome da pasta"
-        placeholder="Nome da pasta"
-        class="rounded border border-[#1e2638] bg-[#0a0d16] px-2 py-1 text-sm text-gray-200"
-      />
-      <p
-        v-if="folderError"
-        role="alert"
-        data-testid="folder-error"
-        class="rounded border border-red-500/20 bg-red-500/10 px-2 py-1 text-xs text-red-300"
-      >
-        {{ folderError }}
-      </p>
-      <button
-        type="submit"
-        data-testid="save-folder"
-        :disabled="savingFolder"
-        class="rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-500 disabled:opacity-50"
-      >
-        Criar
-      </button>
-    </form>
+    <!-- Só a raiz mora aqui; o de cada pasta é desenhado dentro dela. -->
+    <FolderForm
+      v-if="namingIn === null"
+      :error="folderError"
+      :saving="savingFolder"
+      where="Coleções"
+      @submit="emit('createFolder', { name: $event, parentId: null })"
+    />
 
     <p v-if="loading" data-testid="collections-loading" class="px-2 text-sm text-[#747e8f]">
       lendo a coleção…
@@ -167,9 +147,13 @@ watch(
         :key="node.folder.id"
         :node="node"
         :selected="selected"
+        :naming-in="namingIn"
+        :folder-error="folderError"
+        :saving-folder="savingFolder"
         @pick="emit('pick', $event)"
-        @new-request="emit('newRequest', $event)"
+        @new-request="startRequest($event)"
         @new-folder="startFolder($event)"
+        @create-folder="emit('createFolder', $event)"
       />
       <li v-for="request in tree.requests" :key="request.id">
         <button
