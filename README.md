@@ -11,6 +11,9 @@ ui/src/modules/            os módulos de produto (Daily Log, Analyse, Requests,
 ui/src/playground/         harness do whiteboard
 ```
 
+As pendências conhecidas — o que foi decidido e ainda não foi feito, com o
+gatilho de cada uma — estão em [`TODO.md`](TODO.md).
+
 O core mora em `packages/` porque dois runtimes precisam do mesmo modelo: o
 renderer edita, e `createEntry` normaliza markdown na entrada
 ([ADR 0007, Emenda 1](docs/adrs/0007-api-local-e-tempo.md)). O renderer do
