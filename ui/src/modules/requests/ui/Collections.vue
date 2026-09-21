@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Folder, SavedRequest } from '@dailly/requests-core'
 import { computed, ref, watch } from 'vue'
+import AddMenu from './AddMenu.vue'
 import FolderNode from './FolderNode.vue'
 import { buildTree } from './tree.js'
 
@@ -36,7 +37,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   pick: [request: SavedRequest]
   retry: []
-  paste: []
+  newRequest: [parentId: string | null]
   createFolder: [input: { name: string; parentId: string | null }]
   clearFolderError: []
 }>()
@@ -46,37 +47,37 @@ const empty = computed(
   () => !props.loading && props.folders.length === 0 && props.requests.length === 0,
 )
 
-const naming = ref(false)
+/**
+ * Onde a pasta nova vai nascer — vem do `+` que foi clicado, não de um campo.
+ *
+ * `undefined` quer dizer que ninguém pediu pasta nenhuma. O select de
+ * "dentro de" saiu com isto: perguntar de novo seria duas verdades para a
+ * mesma coisa, e era assim que a pasta-mãe de uma tentativa sobrevivia para a
+ * seguinte.
+ */
+const namingIn = ref<string | null | undefined>(undefined)
 const name = ref('')
-const parentId = ref<string | null>(null)
+
+function startFolder(parentId: string | null): void {
+  namingIn.value = parentId
+  name.value = ''
+  emit('clearFolderError')
+}
 
 function createFolder(): void {
   // O `:disabled` do botão é a barreira de quem usa; a guarda de verdade mora
   // no pai, que é quem tem a operação em voo. Duplicar aqui dava duas mecânicas
   // para a mesma coisa — e a que o teste mata não seria a que trabalha.
-  if (name.value.trim() === '') return
-  emit('createFolder', { name: name.value.trim(), parentId: parentId.value })
-}
-
-/**
- * Reabrir o formulário é uma tentativa nova, e uma tentativa nova não começa
- * acusada. Sem isto a recusa da vez passada reaparecia junto com o formulário
- * vazio, culpando algo que ainda não aconteceu.
- */
-function toggleNaming(): void {
-  naming.value = !naming.value
-  emit('clearFolderError')
+  if (name.value.trim() === '' || namingIn.value === undefined) return
+  emit('createFolder', { name: name.value.trim(), parentId: namingIn.value })
 }
 
 watch(
   () => props.folderSaved,
   () => {
     name.value = ''
-    // `parentId` também: sem isto a pasta-mãe da tentativa anterior ficava
-    // escolhida na próxima, e a próxima pasta nascia num lugar que ninguém
-    // pediu.
-    parentId.value = null
-    naming.value = false
+    // E some o "onde": o próximo `+` o traz de novo, do lugar certo.
+    namingIn.value = undefined
   },
 )
 </script>
@@ -89,28 +90,17 @@ watch(
   >
     <div class="mb-3 flex items-center gap-2">
       <h2 class="flex-1 text-sm font-semibold text-gray-200">Coleções</h2>
-      <button
-        type="button"
-        data-testid="new-folder"
-        :aria-expanded="naming"
-        aria-controls="requests-folder-form"
-        class="rounded border border-[#1e2638] px-2 py-1 text-xs text-gray-300 hover:bg-white/5"
-        @click="toggleNaming"
-      >
-        Nova pasta
-      </button>
-      <button
-        type="button"
-        data-testid="new-request"
-        class="rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-500"
-        @click="emit('paste')"
-      >
-        Colar curl
-      </button>
+      <AddMenu
+        :parent-id="null"
+        where="Coleções"
+        testid="add-root"
+        @new-request="emit('newRequest', $event)"
+        @new-folder="startFolder($event)"
+      />
     </div>
 
     <form
-      v-if="naming"
+      v-if="namingIn !== undefined"
       id="requests-folder-form"
       class="mb-3 flex flex-col gap-2"
       @submit.prevent="createFolder"
@@ -122,17 +112,6 @@ watch(
         placeholder="Nome da pasta"
         class="rounded border border-[#1e2638] bg-[#0a0d16] px-2 py-1 text-sm text-gray-200"
       />
-      <select
-        v-model="parentId"
-        data-testid="folder-parent"
-        aria-label="Dentro de"
-        class="rounded border border-[#1e2638] bg-[#0a0d16] px-2 py-1 text-sm text-gray-200"
-      >
-        <option :value="null">na raiz</option>
-        <option v-for="folder in folders" :key="folder.id" :value="folder.id">
-          {{ folder.name }}
-        </option>
-      </select>
       <p
         v-if="folderError"
         role="alert"
@@ -189,6 +168,8 @@ watch(
         :node="node"
         :selected="selected"
         @pick="emit('pick', $event)"
+        @new-request="emit('newRequest', $event)"
+        @new-folder="startFolder($event)"
       />
       <li v-for="request in tree.requests" :key="request.id">
         <button

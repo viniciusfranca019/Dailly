@@ -91,6 +91,22 @@ async function until(condition: () => boolean, turns = 400): Promise<void> {
   throw new Error('a condição não aconteceu a tempo')
 }
 
+/**
+ * Os dois caminhos que o `+` abre.
+ *
+ * Helpers e não cliques soltos porque agora são dois passos, e repetir os dois
+ * em vinte testes esconderia qual deles quebrou quando um quebrar.
+ */
+const novaRequest = async (host: HTMLElement) => {
+  await click(at(host, 'add-root'))
+  await click(at(host, 'menu-new-request'))
+}
+
+const novaPasta = async (host: HTMLElement) => {
+  await click(at(host, 'add-root'))
+  await click(at(host, 'menu-new-folder'))
+}
+
 /** Uma promessa que o teste solta quando quiser — para exercitar o "no meio". */
 const held = () => {
   let release = (): void => {}
@@ -178,13 +194,15 @@ describe('C3, C4, C5: colar um curl', () => {
     const { host } = mount(deps(port))
     await settle()
 
-    await click(at(host, 'new-request'))
-    await fill(at(host, 'curl'), CURL)
-    await click(at(host, 'import-curl'))
+    await novaRequest(host)
+    await fill(at(host, 'url'), CURL)
 
+    // Método e URL ficam sempre à mão; o resto mora atrás da sua aba.
     expect(at<HTMLInputElement>(host, 'method')?.value).toBe('POST')
     expect(at<HTMLInputElement>(host, 'url')?.value).toBe('https://api.stripe.com/v1/charges')
     expect(at<HTMLInputElement>(host, 'header-name')?.value).toBe('Idempotency-Key')
+
+    await click(at(host, 'tab-body'))
     expect(at<HTMLTextAreaElement>(host, 'body')?.value).toBe('{"amount":100}')
     // Importar não grava: a request só existe quando a pessoa manda salvar.
     expect(await port.requests()).toEqual([])
@@ -194,23 +212,25 @@ describe('C3, C4, C5: colar um curl', () => {
     const { host } = mount(deps(testRequestsPort()))
     await settle()
 
-    await click(at(host, 'new-request'))
-    await fill(at(host, 'curl'), 'curl --compressed -k https://x.dev')
-    await click(at(host, 'import-curl'))
+    await novaRequest(host)
+    await fill(at(host, 'url'), 'curl --compressed -k https://x.dev')
 
     expect(text(host, 'ignored')).toContain('-k')
   })
 
-  it('recusa com o motivo, e não preenche campo nenhum', async () => {
+  it('recusa com o motivo, e não importa nada', async () => {
+    // O editor não fecha mais: ele é o lugar onde o curl entra. O que não pode
+    // acontecer é a recusa passar por importação — método e headers ficam como
+    // estavam, e a frase diz o que faltou.
     const { host } = mount(deps(testRequestsPort()))
     await settle()
 
-    await click(at(host, 'new-request'))
-    await fill(at(host, 'curl'), 'GET /v1/charges HTTP/1.1')
-    await click(at(host, 'import-curl'))
+    await novaRequest(host)
+    await fill(at(host, 'url'), 'curl -X POST -H "a: b"')
 
     expect(at(host, 'import-error')?.getAttribute('role')).toBe('alert')
-    expect(at(host, 'editor')).toBeNull()
+    expect(at<HTMLInputElement>(host, 'method')?.value).toBe('GET')
+    expect(at(host, 'header-name')).toBeNull()
   })
 })
 
@@ -220,9 +240,8 @@ describe('C6: salvar', () => {
     const { host } = mount(deps(port))
     await settle()
 
-    await click(at(host, 'new-request'))
-    await fill(at(host, 'curl'), CURL)
-    await click(at(host, 'import-curl'))
+    await novaRequest(host)
+    await fill(at(host, 'url'), CURL)
     await fill(at(host, 'name'), 'criar cobrança')
 
     const select = at<HTMLSelectElement>(host, 'request-folder')!
@@ -245,7 +264,7 @@ describe('C6: salvar', () => {
     const { host } = mount(deps(port))
     await settle()
 
-    await click(at(host, 'new-folder'))
+    await novaPasta(host)
     await fill(at(host, 'folder-name'), 'Stripe')
     await click(at(host, 'save-folder'))
 
@@ -476,7 +495,7 @@ describe('as corridas — o que chega depois de a tela ter virado', () => {
     const { host } = mount(deps(flaky))
     await settle()
 
-    await click(at(host, 'new-folder'))
+    await novaPasta(host)
     await fill(at(host, 'folder-name'), 'Stripe')
     await click(at(host, 'save-folder'))
     expect(allAt(host, 'folder')).toHaveLength(1)
@@ -520,7 +539,7 @@ describe('o que o gate achou que a tela prometia e não entregava', () => {
     const { host } = mount(deps(refusing))
     await settle()
 
-    await click(at(host, 'new-folder'))
+    await novaPasta(host)
     await fill(at(host, 'folder-name'), 'Stripe')
     await click(at(host, 'save-folder'))
 
@@ -535,9 +554,9 @@ describe('o que o gate achou que a tela prometia e não entregava', () => {
     const { host } = mount(deps(port))
     await settle()
 
-    await click(at(host, 'new-request'))
-    await fill(at(host, 'curl'), `curl https://x.dev -u '{{credencial}}'`)
-    await click(at(host, 'import-curl'))
+    await novaRequest(host)
+    await fill(at(host, 'url'), `curl https://x.dev -u '{{credencial}}'`)
+    await click(at(host, 'tab-auth'))
 
     // Enquanto é credencial única não há campo de senha para tropeçar: o
     // `@input` escrevia sempre texto, então um toque e um backspace trocavam
@@ -565,9 +584,8 @@ describe('o que o gate achou que a tela prometia e não entregava', () => {
     const { host } = mount(deps(slow))
     await settle()
 
-    await click(at(host, 'new-request'))
-    await fill(at(host, 'curl'), CURL)
-    await click(at(host, 'import-curl'))
+    await novaRequest(host)
+    await fill(at(host, 'url'), CURL)
     await click(at(host, 'save'))
 
     expect(at<HTMLButtonElement>(host, 'save')?.disabled).toBe(true)
@@ -584,9 +602,8 @@ describe('o que o gate achou que a tela prometia e não entregava', () => {
     const { host } = mount(deps(port))
     await settle()
 
-    await click(at(host, 'new-request'))
-    await fill(at(host, 'curl'), CURL)
-    await click(at(host, 'import-curl'))
+    await novaRequest(host)
+    await fill(at(host, 'url'), CURL)
     await click(at(host, 'save'))
 
     expect(at<HTMLInputElement>(host, 'name')?.value).toBe(
@@ -601,9 +618,8 @@ describe('as linhas de header têm identidade', () => {
     const { host } = mount(deps(port))
     await settle()
 
-    await click(at(host, 'new-request'))
-    await fill(at(host, 'curl'), `curl https://x.dev -H 'A: 1' -H 'B: 2'`)
-    await click(at(host, 'import-curl'))
+    await novaRequest(host)
+    await fill(at(host, 'url'), `curl https://x.dev -H 'A: 1' -H 'B: 2'`)
 
     const segundo = allAt(host, 'header-value')[1]!
     await click(allAt(host, 'remove-header')[0]!)
@@ -731,9 +747,8 @@ describe('gate 2 — o que a correção do gate 1 abriu', () => {
     const { host } = mount(deps(slow))
     await settle()
 
-    await click(at(host, 'new-request'))
-    await fill(at(host, 'curl'), CURL)
-    await click(at(host, 'import-curl'))
+    await novaRequest(host)
+    await fill(at(host, 'url'), CURL)
     await click(at(host, 'save'))
 
     await fill(at(host, 'url'), 'https://api.stripe.com/v1/refunds')
@@ -751,9 +766,8 @@ describe('gate 2 — o que a correção do gate 1 abriu', () => {
     const { host } = mount(deps(port))
     await settle()
 
-    await click(at(host, 'new-request'))
-    await fill(at(host, 'curl'), CURL)
-    await click(at(host, 'import-curl'))
+    await novaRequest(host)
+    await fill(at(host, 'url'), CURL)
 
     const linha = allAt(host, 'header-value')[0]!
     await click(at(host, 'save'))
@@ -819,7 +833,7 @@ describe('gate 2 — o que a correção do gate 1 abriu', () => {
     const { host } = mount(deps(slow))
     await settle()
 
-    await click(at(host, 'new-folder'))
+    await novaPasta(host)
     await fill(at(host, 'folder-name'), 'Stripe')
     await click(at(host, 'save-folder'))
     expect(at<HTMLButtonElement>(host, 'save-folder')?.disabled).toBe(true)
@@ -839,53 +853,28 @@ describe('gate 2 — o que a correção do gate 1 abriu', () => {
     expect(await port.folders()).toHaveLength(1)
   })
 
-  it('C6: uma pasta nasce dentro da pasta-mãe escolhida', async () => {
-    // A metade "aceita pasta-mãe" do C6 não tinha prova em lugar nenhum: o
-    // `folder-parent` não aparecia em teste algum, e forçar o pai a nulo
-    // deixava a suíte verde.
+  // "uma pasta nasce dentro da pasta-mãe escolhida" saiu daqui: com o `+` por
+  // pasta, essa é a propriedade que os dois testes do C17 provam, e provam
+  // melhor — a pasta-mãe deixou de ser um campo para ser o botão clicado.
+
+  it('C6: o formulário fecha, e o "onde" nunca sobra da tentativa anterior', async () => {
+    // Antes, a pasta-mãe era um select cujo valor sobrevivia ao sucesso, e a
+    // pasta seguinte nascia num lugar que ninguém pediu. Agora o "onde" vem do
+    // `+`, então a prova é: criar dentro do Stripe e depois criar pela raiz.
     const port = testRequestsPort({ folders: [folder('f1', 'Stripe')] })
     const { host } = mount(deps(port))
     await settle()
 
-    await click(at(host, 'new-folder'))
+    await click(allAt(host, 'add-in-folder')[0]!)
+    await click(at(host, 'menu-new-folder'))
     await fill(at(host, 'folder-name'), 'Charges')
-    const parent = at<HTMLSelectElement>(host, 'folder-parent')!
-    parent.value = 'f1'
-    parent.dispatchEvent(new Event('change', { bubbles: true }))
-    await settle()
-    await click(at(host, 'save-folder'))
-
-    expect((await port.folders()).map((f) => [f.name, f.parentId])).toEqual([
-      ['Stripe', null],
-      ['Charges', 'f1'],
-    ])
-  })
-
-  it('C6: o formulário fecha e esquece a tentativa depois de um sucesso', async () => {
-    // Três mutações sobreviviam aqui: não fechar, não limpar o nome, não
-    // limpar a pasta-mãe — e a última fazia a pasta seguinte nascer num lugar
-    // que ninguém pediu.
-    const port = testRequestsPort({ folders: [folder('f1', 'Stripe')] })
-    const { host } = mount(deps(port))
-    await settle()
-
-    await click(at(host, 'new-folder'))
-    await fill(at(host, 'folder-name'), 'Charges')
-    const parent = at<HTMLSelectElement>(host, 'folder-parent')!
-    parent.value = 'f1'
-    parent.dispatchEvent(new Event('change', { bubbles: true }))
-    await settle()
     await click(at(host, 'save-folder'))
 
     // Fechou.
     expect(at(host, 'folder-name')).toBeNull()
 
-    await click(at(host, 'new-folder'))
+    await novaPasta(host)
     expect(at<HTMLInputElement>(host, 'folder-name')?.value).toBe('')
-
-    // E esqueceu a pasta-mãe: a prova é comportamental, porque um `<option>`
-    // com valor nulo reflete o texto no `.value` do DOM. A pasta seguinte tem
-    // que nascer na raiz, e não dentro da escolha da vez passada.
     await fill(at(host, 'folder-name'), 'Refunds')
     await click(at(host, 'save-folder'))
 
@@ -909,14 +898,14 @@ describe('gate 2 — o que a correção do gate 1 abriu', () => {
     const { host } = mount(deps(flaky))
     await settle()
 
-    await click(at(host, 'new-folder'))
+    await novaPasta(host)
     await fill(at(host, 'folder-name'), 'Stripe')
     await click(at(host, 'save-folder'))
     expect(at(host, 'folder-error')).not.toBeNull()
 
     refuse = false
-    await click(at(host, 'new-folder'))
-    await click(at(host, 'new-folder'))
+    await novaPasta(host)
+    await novaPasta(host)
 
     expect(at(host, 'folder-error')).toBeNull()
   })
@@ -940,9 +929,8 @@ describe('gate 2 — o que a correção do gate 1 abriu', () => {
     await settle()
     expect(allAt(host, 'folder')).toHaveLength(1)
 
-    await click(at(host, 'new-request'))
-    await fill(at(host, 'curl'), CURL)
-    await click(at(host, 'import-curl'))
+    await novaRequest(host)
+    await fill(at(host, 'url'), CURL)
     await click(at(host, 'save'))
 
     expect(at(host, 'collections-loading')).toBeNull()
@@ -1146,9 +1134,8 @@ describe('gate 3 — a terceira porta', () => {
     await settle()
     expect(allAt(host, 'folder')).toHaveLength(1)
 
-    await click(at(host, 'new-request'))
-    await fill(at(host, 'curl'), CURL)
-    await click(at(host, 'import-curl'))
+    await novaRequest(host)
+    await fill(at(host, 'url'), CURL)
     await click(at(host, 'save'))
 
     expect(text(host, 'collections-error')).toContain('a releitura falhou')
@@ -1222,14 +1209,278 @@ describe('M2: executar roda o que está na tela, não o que ficou gravado', () =
     const { host } = mount(deps(spy))
     await settle()
 
-    await click(at(host, 'new-request'))
-    await fill(at(host, 'curl'), CURL)
-    await click(at(host, 'import-curl'))
+    await novaRequest(host)
+    await fill(at(host, 'url'), CURL)
     await click(at(host, 'execute'))
 
     expect(text(host, 'response-status')).toContain('200')
     expect((await port.requests()).map((saved) => saved.name)).toEqual([
       'https://api.stripe.com/v1/charges',
+    ])
+  })
+})
+
+describe('C14: o meio ganha o layout da categoria', () => {
+  const abrir = async (host: HTMLElement) => {
+    await novaRequest(host)
+    await fill(at(host, 'url'), CURL)
+  }
+
+  it('põe método, URL e Enviar numa linha, e o resto em abas', async () => {
+    const { host } = mount(deps(testRequestsPort()))
+    await settle()
+    await abrir(host)
+
+    for (const aba of ['tab-params', 'tab-headers', 'tab-body', 'tab-auth']) {
+      expect(at(host, aba), aba).not.toBeNull()
+    }
+    // O que não é aba fica sempre à mão: é com isto que se dispara a request.
+    expect(at(host, 'method')).not.toBeNull()
+    expect(at(host, 'url')).not.toBeNull()
+    expect(at(host, 'execute')).not.toBeNull()
+  })
+
+  it('mostra uma aba por vez, e diz qual', async () => {
+    const { host } = mount(deps(testRequestsPort()))
+    await settle()
+    await abrir(host)
+
+    await click(at(host, 'tab-headers'))
+    expect(at(host, 'tab-headers')?.getAttribute('aria-selected')).toBe('true')
+    expect(at(host, 'header-name')).not.toBeNull()
+    // `v-if` e não `v-show`: o campo da outra aba não está no documento, senão
+    // um teste que esquecesse de trocar de aba passaria assim mesmo.
+    expect(at(host, 'body')).toBeNull()
+
+    await click(at(host, 'tab-body'))
+    expect(at(host, 'tab-body')?.getAttribute('aria-selected')).toBe('true')
+    expect(at(host, 'tab-headers')?.getAttribute('aria-selected')).toBe('false')
+    expect(at(host, 'body')).not.toBeNull()
+    expect(at(host, 'header-name')).toBeNull()
+  })
+
+  it('trocar de aba não perde o que foi digitado na outra', async () => {
+    // O estado mora no rascunho, não no campo — mas isso é afirmação até
+    // alguém provar, e o `v-if` destrói o input de verdade.
+    const { host } = mount(deps(testRequestsPort()))
+    await settle()
+    await abrir(host)
+
+    await click(at(host, 'tab-headers'))
+    await fill(at(host, 'header-value'), 'k9')
+    await click(at(host, 'tab-body'))
+    await fill(at(host, 'body'), '{"amount":999}')
+    await click(at(host, 'tab-headers'))
+
+    expect(at<HTMLInputElement>(host, 'header-value')?.value).toBe('k9')
+
+    await click(at(host, 'tab-body'))
+    expect(at<HTMLTextAreaElement>(host, 'body')?.value).toBe('{"amount":999}')
+  })
+
+  it('a aba Auth deixa acrescentar Basic a uma request que veio sem', async () => {
+    // Antes, o bloco de auth só existia se o curl trouxesse `-u`. Uma aba que
+    // só sabe mostrar vazio é uma aba ruim.
+    const { host } = mount(deps(testRequestsPort()))
+    await settle()
+    await abrir(host)
+
+    await click(at(host, 'tab-auth'))
+    expect(at(host, 'auth-user')).toBeNull()
+
+    await click(at(host, 'add-auth'))
+    expect(at(host, 'auth-user')).not.toBeNull()
+    expect(at(host, 'auth-password')).not.toBeNull()
+  })
+
+  it('a aba Params mostra a query do -G, só para leitura neste corte', async () => {
+    const { host } = mount(deps(testRequestsPort()))
+    await settle()
+    await novaRequest(host)
+    await fill(at(host, 'url'), 'curl -G https://x.dev -d q=1 -d p=2')
+
+    await click(at(host, 'tab-params'))
+    expect(text(host, 'query')).toContain('q=1')
+    expect(text(host, 'query')).toContain('p=2')
+  })
+})
+
+describe('C15: o curl entra pela barra de URL', () => {
+  it('colar um curl na URL preenche método, headers e corpo', async () => {
+    const { host } = mount(deps(testRequestsPort()))
+    await settle()
+
+    await novaRequest(host)
+    await fill(at(host, 'url'), CURL)
+
+    expect(at<HTMLInputElement>(host, 'method')?.value).toBe('POST')
+    expect(at<HTMLInputElement>(host, 'url')?.value).toBe('https://api.stripe.com/v1/charges')
+    expect(at<HTMLInputElement>(host, 'header-name')?.value).toBe('Idempotency-Key')
+
+    await click(at(host, 'tab-body'))
+    expect(at<HTMLTextAreaElement>(host, 'body')?.value).toBe('{"amount":100}')
+  })
+
+  it('não confunde uma URL comum com um curl', async () => {
+    // O gatilho é `curl` seguido de espaço. Uma URL nunca começa assim, e
+    // reagir a qualquer texto faria o campo se reescrever enquanto se digita.
+    const { host } = mount(deps(testRequestsPort()))
+    await settle()
+
+    await novaRequest(host)
+    await fill(at(host, 'url'), 'https://curly.example.com/v1')
+
+    expect(at<HTMLInputElement>(host, 'url')?.value).toBe('https://curly.example.com/v1')
+    expect(at(host, 'import-error')).toBeNull()
+  })
+
+  it('diz o que ignorou, como o painel dizia', async () => {
+    const { host } = mount(deps(testRequestsPort()))
+    await settle()
+
+    await novaRequest(host)
+    await fill(at(host, 'url'), 'curl --compressed -k https://x.dev')
+
+    expect(text(host, 'ignored')).toContain('-k')
+  })
+
+  it('um curl ilegível diz o motivo e não apaga o resto da request', async () => {
+    const { host } = mount(deps(testRequestsPort()))
+    await settle()
+
+    await novaRequest(host)
+    await fill(at(host, 'url'), 'https://x.dev/a')
+    await click(at(host, 'tab-body'))
+    await fill(at(host, 'body'), '{"guardado":true}')
+
+    await fill(at(host, 'url'), 'curl -X POST -H "a: b"')
+
+    expect(at(host, 'import-error')?.getAttribute('role')).toBe('alert')
+    await click(at(host, 'tab-body'))
+    expect(at<HTMLTextAreaElement>(host, 'body')?.value).toBe('{"guardado":true}')
+  })
+
+  it('importar pela URL preserva o nome e a pasta que a pessoa já escolheu', async () => {
+    const { host } = mount(deps(testRequestsPort({ folders: [folder('f1', 'Stripe')] })))
+    await settle()
+
+    await novaRequest(host)
+    await fill(at(host, 'name'), 'minha cobrança')
+    const select = at<HTMLSelectElement>(host, 'request-folder')!
+    select.value = 'f1'
+    select.dispatchEvent(new Event('change', { bubbles: true }))
+    await settle()
+
+    await fill(at(host, 'url'), CURL)
+
+    expect(at<HTMLInputElement>(host, 'name')?.value).toBe('minha cobrança')
+    expect(at<HTMLSelectElement>(host, 'request-folder')?.value).toBe('f1')
+  })
+
+  it('o painel separado de colar curl não existe mais', async () => {
+    const { host } = mount(deps(testRequestsPort()))
+    await settle()
+
+    await novaRequest(host)
+
+    expect(at(host, 'curl')).toBeNull()
+    expect(at(host, 'import-curl')).toBeNull()
+    // E o editor abre pronto para receber, em vez de exigir um passo antes.
+    expect(at(host, 'editor')).not.toBeNull()
+  })
+})
+
+describe('C16, C17: um + no lugar dos dois botões', () => {
+  const press = async (key: string) => {
+    document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }))
+    await settle()
+  }
+
+  it('o cabeçalho tem um + que abre as duas opções', async () => {
+    const { host } = mount(deps(testRequestsPort()))
+    await settle()
+
+    // Os dois botões de texto deram lugar a um só.
+    expect(at(host, 'new-folder')).toBeNull()
+    expect(at(host, 'add-root')).not.toBeNull()
+    expect(at(host, 'add-root')?.getAttribute('aria-expanded')).toBe('false')
+
+    await click(at(host, 'add-root'))
+    expect(at(host, 'add-root')?.getAttribute('aria-expanded')).toBe('true')
+    expect(at(host, 'menu-new-request')).not.toBeNull()
+    expect(at(host, 'menu-new-folder')).not.toBeNull()
+  })
+
+  it('cada pasta tem o seu +, com nome acessível dizendo onde age', async () => {
+    const { host } = mount(deps(testRequestsPort({ folders: [folder('f1', 'Stripe')] })))
+    await settle()
+
+    const mais = allAt(host, 'add-in-folder')
+    expect(mais).toHaveLength(1)
+    expect(mais[0]?.getAttribute('aria-label')).toContain('Stripe')
+  })
+
+  it('o menu fecha com Escape e com clique fora', async () => {
+    const { host } = mount(deps(testRequestsPort()))
+    await settle()
+
+    await click(at(host, 'add-root'))
+    await press('Escape')
+    expect(at(host, 'menu-new-request')).toBeNull()
+
+    await click(at(host, 'add-root'))
+    document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+    await settle()
+    expect(at(host, 'menu-new-request')).toBeNull()
+  })
+
+  it('C17: a request nova nasce na pasta em que o + foi clicado', async () => {
+    const port = testRequestsPort({ folders: [folder('f1', 'Stripe')] })
+    const { host } = mount(deps(port))
+    await settle()
+
+    await click(allAt(host, 'add-in-folder')[0]!)
+    await click(at(host, 'menu-new-request'))
+    await fill(at(host, 'url'), CURL)
+    await click(at(host, 'save'))
+
+    expect((await port.requests()).map((saved) => saved.folderId)).toEqual(['f1'])
+  })
+
+  it('C17: a pasta nova nasce dentro da pasta em que o + foi clicado', async () => {
+    const port = testRequestsPort({ folders: [folder('f1', 'Stripe')] })
+    const { host } = mount(deps(port))
+    await settle()
+
+    await click(allAt(host, 'add-in-folder')[0]!)
+    await click(at(host, 'menu-new-folder'))
+    await fill(at(host, 'folder-name'), 'Charges')
+    await click(at(host, 'save-folder'))
+
+    expect((await port.folders()).map((f) => [f.name, f.parentId])).toEqual([
+      ['Stripe', null],
+      ['Charges', 'f1'],
+    ])
+  })
+
+  it('C17: pelo + do cabeçalho, nasce na raiz — e o select de pasta-mãe sumiu', async () => {
+    const port = testRequestsPort({ folders: [folder('f1', 'Stripe')] })
+    const { host } = mount(deps(port))
+    await settle()
+
+    await click(at(host, 'add-root'))
+    await click(at(host, 'menu-new-folder'))
+
+    // A pasta-mãe é implícita em qual + foi clicado; perguntar de novo num
+    // select seria duas verdades para a mesma coisa.
+    expect(at(host, 'folder-parent')).toBeNull()
+
+    await fill(at(host, 'folder-name'), 'Refunds')
+    await click(at(host, 'save-folder'))
+
+    expect((await port.folders()).map((f) => [f.name, f.parentId])).toEqual([
+      ['Stripe', null],
+      ['Refunds', null],
     ])
   })
 })

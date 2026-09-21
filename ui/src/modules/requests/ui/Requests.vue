@@ -52,8 +52,6 @@ const saving = ref(false)
 const deleting = ref(false)
 const savingFolder = ref(false)
 
-const pasting = ref(false)
-const curl = ref('')
 const ignored = ref<readonly string[]>([])
 const importError = ref<string | null>(null)
 
@@ -168,7 +166,6 @@ function pick(request: SavedRequest): void {
 
   editor += 1
   selected.value = request
-  pasting.value = false
   importError.value = null
   ignored.value = []
   invalidate()
@@ -181,9 +178,13 @@ function pick(request: SavedRequest): void {
       : null
 }
 
-function startPaste(): void {
-  pasting.value = true
-  curl.value = ''
+/**
+ * Uma request nova é um editor vazio, não um passo antes do editor.
+ *
+ * O painel separado de colar curl sumiu: a barra de URL é por onde curl entra,
+ * como no Postman. Um passo a menos, e some a pergunta "onde eu colo isto?".
+ */
+function startDraft(parentId: string | null = null): void {
   ignored.value = []
   importError.value = null
   error.value = null
@@ -193,20 +194,44 @@ function startPaste(): void {
   selected.value = null
   draft.value = null
   invalidate()
+
+  draft.value = {
+    name: '',
+    // A pasta vem do `+` que foi clicado, e não de uma escolha depois: quem
+    // clicou no `+` do Stripe já disse onde quer a request.
+    folderId: parentId,
+    method: 'GET',
+    url: '',
+    headers: [],
+    body: '',
+    query: [],
+    auth: null,
+  }
 }
 
-function doImport(): void {
-  const result = importCurl(curl.value)
+/**
+ * Um curl colado na barra de URL vira a request inteira.
+ *
+ * O nome e a pasta **sobrevivem**: são escolha de organização, não do comando
+ * colado, e quem já batizou a request não quer perder o nome porque trocou o
+ * curl. O resto é substituído, que é o ponto de colar de novo.
+ */
+function importInto(raw: string): void {
+  const result = importCurl(raw)
   if (result.kind === 'rejected') {
+    // O texto colado fica no campo para a pessoa consertar, e o resto da
+    // request não é tocado — recusar não é motivo para apagar trabalho feito.
     importError.value = result.reason
-    draft.value = null
     return
   }
 
   importError.value = null
   ignored.value = result.ignored
-  draft.value = result.draft
-  pasting.value = false
+  draft.value = {
+    ...result.draft,
+    name: draft.value?.name ?? result.draft.name,
+    folderId: draft.value?.folderId ?? result.draft.folderId,
+  }
 }
 
 /**
@@ -442,35 +467,6 @@ onMounted(load)
 
     <div class="grid min-h-0 flex-1 grid-cols-1 gap-6 px-6 pb-6 xl:grid-cols-[minmax(0,1fr)_auto]">
       <div class="flex min-h-0 flex-col gap-3 overflow-y-auto">
-        <form
-          v-if="pasting"
-          class="flex flex-col gap-2"
-          data-testid="paste"
-          @submit.prevent="doImport"
-        >
-          <label class="flex flex-col gap-2">
-            <span class="text-xs font-semibold uppercase tracking-wide text-[#747e8f]">
-              Cole o curl
-            </span>
-            <!-- Dentro da label: sem `for` ela era órfã, e o campo só tinha o
-                 nome acessível do `aria-label`, que dizia menos. -->
-            <textarea
-            v-model="curl"
-            data-testid="curl"
-            rows="5"
-            placeholder="curl 'https://api.exemplo.dev/v1/coisas' -H 'authorization: Bearer {{token}}'"
-            class="rounded border border-[#1e2638] bg-[#0a0d16] px-2 py-1.5 font-mono text-xs text-gray-200"
-            ></textarea>
-          </label>
-          <button
-            type="submit"
-            data-testid="import-curl"
-            class="self-start rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500"
-          >
-            Importar
-          </button>
-        </form>
-
         <p
           v-if="importError"
           role="alert"
@@ -538,6 +534,7 @@ onMounted(load)
           @save="save"
           @execute="execute"
           @remove="remove"
+          @paste-curl="importInto"
         />
 
         <label v-if="draft" class="flex flex-col gap-1">
@@ -578,7 +575,7 @@ onMounted(load)
         @clear-folder-error="folderError = null"
         @pick="pick"
         @retry="load"
-        @paste="startPaste"
+        @new-request="startDraft"
         @create-folder="createFolder"
       />
     </div>
