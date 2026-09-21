@@ -40,15 +40,24 @@ const emit = defineEmits<{ save: []; execute: []; remove: []; pasteCurl: [raw: s
  * coisa deste arquivo impossível de testar. E olhar o valor cobre de graça
  * colar com o botão do meio e arrastar texto para dentro do campo.
  *
- * `curl` seguido de espaço, e não qualquer texto contendo "curl": uma URL
- * nunca começa assim, e reagir de leve faria o campo se reescrever enquanto a
- * pessoa digita.
+ * São **duas** condições, e a segunda foi comprada caro. `curl` seguido de
+ * espaço protege quem digita uma URL; não protege quem digita um curl, e
+ * `curl h` já é um import válido: no sexto caractere o campo colapsava para
+ * `h` e todo o resto — `-H` incluído — virava URL comum, sem erro e sem aviso.
+ *
+ * A segunda condição é o **salto**: colar insere muitos caracteres de uma vez,
+ * digitar insere um. É o que separa os dois gestos sem precisar do evento de
+ * colar, que o jsdom não sabe construir com dados.
  */
 const CURL = /^\s*curl\s/
 
+let previous = ''
+
 function onUrl(event: Event): void {
   const value = (event.target as HTMLInputElement).value
-  if (CURL.test(value)) emit('pasteCurl', value)
+  const pasted = value.length - previous.length > 1
+  previous = value
+  if (pasted && CURL.test(value)) emit('pasteCurl', value)
 }
 
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']

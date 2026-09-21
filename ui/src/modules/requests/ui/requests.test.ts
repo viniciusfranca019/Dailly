@@ -33,8 +33,17 @@ const allAt = (host: HTMLElement, id: string) =>
   [...host.querySelectorAll<HTMLElement>(`[data-testid="${id}"]`)]
 const text = (host: HTMLElement, id: string) => at(host, id)?.textContent?.trim() ?? ''
 
+/**
+ * O gesto inteiro, e não só o `click`.
+ *
+ * `mousedown` é o que fecha menu, e um helper que o pulava deixava duas
+ * mutações do `AddMenu` sobreviverem à suíte inteira. Um teste que clica de um
+ * jeito que nenhum navegador clica prova menos do que parece.
+ */
 const click = async (element: HTMLElement | null) => {
-  element?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+  for (const type of ['mousedown', 'mouseup', 'click']) {
+    element?.dispatchEvent(new MouseEvent(type, { bubbles: true }))
+  }
   await settle()
 }
 
@@ -1486,14 +1495,6 @@ describe('C16, C17: um + no lugar dos dois botões', () => {
 })
 
 describe('o que o caminho novo do C15 abriu', () => {
-  /** Clique de verdade: `mousedown`, `mouseup`, `click` — é o `mousedown` que fecha menu. */
-  const realClick = async (element: HTMLElement | null) => {
-    for (const type of ['mousedown', 'mouseup', 'click']) {
-      element?.dispatchEvent(new MouseEvent(type, { bubbles: true }))
-    }
-    await settle()
-  }
-
   it('BLOCKER: a resposta da request velha não cai embaixo do curl novo', async () => {
     // `startPaste` movia as duas sequências antes de importar; `importInto`,
     // que o substituiu, não movia nenhuma. É o blocker do gate 3 de novo, pela
@@ -1556,10 +1557,10 @@ describe('o que o caminho novo do C15 abriu', () => {
     const { host } = mount(deps(testRequestsPort({ folders: [folder('f1', 'Stripe')] })))
     await settle()
 
-    await realClick(at(host, 'add-root'))
+    await click(at(host, 'add-root'))
     expect(allAt(host, 'menu-new-request')).toHaveLength(1)
 
-    await realClick(allAt(host, 'add-in-folder')[0]!)
+    await click(allAt(host, 'add-in-folder')[0]!)
     expect(allAt(host, 'menu-new-request')).toHaveLength(1)
     expect(at(host, 'add-root')?.getAttribute('aria-expanded')).toBe('false')
   })
@@ -1568,7 +1569,7 @@ describe('o que o caminho novo do C15 abriu', () => {
     const { host } = mount(deps(testRequestsPort()))
     await settle()
 
-    await realClick(at(host, 'add-root'))
+    await click(at(host, 'add-root'))
     expect(at(host, 'menu-new-request')).not.toBeNull()
   })
 
@@ -1581,8 +1582,8 @@ describe('o que o caminho novo do C15 abriu', () => {
     const { host } = mount(deps(testRequestsPort()))
     await settle()
 
-    await realClick(at(host, 'add-root'))
-    await realClick(at(host, 'add-root'))
+    await click(at(host, 'add-root'))
+    await click(at(host, 'add-root'))
 
     expect(at(host, 'menu-new-request')).toBeNull()
     expect(at(host, 'add-root')?.getAttribute('aria-expanded')).toBe('false')
@@ -1638,5 +1639,50 @@ describe('MAJOR: o formulário de pasta nasce onde o + foi clicado', () => {
     await novaRequest(host)
 
     expect(at(host, 'folder-name')).toBeNull()
+  })
+})
+
+describe('o que só aparece quando o teste clica como um navegador clica', () => {
+  it('escolher no menu fecha o menu', async () => {
+    const { host } = mount(deps(testRequestsPort()))
+    await settle()
+
+    await click(at(host, 'add-root'))
+    await click(at(host, 'menu-new-request'))
+
+    expect(at(host, 'menu-new-request')).toBeNull()
+    expect(at(host, 'add-root')?.getAttribute('aria-expanded')).toBe('false')
+  })
+
+  it('digitar um curl à mão não colapsa o que já foi digitado', async () => {
+    // `curl h` já é um import válido: no sexto caractere o campo virava `h`, e
+    // todo o resto — inclusive `-H 'A: 1'` — era anexado como URL comum. Sem
+    // erro e sem aviso. E enquanto o texto era `curl ` o alerta de "sem URL"
+    // acendia e apagava a cada tecla, que um leitor de tela lê inteiro.
+    const { host } = mount(deps(testRequestsPort()))
+    await settle()
+    await novaRequest(host)
+
+    const campo = at<HTMLInputElement>(host, 'url')!
+    const texto = `curl https://x.dev -H 'A: 1'`
+    for (let at_ = 1; at_ <= texto.length; at_++) {
+      campo.value = texto.slice(0, at_)
+      campo.dispatchEvent(new Event('input', { bubbles: true }))
+    }
+    await settle()
+
+    expect(at<HTMLInputElement>(host, 'url')?.value).toBe(texto)
+    expect(at(host, 'import-error')).toBeNull()
+  })
+
+  it('colar continua importando, porque cola tudo de uma vez', async () => {
+    const { host } = mount(deps(testRequestsPort()))
+    await settle()
+    await novaRequest(host)
+
+    await fill(at(host, 'url'), CURL)
+
+    expect(at<HTMLInputElement>(host, 'method')?.value).toBe('POST')
+    expect(at<HTMLInputElement>(host, 'url')?.value).toBe('https://api.stripe.com/v1/charges')
   })
 })
