@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Folder } from '@dailly/requests-core'
-import { ref } from 'vue'
+import { nextTick, ref, useTemplateRef, watch } from 'vue'
 import { rowId, type Draft } from './draft.js'
 
 /**
@@ -53,6 +53,22 @@ const CURL = /^\s*curl\s/
 
 let previous = ''
 
+/**
+ * O "antes" acompanha o modelo, e não só o que foi digitado.
+ *
+ * Sem isto, o valor de referência ficava sendo o **texto colado** enquanto o
+ * campo passava a mostrar a URL curta que a importação produziu — e a próxima
+ * colagem parecia um encolhimento, não um salto. Resultado: o segundo curl
+ * colado não importava. A atribuição síncrona lá embaixo continua, porque duas
+ * teclas seguidas não esperam o watcher.
+ */
+watch(
+  () => draft.value.url,
+  (url) => {
+    previous = url
+  },
+)
+
 function onUrl(event: Event): void {
   const value = (event.target as HTMLInputElement).value
   const pasted = value.length - previous.length > 1
@@ -76,9 +92,34 @@ const TABS: readonly { id: Tab; label: string }[] = [
  *
  * Params aqui é só-leitura e quase sempre vazia — ela mostra o que o `-G`
  * trouxe. Abrir numa aba vazia na maioria das vezes é gastar o primeiro olhar
- * com nada.
+ * com nada. Em troca, a aba ganha um contador quando **tem** algo, senão o que
+ * está lá fica invisível até alguém clicar por acaso.
  */
 const tab = ref<Tab>('headers')
+
+/**
+ * O padrão de abas, inteiro.
+ *
+ * A primeira versão tinha `aria-selected` em botões sem `role="tab"` (que não
+ * é válido) e `aria-controls` apontando para três ids que não existem, porque
+ * os painéis são `v-if`. Meia semântica anuncia um contrato que não se cumpre —
+ * exatamente o argumento com que eu recusei o padrão completo, virado contra a
+ * versão que eu tinha entregado. Para quatro abas ele custa este punhado de
+ * linhas, então ele é feito.
+ */
+const tabs = useTemplateRef<HTMLElement[]>('tabs')
+
+function onTabKey(event: KeyboardEvent, at: number): void {
+  const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0
+  if (step === 0) return
+  event.preventDefault()
+
+  const next = (at + step + TABS.length) % TABS.length
+  tab.value = TABS[next]!.id
+  // O foco acompanha a seleção: é isso que faz a seta ser navegação e não só
+  // uma troca de conteúdo atrás das costas de quem usa teclado.
+  void nextTick(() => tabs.value?.[next]?.focus())
+}
 
 const addHeader = () => draft.value.headers.push({ id: rowId(), name: '', value: '' })
 const removeHeader = (at: number) => draft.value.headers.splice(at, 1)
@@ -145,19 +186,17 @@ const addAuth = () => (draft.value.auth = { user: '', password: '' })
       </button>
     </div>
 
-    <!--
-      Botões com `aria-selected`, e não o padrão WAI-ARIA completo de abas.
-      O padrão completo pede tabindex móvel e navegação por setas; meio caminho
-      é pior que nenhum, porque anuncia um contrato de teclado que não cumpre.
-    -->
-    <div class="flex gap-1 border-b border-[#1e2638]" aria-label="Partes da request">
+    <div role="tablist" aria-label="Partes da request" class="flex gap-1 border-b border-[#1e2638]">
       <button
-        v-for="item in TABS"
+        v-for="(item, at) in TABS"
         :key="item.id"
+        ref="tabs"
         type="button"
+        role="tab"
         :data-testid="`tab-${item.id}`"
         :aria-selected="tab === item.id"
         :aria-controls="`requests-panel-${item.id}`"
+        :tabindex="tab === item.id ? 0 : -1"
         class="-mb-px border-b-2 px-3 py-1.5 text-xs font-medium transition-colors"
         :class="
           tab === item.id
@@ -165,12 +204,16 @@ const addAuth = () => (draft.value.auth = { user: '', password: '' })
             : 'border-transparent text-[#747e8f] hover:text-gray-300'
         "
         @click="tab = item.id"
+        @keydown="onTabKey($event, at)"
       >
         {{ item.label }}
+        <span v-if="item.id === 'params' && draft.query.length > 0" class="text-blue-300">
+          {{ draft.query.length }}
+        </span>
       </button>
     </div>
 
-    <div id="requests-panel-params" v-if="tab === 'params'" class="text-xs text-[#747e8f]">
+    <div id="requests-panel-params" role="tabpanel" v-if="tab === 'params'" class="text-xs text-[#747e8f]">
       <!--
         Só-leitura neste corte. Estes pares vieram do `-G` e ficam **fora** da
         URL até o `toWire` (B1): colá-los aqui exigiria escolher entre `?` e `&`
@@ -186,7 +229,7 @@ const addAuth = () => (draft.value.auth = { user: '', password: '' })
       </p>
     </div>
 
-    <div id="requests-panel-headers" v-else-if="tab === 'headers'" class="flex flex-col gap-1.5">
+    <div id="requests-panel-headers" role="tabpanel" v-else-if="tab === 'headers'" class="flex flex-col gap-1.5">
       <!--
         A chave é a identidade da **linha**, não o índice e não o par: dois `-H`
         iguais são legítimos, e com o índice remover a primeira de duas destrói
@@ -225,7 +268,7 @@ const addAuth = () => (draft.value.auth = { user: '', password: '' })
       </button>
     </div>
 
-    <label id="requests-panel-body" v-else-if="tab === 'body'" class="flex flex-col gap-1">
+    <label id="requests-panel-body" role="tabpanel" v-else-if="tab === 'body'" class="flex flex-col gap-1">
       <span class="sr-only">Corpo</span>
       <textarea
         v-model="draft.body"
@@ -235,7 +278,7 @@ const addAuth = () => (draft.value.auth = { user: '', password: '' })
       ></textarea>
     </label>
 
-    <div id="requests-panel-auth" v-else class="flex flex-wrap items-center gap-2">
+    <div id="requests-panel-auth" role="tabpanel" v-else class="flex flex-wrap items-center gap-2">
       <template v-if="draft.auth">
         <input
           v-model="draft.auth.user"
