@@ -1156,3 +1156,80 @@ describe('gate 3 — a terceira porta', () => {
     expect(allAt(host, 'folder')).toHaveLength(1)
   })
 })
+
+describe('M2: executar roda o que está na tela, não o que ficou gravado', () => {
+  /** O que o servidor teria executado: o spec que está no banco naquele instante. */
+  const urlExecutada = async (port: RequestsPort, id: string) => {
+    const saved = (await port.requests()).find((request) => request.id === id)
+    return (saved?.spec as { url?: string } | undefined)?.url
+  }
+
+  it('grava a edição antes de rodar', async () => {
+    // A rota é `POST /requests/:id/execute` (ADR 0011), então o servidor só
+    // sabe rodar o que está no banco. Sem gravar antes, a tela mostrava
+    // `staging` e a rede recebia o host velho — em silêncio.
+    let executada: string | undefined
+    const port = testRequestsPort({ requests: [request('r1', 'uma')] })
+    const spy: RequestsPort = {
+      ...port,
+      execute: async (id) => {
+        executada = await urlExecutada(port, id)
+        return executed()
+      },
+    }
+    const { host } = mount(deps(spy))
+    await settle()
+
+    await click(allAt(host, 'request')[0]!)
+    await fill(at(host, 'url'), 'https://x.dev/EDITADA')
+    await click(at(host, 'execute'))
+
+    expect(executada).toBe('https://x.dev/EDITADA')
+  })
+
+  it('não executa quando a gravação falha, e diz por quê', async () => {
+    // Executar sem gravar mandaria para a rede exatamente o spec velho que a
+    // pessoa acabou de mudar — o defeito, com uma etapa a mais.
+    let calls = 0
+    const port = testRequestsPort({ requests: [request('r1', 'uma')] })
+    const refusing: RequestsPort = {
+      ...port,
+      async saveRequest() {
+        throw new Error('o servidor recusou')
+      },
+      execute: async () => {
+        calls += 1
+        return executed()
+      },
+    }
+    const { host } = mount(deps(refusing))
+    await settle()
+
+    await click(allAt(host, 'request')[0]!)
+    await fill(at(host, 'url'), 'https://x.dev/EDITADA')
+    await click(at(host, 'execute'))
+
+    expect(calls).toBe(0)
+    expect(text(host, 'error')).toContain('o servidor recusou')
+    expect(at(host, 'response')).toBeNull()
+  })
+
+  it('um curl recém-colado roda sem passar pelo botão Salvar', async () => {
+    // No Insomnia não existe "ainda não salvo", então também não existe request
+    // que não dá para rodar. Aqui a gravação é a mesma que o Executar já faz.
+    const port = testRequestsPort()
+    const spy: RequestsPort = { ...port, execute: async () => executed() }
+    const { host } = mount(deps(spy))
+    await settle()
+
+    await click(at(host, 'new-request'))
+    await fill(at(host, 'curl'), CURL)
+    await click(at(host, 'import-curl'))
+    await click(at(host, 'execute'))
+
+    expect(text(host, 'response-status')).toContain('200')
+    expect((await port.requests()).map((saved) => saved.name)).toEqual([
+      'https://api.stripe.com/v1/charges',
+    ])
+  })
+})

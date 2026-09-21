@@ -221,15 +221,25 @@ function doImport(): void {
  */
 const busy = () => saving.value || deleting.value
 
-async function save(): Promise<void> {
-  if (draft.value === null || busy()) return
+/**
+ * Grava o rascunho e devolve o que ficou gravado — ou `null` se não gravou.
+ *
+ * Existe separado de `save()` porque **executar também grava**: a rota é
+ * `POST /requests/:id/execute` (ADR 0011), então o servidor só sabe rodar o
+ * que está no banco. Sem isto a tela mostrava `staging` e a rede recebia o
+ * host velho, em silêncio — e o editor existe justamente para trocar um pelo
+ * outro "a cada tentativa".
+ */
+async function persist(): Promise<SavedRequest | null> {
+  if (draft.value === null) return null
+
   const request = savedOf(draft.value, {
     id: selected.value?.id ?? newId(),
     position: selected.value?.position ?? requests.value.length,
   })
   if (request === null) {
     error.value = 'falta método ou URL — sem os dois não há o que salvar nem o que executar.'
-    return
+    return null
   }
 
   const ticket = editor
@@ -255,14 +265,21 @@ async function save(): Promise<void> {
       if (draft.value !== null) draft.value.name = stored.name
     }
     await load()
+    return stored
   } catch (cause) {
     // Nomeada, e não suprimida. Perder a notícia de que **não gravou** é pior
     // do que mostrá-la depois de a pessoa ter ido para outra request — o que
     // não pode é ela chegar anônima e parecer ser sobre a tela atual.
     error.value = `não consegui salvar «${request.name}»: ${reason(cause, 'a API recusou')}`
+    return null
   } finally {
     saving.value = false
   }
+}
+
+async function save(): Promise<void> {
+  if (busy()) return
+  await persist()
 }
 
 async function createFolder(input: { name: string; parentId: string | null }): Promise<void> {
@@ -354,11 +371,26 @@ function describeFailure(cause: unknown): string {
 }
 
 async function execute(): Promise<void> {
-  const id = selected.value?.id
   // A guarda é contra o clique duplo: duas execuções em voo mostram a que
   // terminar por último, que não é a última que a pessoa pediu — e num POST a
-  // requisição sai duas vezes.
-  if (id === undefined || running.value) return
+  // requisição sai duas vezes. `busy()` entra junto porque executar agora
+  // grava, e gravar não corre com apagar.
+  if (draft.value === null || running.value || busy()) return
+
+  /**
+   * Grava primeiro, **sempre**, e não só quando o rascunho está sujo.
+   *
+   * Comparar para decidir exigiria um "está sujo?" — mais uma verdade a manter
+   * em dia, num arquivo cuja história inteira é estado que saiu de sincronia.
+   * Gravar sempre torna a pergunta desnecessária: o que está na tela é o que
+   * está no banco é o que vai para a rede. É o modelo do Insomnia, por clique
+   * em vez de por tecla, e o preço é o mesmo que o Insomnia cobra — todo
+   * experimento persiste.
+   */
+  const stored = await persist()
+  if (stored === null) return
+
+  const id = stored.id
 
   clearResponse()
   const ticket = (generation += 1)

@@ -87,8 +87,10 @@ const removeHeader = (at: number) => draft.value.headers.splice(at, 1)
       >
         Salvar
       </button>
+      <!-- Sem `v-if="savedId"`: executar grava antes, então não existe request
+           que não dá para rodar — do mesmo jeito que no Insomnia não existe
+           request não salva. Apagar continua precisando de algo gravado. -->
       <button
-        v-if="savedId"
         type="button"
         data-testid="execute"
         :disabled="running"
@@ -108,6 +110,11 @@ const removeHeader = (at: number) => draft.value.headers.splice(at, 1)
         Apagar
       </button>
     </div>
+
+    <p class="text-xs text-[#747e8f]">
+      Executar grava o que está na tela antes de rodar — o servidor executa o que está
+      guardado, então é assim que a requisição sai igual ao que você está vendo.
+    </p>
 
     <div v-if="draft.query.length > 0" class="text-xs text-[#747e8f]" data-testid="query">
       query do <code>-G</code>: {{ draft.query.join(' & ') }} — colada na URL só na hora de sair.

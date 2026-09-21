@@ -165,6 +165,28 @@ abriu em vez de inventar texto. Um fallback para `deflate-raw` cobriria o caso
 em três linhas, e fica escrito aqui em vez de escrito em código porque ninguém
 esbarrou nele ainda.
 
+### Executar grava antes de rodar
+
+Consequência da rota, não preferência: `POST /requests/:id/execute` significa que
+o servidor executa **o que está no banco**. Com um editor na tela, isso cria dois
+estados e a chance de a tela mostrar `staging` enquanto a rede recebe o host
+velho — em silêncio, que é a pior forma.
+
+A categoria não vive com essa divergência, e resolve por lados opostos: o
+Insomnia salva a cada tecla, então nunca há estado não salvo; o Postman manda o
+que está no editor, então nunca executa o gravado. Aqui a segunda saída custaria
+a rota aceitar um spec inline, e é o servidor que mudaria.
+
+Escolhemos a primeira, por clique em vez de por tecla: **Executar grava e depois
+roda.** Sempre, e não só quando o rascunho está sujo — comparar exigiria manter
+mais uma verdade em dia, num módulo cuja história inteira é estado saindo de
+sincronia. O preço é o mesmo que o Insomnia cobra e sobre o qual existe reclamação
+antiga: todo experimento persiste. Aceito porque a alternativa é a requisição sair
+diferente do que está na tela.
+
+Efeito colateral que é ganho: não existe mais request "que ainda não dá para
+rodar". Colar um curl e executar é um clique.
+
 **O que a tela ainda não faz**, escrito aqui para não ser confundido com
 esquecimento: apagar e renomear pasta (o servidor não tem a rota), arrastar
 request entre pastas, e histórico de execução — a resposta continua vivendo
