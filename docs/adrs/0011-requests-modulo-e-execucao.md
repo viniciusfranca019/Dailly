@@ -158,6 +158,13 @@ que **chega pela rede**; comprimido, isso são gigabytes depois de expandir, e o
 número que ele limitou viraria o que o renderer segura em memória. A tela para
 em 16 MB e marca.
 
+Um limite menor, na mesma família: `deflate` **cru**, sem o envelope zlib, não
+abre — o `DecompressionStream('deflate')` é estrito onde os navegadores são
+tolerantes. É bug de servidor, e a tela o trata como trata brotli: diz que não
+abriu em vez de inventar texto. Um fallback para `deflate-raw` cobriria o caso
+em três linhas, e fica escrito aqui em vez de escrito em código porque ninguém
+esbarrou nele ainda.
+
 **O que a tela ainda não faz**, escrito aqui para não ser confundido com
 esquecimento: apagar e renomear pasta (o servidor não tem a rota), arrastar
 request entre pastas, e histórico de execução — a resposta continua vivendo

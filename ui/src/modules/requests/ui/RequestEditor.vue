@@ -20,6 +20,7 @@ defineProps<{
   /** `null` enquanto a request ainda não foi salva — não há o que executar. */
   savedId: string | null
   saving: boolean
+  deleting: boolean
   running: boolean
 }>()
 
@@ -80,7 +81,7 @@ const removeHeader = (at: number) => draft.value.headers.splice(at, 1)
       <button
         type="button"
         data-testid="save"
-        :disabled="saving"
+        :disabled="saving || deleting"
         class="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
         @click="emit('save')"
       >
@@ -100,7 +101,8 @@ const removeHeader = (at: number) => draft.value.headers.splice(at, 1)
         v-if="savedId"
         type="button"
         data-testid="delete"
-        class="rounded border border-red-500/30 px-3 py-1.5 text-sm text-red-300 hover:bg-red-500/10"
+        :disabled="saving || deleting"
+        class="disabled:opacity-50 rounded border border-red-500/30 px-3 py-1.5 text-sm text-red-300 hover:bg-red-500/10"
         @click="emit('remove')"
       >
         Apagar

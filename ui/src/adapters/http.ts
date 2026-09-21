@@ -72,9 +72,17 @@ export function describeRefusal(payload: unknown): string {
     const body = payload as { error?: unknown; errors?: { field?: string; message?: string }[] }
     if (typeof body.error === 'string') return body.error
     if (Array.isArray(body.errors)) {
-      return body.errors
+      // Os itens passam pela mesma peneira que a lista: `errors: [null]`
+      // estourava `TypeError` cru para fora daqui, passando ao largo de
+      // `ApiError` e `ApiUnreachableError` — e agora este caminho está na rota
+      // de execução, que é egresso para a internet.
+      const said = body.errors
+        .filter((error): error is { field?: string; message?: string } =>
+          typeof error === 'object' && error !== null,
+        )
         .map((error) => [error.field, error.message].filter(Boolean).join(' '))
-        .join('; ')
+        .filter((phrase) => phrase !== '')
+      if (said.length > 0) return said.join('; ')
     }
   }
   return 'a API recusou a requisição'
