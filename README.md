@@ -362,7 +362,14 @@ enquanto a rede recebe outra. É o modelo do Insomnia, por clique em vez de por
 tecla, com o preço que ele cobra: todo experimento persiste. Em troca, o que está
 na tela é sempre o que sai, e colar um curl e executar é um clique.
 
-A tela é editar em cima, resposta embaixo, coleção **à direita**. À direita e
+A tela é o arranjo da categoria: método, URL e Enviar numa linha, Params ·
+Headers · Body · Auth em abas, resposta embaixo, coleção **à direita**. E o curl
+entra **pela barra de URL**, como no Postman — não há painel separado para colar.
+
+Na coleção, um `+` no cabeçalho e outro em cada pasta abrem *Nova request* /
+*Nova pasta*. Onde a coisa nasce é dito por qual `+` foi clicado, e por isso não
+existe campo perguntando "dentro de quê" — era assim que a pasta-mãe de uma
+tentativa sobrevivia para a seguinte. À direita e
 não à esquerda como a categoria faz: a navegação do shell já é uma barra à
 esquerda, e duas coladas fazem a pessoa procurar em qual das duas está o que
 ela quer.

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { SavedRequest } from '@dailly/requests-core'
+import AddMenu from './AddMenu.vue'
 import type { TreeFolder } from './tree.js'
 
 /**
@@ -10,17 +11,30 @@ import type { TreeFolder } from './tree.js'
  * um componente que se chama.
  */
 defineProps<{ node: TreeFolder; selected: string | null }>()
-const emit = defineEmits<{ pick: [request: SavedRequest] }>()
+const emit = defineEmits<{
+  pick: [request: SavedRequest]
+  newRequest: [parentId: string | null]
+  newFolder: [parentId: string | null]
+}>()
 </script>
 
 <template>
   <li>
-    <div
-      class="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-[#747e8f]"
-      data-testid="folder"
-      :data-folder-id="node.folder.id"
-    >
-      {{ node.folder.name }}
+    <div class="flex items-center gap-1 px-2 py-1">
+      <span
+        class="flex-1 truncate text-xs font-semibold uppercase tracking-wide text-[#747e8f]"
+        data-testid="folder"
+        :data-folder-id="node.folder.id"
+      >
+        {{ node.folder.name }}
+      </span>
+      <AddMenu
+        :parent-id="node.folder.id"
+        :where="node.folder.name"
+        testid="add-in-folder"
+        @new-request="emit('newRequest', $event)"
+        @new-folder="emit('newFolder', $event)"
+      />
     </div>
 
     <ul class="border-l border-[#1e2638] pl-2">
@@ -44,6 +58,8 @@ const emit = defineEmits<{ pick: [request: SavedRequest] }>()
         :node="child"
         :selected="selected"
         @pick="emit('pick', $event)"
+        @new-request="emit('newRequest', $event)"
+        @new-folder="emit('newFolder', $event)"
       />
     </ul>
   </li>
