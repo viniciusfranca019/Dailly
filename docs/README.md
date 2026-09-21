@@ -12,7 +12,8 @@ código que já está aqui.
 | [`adaptacao-dailly.md`](adaptacao-dailly.md) | Ponte entre as referências e este projeto. **Leia primeiro** |
 | [`mvp.md`](mvp.md) | Comportamentos esperados, em BDD/Gherkin |
 | [`auditoria-lacunas.md`](auditoria-lacunas.md) | O que ainda **não** está decidido. Leia antes de codar |
+| [`../TODO.md`](../TODO.md) | O que já foi decidido e **não** está feito, com o gatilho de cada um |
 | [`roadmap.md`](roadmap.md) | Ordem de implementação, fases e dependências |
-| [`adrs/`](adrs/) | Decisões de arquitetura (0001 geral · 0002 dados · 0003 UI · 0004 BYOK · 0005 backup · 0006 modularização · 0007 API local e tempo · 0008 Electron · 0009 topologia · 0010 Vue) |
+| [`adrs/`](adrs/) | Decisões de arquitetura (0001 geral · 0002 dados · 0003 UI · 0004 BYOK · 0005 backup · 0006 modularização · 0007 API local e tempo · 0008 Electron · 0009 topologia · 0010 Vue · 0011 Requests) |
 
 O código do whiteboard está documentado no [README da raiz](../README.md).
