@@ -10,7 +10,10 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   test: {
     projects: [
-      'packages/*',
+      // O config de cada pacote, e não `packages/*`: o glob de diretório também
+      // casa `packages/README.md` e `packages/docs/`, e o vitest recusa arquivo
+      // que não é config — a suíte inteira não sobe.
+      'packages/*/vitest.config.ts',
       'server',
       'ui',
       // The rules *between* projects have no project of their own, so they run

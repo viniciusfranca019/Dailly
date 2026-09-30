@@ -9,6 +9,7 @@ código que já está aqui.
 
 | Arquivo | O que é |
 |---|---|
+| [`architecture.md`](architecture.md) | Como o sistema se comporta, módulo por módulo, e onde cada pedaço mora |
 | [`adaptacao-dailly.md`](adaptacao-dailly.md) | Ponte entre as referências e este projeto. **Leia primeiro** |
 | [`mvp.md`](mvp.md) | Comportamentos esperados, em BDD/Gherkin |
 | [`auditoria-lacunas.md`](auditoria-lacunas.md) | O que ainda **não** está decidido. Leia antes de codar |
@@ -16,4 +17,7 @@ código que já está aqui.
 | [`roadmap.md`](roadmap.md) | Ordem de implementação, fases e dependências |
 | [`adrs/`](adrs/) | Decisões de arquitetura (0001 geral · 0002 dados · 0003 UI · 0004 BYOK · 0005 backup · 0006 modularização · 0007 API local e tempo · 0008 Electron · 0009 topologia · 0010 Vue · 0011 Requests) |
 
-O código do whiteboard está documentado no [README da raiz](../README.md).
+A arquitetura de cada projeto está ao lado do código dele:
+[`packages/docs/`](../packages/docs/architecture.md) ·
+[`server/src/docs/`](../server/src/docs/architecture.md) ·
+[`ui/src/docs/`](../ui/src/docs/architecture.md).
