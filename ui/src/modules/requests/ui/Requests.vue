@@ -343,7 +343,11 @@ async function save(): Promise<void> {
  * estava", e não um palpite otimista desfeito à mão.
  */
 async function changeTree(work: () => Promise<void>, failure: string): Promise<void> {
-  if (busy()) return
+  // Dito, e não engolido: a árvore parada sem motivo parece defeito.
+  if (busy()) {
+    treeError.value = `${failure}: há uma gravação em andamento — tente de novo em seguida.`
+    return
+  }
   changingTree.value = true
   treeError.value = null
   try {
@@ -363,14 +367,17 @@ async function changeTree(work: () => Promise<void>, failure: string): Promise<v
  * O rascunho guarda nome e pasta. Sem isto, mover ou renomear pela árvore a
  * request que está aberta funcionaria até o próximo Salvar, que regravaria o
  * nome e a pasta antigos por cima — desfazendo em silêncio o que a pessoa fez.
+ *
+ * **Só o campo que a árvore mudou.** Copiar os dois apagava o outro: mover
+ * pela árvore trazia de volta o nome guardado por cima de um nome que a pessoa
+ * tinha digitado no editor e ainda não salvo.
  */
-function follow(stored: SavedRequest): void {
+function follow(stored: SavedRequest, field: 'name' | 'folderId'): void {
   if (selected.value?.id !== stored.id) return
   selected.value = stored
-  if (draft.value !== null) {
-    draft.value.name = stored.name
-    draft.value.folderId = stored.folderId
-  }
+  if (draft.value === null) return
+  if (field === 'name') draft.value.name = stored.name
+  else draft.value.folderId = stored.folderId
 }
 
 /** Fecha o editor quando o que ele mostra deixou de existir. */
@@ -387,7 +394,7 @@ function moveInTree(input: { dragged: Dragged; target: string | null; position: 
   const { dragged, target, position } = input
   void changeTree(async () => {
     if (dragged.kind === 'request') {
-      follow(await props.deps.requests.saveRequest({ ...dragged.item, folderId: target, position }))
+      follow(await props.deps.requests.saveRequest({ ...dragged.item, folderId: target, position }), 'folderId')
     } else {
       await props.deps.requests.saveFolder({ ...dragged.item, parentId: target, position })
     }
@@ -398,7 +405,7 @@ function renameInTree(input: { target: Item; name: string }): void {
   const { target, name } = input
   void changeTree(async () => {
     if (target.kind === 'request') {
-      follow(await props.deps.requests.saveRequest({ ...target.item, name }))
+      follow(await props.deps.requests.saveRequest({ ...target.item, name }), 'name')
     } else {
       await props.deps.requests.saveFolder({ ...target.item, name })
     }

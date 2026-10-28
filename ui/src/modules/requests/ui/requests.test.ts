@@ -2180,6 +2180,20 @@ describe('a árvore no jeito do Apidog', () => {
     expect(tone('OPTIONS')).toContain('text-gray-400')
   })
 
+  it('árvore C5, C11: a árvore leva ao editor só o campo que mudou, sem apagar o que foi digitado', async () => {
+    const port = seeded()
+    const { host } = mount(deps(port))
+    await settle()
+    await click(requestRow(host, 'c'))
+
+    await fill(at(host, 'name'), 'nome ainda não salvo')
+    await drag(requestRow(host, 'c'), folderRow(host, 'n8n'))
+
+    expect((await port.requests()).find((r) => r.id === 'c')?.folderId).toBe('n8n')
+    expect(at<HTMLInputElement>(host, 'name')?.value).toBe('nome ainda não salvo')
+    expect(at<HTMLSelectElement>(host, 'request-folder')?.value).toBe('n8n')
+  })
+
   it('árvore C11, C12: renomear e apagar a request aberta acompanham o editor', async () => {
     const port = seeded()
     const { host } = mount(deps(port))
