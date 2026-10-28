@@ -70,6 +70,7 @@ describe('um protocolo novo entra sem tocar nas rotas', () => {
     const response = await execute(app)
 
     expect(response.statusCode).toBe(422)
+    expect(response.json().errors).toEqual([{ field: 'text', message: 'é obrigatório' }])
   })
 
   it('um protocolo que o servidor não registrou é 422 nomeando-o', async () => {

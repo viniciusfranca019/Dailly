@@ -117,7 +117,9 @@ e o executor deste servidor. A rota monta o registry e escolhe o executor pela
 mesma chave, `protocol`, então gRPC ou AMQP entram como mais um item em
 `PROTOCOLS`, sem tocar nas rotas nem no schema. Juntos e não em dois registros,
 porque assim não existe protocolo que o servidor monte e não saiba executar. O
-que ainda é só HTTP: a tela de edição e a forma da resposta que ela mostra.
+que ainda é só HTTP: a tela de edição, a forma da resposta que ela mostra e os
+erros que a rota traduz para 422/502/504, que moram em `execute.ts` — um
+executor novo os reusa de lá até haver um segundo motivo para movê-los.
 
 ```
 barra de URL ── curl ──► importCurl (fromRaw)        renderer, @dailly/requests-core/http
