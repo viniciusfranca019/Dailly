@@ -9,24 +9,11 @@ import {
   UnresolvedVariableError,
   resolve,
 } from '@dailly/requests-core'
-import { type HttpWire, httpDriver } from '@dailly/requests-core/http'
+import type { WireRequest } from '@dailly/requests-core'
 import type { FastifyInstance, FastifyReply } from 'fastify'
-import {
-  ExecutionTimeoutError,
-  InvalidWireError,
-  TargetUnreachableError,
-  executeHttp,
-} from './execute.js'
+import { ExecutionTimeoutError, InvalidWireError, TargetUnreachableError } from './execute.js'
+import { PROTOCOLS, type Protocol } from './protocols.js'
 import { validateFolder, validateSavedRequest } from './validate.js'
-
-/**
- * Os protocolos que este servidor sabe montar — hoje um.
- *
- * O registry é montado aqui e não importado do pacote porque registrar é
- * composição: o dia em que existir um driver gRPC, ele entra nesta linha e
- * nada mais muda.
- */
-const registry = new ProtocolRegistry().register(httpDriver)
 
 /**
  * As rotas de coleção: guardar, listar, apagar, organizar.
@@ -35,7 +22,17 @@ const registry = new ProtocolRegistry().register(httpDriver)
  * store, não um use-case. A única decisão que mora aqui é qual erro do domínio
  * vira qual status, e ela é feita uma vez, no `answer`.
  */
-export function registerRequestRoutes(app: FastifyInstance, store: RequestStore): void {
+export function registerRequestRoutes(
+  app: FastifyInstance,
+  store: RequestStore,
+  protocols: readonly Protocol[] = PROTOCOLS,
+): void {
+  // O registry é montado da lista, e não importado do pacote, porque registrar
+  // é composição: o dia em que existir gRPC, ele entra em `PROTOCOLS` e nada
+  // aqui muda. O mapa ao lado é a metade efetiva, escolhida pela mesma chave.
+  const registry = protocols.reduce((r, p) => r.register(p.driver), new ProtocolRegistry())
+  const executors = new Map(protocols.map((p) => [p.driver.protocol, p] as const))
+
   /**
    * Traduz o vocabulário do domínio para HTTP, num lugar só.
    *
@@ -109,9 +106,9 @@ export function registerRequestRoutes(app: FastifyInstance, store: RequestStore)
       .map(([name]) => ({ field: `env.${name}`, message: 'deve ser texto' }))
     if (naoTexto.length > 0) return reply.code(400).send({ errors: naoTexto })
 
-    let wire: HttpWire
+    let wire: WireRequest
     try {
-      wire = resolve<HttpWire>(registry, saved, (env ?? {}) as Record<string, string>)
+      wire = resolve(registry, saved, (env ?? {}) as Record<string, string>)
     } catch (error) {
       // As três recusas são do cliente, não do servidor — e cada uma diz o que
       // falta consertar. Um 500 mandaria procurar defeito aqui dentro.
@@ -132,7 +129,14 @@ export function registerRequestRoutes(app: FastifyInstance, store: RequestStore)
     }
 
     try {
-      return await executeHttp(wire)
+      // Driver e executor vêm do mesmo `Protocol`, e o `resolve` já recusou
+      // protocolo sem driver — então isto não acontece. A recusa existe para
+      // que, se um dia acontecer, seja nomeada, e não um `TypeError` em 500.
+      const protocol = executors.get(saved.protocol)
+      if (!protocol) {
+        return reply.code(422).send({ error: `nenhum executor para o protocolo "${saved.protocol}"` })
+      }
+      return await protocol.execute(wire)
     } catch (error) {
       if (error instanceof InvalidWireError) {
         // 422 e não 502: a recusa é do spec, e aconteceu antes de qualquer
