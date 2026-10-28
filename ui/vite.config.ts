@@ -31,7 +31,11 @@ export default defineConfig({
       // since ADR 0012.
       '/api': {
         target: `http://127.0.0.1:${process.env['DAILLY_PORT'] ?? 4317}`,
-        changeOrigin: true,
+        // `false`, e não `true`: a API recusa `Host` que não é desta máquina
+        // (ADR 0012, DNS rebinding), e com `true` o proxy trocava todo `Host`
+        // por `127.0.0.1:<porta>` — a API nunca via o do atacante. O do
+        // navegador legítimo (`localhost:5173`, `localhost:4173`) já passa.
+        changeOrigin: false,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
     },

@@ -54,7 +54,11 @@ são a ameaça agora, por dois caminhos:
 
 - **DNS rebinding:** um site faz o próprio domínio resolver para `127.0.0.1` e
   fala com a API como se fosse de mesma origem. Fechado pelo **Host**: só
-  `localhost`, `127.0.0.1` e `[::1]`, em qualquer porta, passam.
+  `localhost`, `127.0.0.1` e `[::1]`, em qualquer porta, passam. Isso só vale
+  porque o proxy do vite repassa o `Host` do navegador (`changeOrigin: false`):
+  com `true` ele trocava todo `Host` por `127.0.0.1`, e a API nunca via o do
+  atacante. O `ui/src/proxy.test.ts` prende isso; a checagem de hosts do
+  próprio vite fica como segunda camada, não como a única.
 - **CSRF:** um `POST` `text/plain` de outro site não passa por preflight. Ele
   chegaria ao `/requests/:id/execute`, que é egresso para a internet a partir
   desta máquina. Fechado pelo **Origin**: quando presente, tem que ser desta

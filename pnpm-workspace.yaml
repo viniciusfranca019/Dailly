@@ -8,5 +8,4 @@ packages:
 # o .node compilado, o tsx sem o esbuild.
 allowBuilds:
   better-sqlite3: true
-  electron: set this to true or false
   esbuild: true
