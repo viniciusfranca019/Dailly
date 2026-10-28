@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Folder } from '@dailly/requests-core'
-import { nextTick, ref, useTemplateRef, watch } from 'vue'
+import { nextTick, ref, useTemplateRef } from 'vue'
 import { rowId, type Draft } from './draft.js'
 
 /**
@@ -51,28 +51,25 @@ const emit = defineEmits<{ save: []; execute: []; remove: []; pasteCurl: [raw: s
  */
 const CURL = /^\s*curl\s/
 
-let previous = ''
-
 /**
- * O "antes" acompanha o modelo, e não só o que foi digitado.
+ * O "antes" é o modelo, lido **antes** de gravar — e só este listener grava.
  *
- * Sem isto, o valor de referência ficava sendo o **texto colado** enquanto o
- * campo passava a mostrar a URL curta que a importação produziu — e a próxima
- * colagem parecia um encolhimento, não um salto. Resultado: o segundo curl
- * colado não importava. A atribuição síncrona lá embaixo continua, porque duas
- * teclas seguidas não esperam o watcher.
+ * O campo tinha `v-model` e `@input` juntos, e um `watch` copiava a URL para
+ * um `previous`. No navegador, a fila de microtasks roda entre um listener e o
+ * próximo: o `v-model` gravava o texto colado, o `watch` rodava no intervalo,
+ * e o `onUrl` media o salto contra o próprio texto colado — zero. Colar não
+ * importava nada. O jsdom chama os listeners de uma vez, e a suíte não via.
+ *
+ * Um listener só não tem intervalo. E o modelo também resolve o caso que o
+ * `watch` existia para resolver: depois de um import, o "antes" é a URL curta
+ * que a importação produziu, então a próxima colagem é salto, não encolhimento.
  */
-watch(
-  () => draft.value.url,
-  (url) => {
-    previous = url
-  },
-)
-
 function onUrl(event: Event): void {
   const value = (event.target as HTMLInputElement).value
-  const pasted = value.length - previous.length > 1
-  previous = value
+  const pasted = value.length - draft.value.url.length > 1
+  // Grava sempre, mesmo quando é import: um curl recusado fica no campo **e**
+  // no modelo para a pessoa consertar, senão o Enviar mandaria a URL antiga.
+  draft.value.url = value
   if (pasted && CURL.test(value)) emit('pasteCurl', value)
 }
 
@@ -168,7 +165,7 @@ const addAuth = () => (draft.value.auth = { user: '', password: '' })
         <option v-for="method in METHODS" :key="method" :value="method" />
       </datalist>
       <input
-        v-model="draft.url"
+        :value="draft.url"
         data-testid="url"
         @input="onUrl"
         aria-label="URL"
