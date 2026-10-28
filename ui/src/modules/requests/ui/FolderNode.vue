@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, useTemplateRef } from 'vue'
+import { computed, useTemplateRef } from 'vue'
 import ConfirmDelete from './ConfirmDelete.vue'
 import FolderForm from './FolderForm.vue'
 import InlineRename from './InlineRename.vue'
@@ -32,7 +32,7 @@ const item = computed(() => ({ kind: 'folder', item: props.node.folder }) as con
 const open = computed(() => tree.isOpen(id.value))
 const count = computed(() => totals(props.node))
 const menu = useTemplateRef<InstanceType<typeof ItemMenu>>('menu')
-const over = ref(false)
+const lit = computed(() => tree.isLit(id.value))
 
 const editing = computed(() => {
   const now = tree.editing.value
@@ -60,16 +60,17 @@ function onDragStart(event: DragEvent): void {
 
 /** Aceitar é chamar `preventDefault` no `dragover`; recusar é não chamar. */
 function onDragOver(event: DragEvent): void {
-  over.value = tree.canDropOn(id.value)
-  if (over.value) {
-    event.preventDefault()
-    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
-  }
+  tree.hover(id.value)
+  if (!tree.canDropOn(id.value)) return
+  event.preventDefault()
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
 }
 
 function onDrop(event: DragEvent): void {
-  over.value = false
-  if (!tree.canDropOn(id.value)) return
+  if (!tree.canDropOn(id.value)) {
+    tree.hover(undefined)
+    return
+  }
   event.preventDefault()
   tree.dropOn(id.value)
 }
@@ -82,9 +83,9 @@ function onContextMenu(event: MouseEvent): void {
 <template>
   <li
     class="rounded"
-    :class="{ 'bg-blue-500/10 ring-1 ring-blue-500/40': over }"
+    :class="{ 'bg-blue-500/10 ring-1 ring-blue-500/40': lit }"
+    :data-drop-target="lit ? node.folder.id : undefined"
     @dragover.stop="onDragOver"
-    @dragleave.self="over = false"
     @drop.stop="onDrop"
   >
     <InlineRename
@@ -99,7 +100,7 @@ function onContextMenu(event: MouseEvent): void {
       class="group flex items-center gap-1 rounded pr-1 hover:bg-white/5"
       draggable="true"
       @dragstart.stop="onDragStart"
-      @dragend.stop="tree.endDrag(); over = false"
+      @dragend.stop="tree.endDrag()"
       @contextmenu.prevent.stop="onContextMenu"
     >
       <button

@@ -36,7 +36,8 @@ function onKey(event: KeyboardEvent): void {
 </script>
 
 <template>
-  <div class="flex flex-col gap-1 px-2 py-0.5">
+  <!-- `.stop` sem `.prevent`: aqui o clique direito é o do navegador (copiar, colar). -->
+  <div class="flex flex-col gap-1 px-2 py-0.5" @contextmenu.stop>
     <input
       ref="input"
       v-model="value"

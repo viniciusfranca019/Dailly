@@ -1935,7 +1935,7 @@ describe('a árvore no jeito do Apidog', () => {
       ],
     })
 
-  it('a pasta mostra quantas requests carrega na descendência, e começa fechada', async () => {
+  it('árvore C1, C2: a pasta mostra quantas requests carrega na descendência, e começa fechada', async () => {
     const { host } = mount(deps(seeded()))
     await settle()
 
@@ -1945,7 +1945,7 @@ describe('a árvore no jeito do Apidog', () => {
     expect(requestRow(host, 'a')).toBeNull()
   })
 
-  it('abrir mostra o conteúdo com o método colorido, e é lembrado ao remontar', async () => {
+  it('árvore C1, C2: abrir mostra o conteúdo com o método, e é lembrado ao remontar', async () => {
     const port = seeded()
     const first = mount(deps(port))
     await settle()
@@ -1964,7 +1964,7 @@ describe('a árvore no jeito do Apidog', () => {
     expect(requestRow(second.host, 'a')).not.toBeNull()
   })
 
-  it('o ⋯ substitui o +, e cada nível tem as suas opções', async () => {
+  it('árvore C3, C11: o ⋯ substitui o +, e cada nível tem as suas opções', async () => {
     const { host } = mount(deps(seeded()))
     await settle()
 
@@ -1979,12 +1979,14 @@ describe('a árvore no jeito do Apidog', () => {
     expect(menuItems(host)).toEqual(['Renomear', 'Apagar'])
   })
 
-  it('o clique direito abre o mesmo menu — na pasta, na request e no vazio da coleção', async () => {
+  it('árvore C4: o clique direito abre o mesmo menu, no ponto do mouse — na pasta, na request e no vazio', async () => {
     const { host } = mount(deps(seeded()))
     await settle()
 
     expect((await rightClick(folderRow(host, 'konsi'))).defaultPrevented).toBe(true)
     expect(menuItems(host)).toEqual(['Nova request', 'Nova pasta', 'Renomear', 'Apagar'])
+    const aberto = host.querySelector<HTMLElement>('[role="menu"]')!
+    expect([aberto.style.left, aberto.style.top]).toEqual(['40px', '60px'])
 
     await rightClick(requestRow(host, 'c'))
     expect(menuItems(host)).toEqual(['Renomear', 'Apagar'])
@@ -1997,7 +1999,7 @@ describe('a árvore no jeito do Apidog', () => {
     expect(menuItems(host)).toEqual([])
   })
 
-  it('arrastar uma request para outra pasta muda onde ela mora, e fica salvo', async () => {
+  it('árvore C5: arrastar uma request para outra pasta muda onde ela mora, e fica salvo', async () => {
     const port = seeded()
     const { host } = mount(deps(port))
     await settle()
@@ -2009,7 +2011,7 @@ describe('a árvore no jeito do Apidog', () => {
     expect(folderRow(host, 'n8n')?.querySelector('[data-testid="folder-count"]')?.textContent).toBe('(1)')
   })
 
-  it('arrastar uma pasta para outra leva tudo junto, e para a raiz também vale', async () => {
+  it('árvore C6: arrastar uma pasta para outra leva tudo junto, e para a raiz também vale', async () => {
     const port = seeded()
     const { host } = mount(deps(port))
     await settle()
@@ -2023,7 +2025,7 @@ describe('a árvore no jeito do Apidog', () => {
     expect((await port.folders()).find((f) => f.id === 'trigger')?.parentId).toBeNull()
   })
 
-  it('uma pasta não aceita ser solta dentro dela mesma nem da descendência', async () => {
+  it('árvore C7: uma pasta não aceita ser solta dentro dela mesma nem da descendência', async () => {
     const port = seeded()
     const { host } = mount(deps(port))
     await settle()
@@ -2037,7 +2039,7 @@ describe('a árvore no jeito do Apidog', () => {
     expect((await port.folders()).find((f) => f.id === 'konsi')?.parentId).toBeNull()
   })
 
-  it('se o servidor recusa o movimento, a árvore fica como estava e diz o porquê', async () => {
+  it('árvore C8: se o servidor recusa o movimento, a árvore fica como estava e diz o porquê', async () => {
     const base = seeded()
     const port: RequestsPort = {
       ...base,
@@ -2055,7 +2057,7 @@ describe('a árvore no jeito do Apidog', () => {
     expect(requestRow(host, 'c')).not.toBeNull()
   })
 
-  it('renomear uma pasta no lugar: Enter salva, Esc cancela, vazio é recusado', async () => {
+  it('árvore C9: renomear uma pasta no lugar: Enter salva, Esc cancela, vazio é recusado', async () => {
     const port = seeded()
     const { host } = mount(deps(port))
     await settle()
@@ -2084,7 +2086,7 @@ describe('a árvore no jeito do Apidog', () => {
     expect((await port.folders()).find((f) => f.id === 'n8n')?.name).toBe('automações')
   })
 
-  it('apagar uma pasta confirma dizendo quanto vai junto, e leva tudo', async () => {
+  it('árvore C10: apagar uma pasta confirma dizendo quanto vai junto, e leva tudo', async () => {
     const port = seeded()
     const { host } = mount(deps(port))
     await settle()
@@ -2101,7 +2103,7 @@ describe('a árvore no jeito do Apidog', () => {
     expect((await port.requests()).map((r) => r.id)).toEqual(['c'])
   })
 
-  it('se o servidor recusa apagar, a recusa aparece e nada some', async () => {
+  it('árvore C8, C10: se o servidor recusa apagar, a recusa aparece e nada some', async () => {
     const base = seeded()
     const port: RequestsPort = {
       ...base,
@@ -2120,7 +2122,65 @@ describe('a árvore no jeito do Apidog', () => {
     expect(folderRow(host, 'n8n')).not.toBeNull()
   })
 
-  it('renomear e apagar a request aberta acompanham o editor', async () => {
+  it('árvore C2: fechar uma pasta do caminho da request aberta não é desfeito por uma releitura', async () => {
+    const port = seeded()
+    const { host } = mount(deps(port))
+    await settle()
+    await click(folderRow(host, 'konsi'))
+    await click(folderRow(host, 'trigger'))
+    await click(requestRow(host, 'a'))
+    await click(folderRow(host, 'trigger'))
+    expect(folderRow(host, 'trigger')?.getAttribute('aria-expanded')).toBe('false')
+
+    // Qualquer mudança na árvore relê a coleção.
+    await click(menuOf(host, 'n8n'))
+    await click(at(host, 'menu-rename'))
+    await fill(at(host, 'rename'), 'automações')
+    at(host, 'rename')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    await settle()
+
+    expect(folderRow(host, 'trigger')?.getAttribute('aria-expanded')).toBe('false')
+  })
+
+  it('árvore C7: só o alvo sob o ponteiro acende, e nada fica aceso depois de soltar', async () => {
+    const { host } = mount(deps(seeded()))
+    await settle()
+    const lit = () => [...host.querySelectorAll<HTMLElement>('[data-drop-target]')].map((el) => el.dataset['dropTarget'])
+
+    requestRow(host, 'c')!.dispatchEvent(new Event('dragstart', { bubbles: true }))
+    at(host, 'collections')!.dispatchEvent(new Event('dragover', { bubbles: true, cancelable: true }))
+    folderRow(host, 'konsi')!.dispatchEvent(new Event('dragover', { bubbles: true, cancelable: true }))
+    await settle()
+    expect(lit()).toEqual(['konsi'])
+
+    folderRow(host, 'n8n')!.dispatchEvent(new Event('dragover', { bubbles: true, cancelable: true }))
+    await settle()
+    expect(lit()).toEqual(['n8n'])
+
+    folderRow(host, 'n8n')!.dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }))
+    requestRow(host, 'c')?.dispatchEvent(new Event('dragend', { bubbles: true }))
+    await settle()
+    expect(lit()).toEqual([])
+  })
+
+  it('árvore C1: cada método tem a sua cor, e o desconhecido é cinza', async () => {
+    const spec = (method: string) => ({ method, url: 'https://x.dev', headers: [], body: null, query: [], auth: null })
+    const methods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
+    const { host } = mount(
+      deps(testRequestsPort({ requests: methods.map((m) => ({ ...request(m, m), spec: spec(m) })) })),
+    )
+    await settle()
+    const tone = (m: string) => requestRow(host, m)?.querySelector('[data-testid="method"]')?.className ?? ''
+
+    expect(tone('GET')).toContain('text-green-400')
+    expect(tone('POST')).toContain('text-orange-400')
+    expect(tone('PUT')).toContain('text-blue-400')
+    expect(tone('PATCH')).toContain('text-purple-400')
+    expect(tone('DELETE')).toContain('text-red-400')
+    expect(tone('OPTIONS')).toContain('text-gray-400')
+  })
+
+  it('árvore C11, C12: renomear e apagar a request aberta acompanham o editor', async () => {
     const port = seeded()
     const { host } = mount(deps(port))
     await settle()
@@ -2133,6 +2193,14 @@ describe('a árvore no jeito do Apidog', () => {
     await settle()
     expect((await port.requests()).find((r) => r.id === 'c')?.name).toBe('renomeada')
     expect(at<HTMLInputElement>(host, 'name')?.value).toBe('renomeada')
+
+    await click(menuOf(host, 'c'))
+    await click(at(host, 'menu-rename'))
+    await fill(at(host, 'rename'), 'desistida')
+    at(host, 'rename')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await settle()
+    expect(at(host, 'rename')).toBeNull()
+    expect((await port.requests()).find((r) => r.id === 'c')?.name).toBe('renomeada')
 
     await click(menuOf(host, 'c'))
     await click(at(host, 'menu-delete'))

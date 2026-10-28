@@ -22,6 +22,7 @@ onMounted(() => cancel.value?.focus())
     data-testid="confirm-delete"
     class="mx-2 my-1 rounded-md border border-red-500/30 bg-red-500/10 px-2 py-1.5 text-xs text-red-200"
     @keydown.escape.prevent="emit('no')"
+    @contextmenu.stop
   >
     <p>{{ message }}</p>
     <div class="mt-1.5 flex gap-2">

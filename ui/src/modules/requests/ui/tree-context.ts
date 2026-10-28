@@ -34,6 +34,10 @@ export interface TreeContext {
   endDrag(): void
   canDropOn(target: string | null): boolean
   dropOn(target: string | null): void
+  /** Diz qual alvo está sob o ponteiro — `undefined` é nenhum. */
+  hover(target: string | null | undefined): void
+  /** Se `target` é o alvo sob o ponteiro e aceita o que se arrasta. */
+  isLit(target: string | null): boolean
 
   readonly editing: Readonly<Ref<Editing | null>>
   readonly renameError: Readonly<Ref<string | null>>

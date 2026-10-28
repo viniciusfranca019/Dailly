@@ -98,11 +98,21 @@ function pathTo(folderId: string | null): string[] {
  * Com as pastas começando fechadas, salvar uma request dentro de uma pasta a
  * deixaria escondida — a pessoa salva e "some". Abrir o caminho até ela é o
  * que o Apidog faz ao selecionar, e não fecha nada que a pessoa abriu.
+ *
+ * **A chave é a request e a pasta dela, não a lista.** Observando a lista, o
+ * revelar rodava a cada releitura (toda mudança na árvore relê) e reabria a
+ * pasta que a pessoa tinha acabado de fechar. Assim ele roda quando a seleção
+ * muda, quando a request aparece pela primeira vez (salvar relê depois de
+ * selecionar) e quando ela muda de pasta — e em nenhuma outra hora.
  */
 watch(
-  () => [props.selected, props.requests] as const,
-  ([selected]) => {
-    const request = props.requests.find((candidate) => candidate.id === selected)
+  () => {
+    const request = props.requests.find((candidate) => candidate.id === props.selected)
+    return request ? `${request.id}\u0000${request.folderId ?? ''}` : null
+  },
+  (key) => {
+    if (key === null) return
+    const request = props.requests.find((candidate) => candidate.id === props.selected)
     if (request) openFolders.reveal(pathTo(request.folderId))
   },
   { immediate: true },
@@ -144,6 +154,17 @@ watch(
 
 const dragging = ref<Dragged | null>(null)
 
+/**
+ * O alvo sob o ponteiro: o id da pasta, `null` para a raiz, `undefined` para
+ * nenhum. Um só, para toda a árvore — e por isso só um acende.
+ *
+ * Antes cada pasta guardava o próprio "estou acesa" e apagava num `dragleave`
+ * do `<li>`, mas o `dragleave` chega pelo elemento mais de dentro que se
+ * deixou (o botão, o nome), e o `<li>` quase nunca era o alvo dele: pastas e a
+ * raiz ficavam acesas depois de soltar.
+ */
+const hovered = ref<string | null | undefined>(undefined)
+
 const context: TreeContext = {
   selected: toRef(props, 'selected'),
   isOpen: openFolders.isOpen,
@@ -156,6 +177,13 @@ const context: TreeContext = {
   },
   endDrag() {
     dragging.value = null
+    hovered.value = undefined
+  },
+  hover(target) {
+    hovered.value = target
+  },
+  isLit(target) {
+    return hovered.value === target && context.canDropOn(target)
   },
   canDropOn(target) {
     return dragging.value !== null && canDrop(props.folders, dragging.value, target)
@@ -163,6 +191,7 @@ const context: TreeContext = {
   dropOn(target) {
     const dragged = dragging.value
     dragging.value = null
+    hovered.value = undefined
     if (dragged === null || !canDrop(props.folders, dragged, target)) return
     emit('move', { dragged, target, position: endPosition(tree.value, target, dragged.kind) })
   },
@@ -199,16 +228,24 @@ const context: TreeContext = {
 provide(TREE, context)
 
 const rootMenu = useTemplateRef<InstanceType<typeof ItemMenu>>('rootMenu')
-const overRoot = ref(false)
 
+/** Só chega aqui o que nenhuma pasta segurou: as pastas param a propagação. */
 function onRootDragOver(event: DragEvent): void {
-  overRoot.value = context.canDropOn(null)
-  if (overRoot.value) event.preventDefault()
+  context.hover(null)
+  if (context.canDropOn(null)) event.preventDefault()
+}
+
+/** Saiu da coleção inteira — não só de um filho dela. */
+function onRootDragLeave(event: DragEvent): void {
+  const aside = event.currentTarget as HTMLElement
+  if (!aside.contains(event.relatedTarget as Node | null)) context.hover(undefined)
 }
 
 function onRootDrop(event: DragEvent): void {
-  overRoot.value = false
-  if (!context.canDropOn(null)) return
+  if (!context.canDropOn(null)) {
+    context.hover(undefined)
+    return
+  }
   event.preventDefault()
   context.dropOn(null)
 }
@@ -217,12 +254,13 @@ function onRootDrop(event: DragEvent): void {
 <template>
   <aside
     class="flex min-h-0 w-full flex-col rounded border-t border-[#1e2638] pt-4 xl:w-80 xl:border-l xl:border-t-0 xl:pl-4 xl:pt-0"
-    :class="{ 'bg-blue-500/5 ring-1 ring-blue-500/30': overRoot }"
+    :class="{ 'bg-blue-500/5 ring-1 ring-blue-500/30': context.isLit(null) }"
+    :data-drop-target="context.isLit(null) ? 'root' : undefined"
     data-testid="collections"
     aria-label="Coleções"
     @contextmenu.prevent="rootMenu?.openAt($event.clientX, $event.clientY)"
     @dragover="onRootDragOver"
-    @dragleave.self="overRoot = false"
+    @dragleave="onRootDragLeave"
     @drop="onRootDrop"
   >
     <div class="mb-3 flex items-center gap-2">

@@ -118,7 +118,7 @@ const current = sharedRef<symbol | null>(null)
 </script>
 
 <template>
-  <div ref="root" class="relative" @contextmenu.stop>
+  <div ref="root" class="relative" @contextmenu.prevent.stop="show({ x: $event.clientX, y: $event.clientY })">
     <button
       ref="trigger"
       type="button"
