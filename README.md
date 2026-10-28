@@ -1,8 +1,8 @@
 # dailly
 
-Um diário pessoal para desktop, escrito sobre um editor de blocos no estilo do
+Um diário pessoal, no navegador, escrito sobre um editor de blocos no estilo do
 Notion, com um cliente de API ao lado. TypeScript de ponta a ponta: Vue no
-renderer, Fastify + SQLite na API local, Electron como casca.
+renderer, Fastify + SQLite na API local, tudo rodando nesta máquina.
 
 ## Setup
 
@@ -32,8 +32,7 @@ Não há `.env`: a configuração é por variável de ambiente, toda opcional.
 | `make dev` | API + app, só os módulos prontos |
 | `make dev-all` | idem, com todos os módulos ligados por flag |
 | `make dev-api` · `make dev-ui` | só a API · só o renderer (sem a API, a timeline não carrega) |
-| `make desktop` | builda e abre o app completo no Electron, com a API dentro e o banco de verdade |
-| `make desktop-dev` | Electron apontado para o vite (rode `make dev` em outro terminal) |
+| `make start` | o app de verdade em http://localhost:4173, com o diário em `~/.config/dailly` e o Requests ligado |
 | `make test` · `make test-all` | testes do workspace · com as flags ligadas |
 | `make test-watch` | testes em watch |
 | `make check` | typecheck + testes, com e sem as flags |
@@ -66,7 +65,6 @@ O que a pessoa usa. Cada módulo existe na `ui/` e, quando persiste, no
 | `packages/` | os modelos que renderer e servidor compartilham: `whiteboard-core`, `domain`, `periods`, `requests-core` | [`packages/README.md`](packages/README.md) |
 | `server/` | a API local: shell, módulos `entries` e `requests`, SQLite com migrations | [`server/src/README.md`](server/src/README.md) |
 | `ui/` | o renderer: shell Vue, módulos de produto, o whiteboard como capacidade | [`ui/src/README.md`](ui/src/README.md) |
-| `desktop/` | o processo main do Electron: janela, `createServer()`, token por execução | — |
 | `e2e/` | as duas metades da port de entries, uma contra a outra | — |
 
 ## Documentação

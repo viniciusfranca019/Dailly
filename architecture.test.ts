@@ -79,18 +79,10 @@ describe('the arrow between projects only points into packages/', () => {
   })
 
   it('the renderer and the server never import each other', () => {
-    // They talk over HTTP (ADR 0008), which is the fronteira that ADR 0009's
+    // They talk over HTTP (ADR 0008, kept by ADR 0012), which is the fronteira that ADR 0009's
     // "server boots without Electron" test keeps honest. An import between them
     // would make that test pass while the separation is already gone.
     expect(violations('ui', reaches('server', '@dailly/server'))).toEqual([])
     expect(violations('server', reaches('ui', '@dailly/ui'))).toEqual([])
-  })
-
-  it('nothing imports the desktop shell', () => {
-    // `desktop/` is the composition root of the Electron process — the top of
-    // the graph. Anything importing it is a layer reaching for its own shell.
-    for (const project of ['packages', 'ui', 'server']) {
-      expect(violations(project, reaches('desktop', '@dailly/desktop'))).toEqual([])
-    }
   })
 })

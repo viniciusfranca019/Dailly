@@ -1,8 +1,9 @@
-.PHONY: help install dev dev-api dev-ui dev-all desktop desktop-dev test test-all test-watch build build-all check clean-db clean-db-app clean
+.PHONY: help install dev dev-api dev-ui dev-all start start-api start-ui test test-all test-watch build build-all check clean-db clean-db-app clean
 
 # Os dois bancos, que têm riscos bem diferentes.
 DEV_DB  := server/dailly.dev.sqlite
-# Onde o Electron guarda os dados do app; ver `app.setName` em desktop/src/main.ts.
+# O diário de verdade. É onde o Electron o guardava (ADR 0012): ficou no lugar
+# para que cortar o desktop não movesse dado nenhum.
 APP_DB  := $(HOME)/.config/dailly/dailly.sqlite
 
 help: ## Lista os alvos disponíveis
@@ -41,13 +42,20 @@ build: ## Builda o app (só os módulos prontos)
 build-all: ## Builda com todos os módulos ligados por flag
 	VITE_ANALYSE=true VITE_REQUESTS=true pnpm --filter @dailly/ui build
 
-desktop: ## Abre o app completo no Electron (API dentro, banco de verdade)
-	$(MAKE) build
-	pnpm --filter @dailly/desktop start
+start: ## O app de verdade, no navegador, com o diário de verdade: http://localhost:4173
+	VITE_REQUESTS=true pnpm --filter @dailly/ui build
+	@mkdir -p $(dir $(APP_DB))
+	@$(MAKE) -j2 start-api start-ui
 
-desktop-dev: ## Electron apontado para o vite (rode `make dev` em outro terminal)
-	pnpm --filter @dailly/desktop build
-	cd desktop && DAILLY_DEV_URL=http://localhost:5173 pnpm exec electron .
+# Porta própria, para o diário de verdade e o `make dev` poderem rodar juntos
+# sem que um aponte para o banco do outro.
+START_PORT := 4318
+
+start-api:
+	DAILLY_PORT=$(START_PORT) DAILLY_DB=$(APP_DB) pnpm --filter @dailly/server start
+
+start-ui:
+	DAILLY_PORT=$(START_PORT) pnpm --filter @dailly/ui exec vite preview --port 4173 --strictPort
 
 check: ## Typecheck + testes, com e sem as flags de módulo
 	pnpm -r typecheck
@@ -69,4 +77,4 @@ clean-db-app: ## Apaga o banco do app instalado. É o diário de verdade: pede c
 	  fi
 
 clean: ## Apaga build e dependências. Não toca em banco nenhum
-	rm -rf ui/dist desktop/dist node_modules ui/node_modules server/node_modules desktop/node_modules packages/*/node_modules
+	rm -rf ui/dist node_modules ui/node_modules server/node_modules packages/*/node_modules

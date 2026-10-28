@@ -2,10 +2,9 @@
  * The development entry point: a fixed port, so `ui/`'s vite proxy has
  * something stable to point at.
  *
- * Production does the opposite — an ephemeral port chosen at boot, handed to
- * the renderer by the Electron main process (ADR 0008). The two differ because
- * the constraints differ: in dev a human needs to know the URL, in production
- * nobody should.
+ * Since ADR 0012 it is also the production entry point: `make start` runs it
+ * with the real diary (`DAILLY_DB`) on its own port, and `vite preview` proxies
+ * to it the same way the dev server does.
  */
 import { createServer } from './index.js'
 

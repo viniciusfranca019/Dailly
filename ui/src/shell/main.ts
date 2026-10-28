@@ -1,6 +1,6 @@
 import { createEntry, queryEntries, systemClock, uuidIds } from '@dailly/domain'
 import { UTC } from '@dailly/periods'
-import { resolveApiConfig } from '../adapters/api.js'
+import { API_CONFIG } from '../adapters/api.js'
 import { httpEntryRepository } from '../adapters/http-entry-repository.js'
 import { httpRequestsClient } from '../adapters/http-requests-client.js'
 import { mountShell } from './mount.js'
@@ -19,7 +19,7 @@ import './styles.css'
 const host = document.querySelector<HTMLElement>('#app')!
 
 async function boot(): Promise<void> {
-  const config = await resolveApiConfig()
+  const config = API_CONFIG
   const entries = httpEntryRepository({ config })
 
   // The zone belongs to the API process (ADR 0007), so the renderer asks rather

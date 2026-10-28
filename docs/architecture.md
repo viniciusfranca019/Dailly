@@ -1,6 +1,6 @@
 # Arquitetura — visão geral
 
-O dailly é um app desktop pessoal: um diário (Daily Log) sobre um editor de
+O dailly é uma aplicação web pessoal, rodando nesta máquina: um diário (Daily Log) sobre um editor de
 blocos estilo Notion, mais um cliente de API (Requests), com a análise de
 período (Analyse) por vir. Este documento descreve **como o sistema se comporta,
 módulo por módulo**, e onde cada pedaço mora. O detalhe de cada projeto está no
@@ -11,7 +11,6 @@ documento dele:
 | `packages/` | os modelos que os dois runtimes compartilham | [`packages/docs/architecture.md`](../packages/docs/architecture.md) |
 | `server/` | a API local: Fastify + SQLite | [`server/src/docs/architecture.md`](../server/src/docs/architecture.md) |
 | `ui/` | o renderer: Vue + o whiteboard vanilla | [`ui/src/docs/architecture.md`](../ui/src/docs/architecture.md) |
-| `desktop/` | o processo main do Electron | descrito abaixo |
 
 As decisões por trás de tudo estão nas [ADRs](adrs/); o que foi decidido e
 ainda não foi feito, em [`../TODO.md`](../TODO.md); a ordem das fases, em
@@ -20,30 +19,29 @@ ainda não foi feito, em [`../TODO.md`](../TODO.md); a ordem das fases, em
 ## Os processos
 
 ```
-┌──────────────── Electron (desktop/) ─────────────────┐
-│  main process (Node)                                  │
-│    createServer({ port: 0, token }) ──► Fastify       │
-│         │                                  │          │
-│         │ ipc 'dailly:api-config'          ▼          │
-│  preload.cjs ── contextBridge         SQLite          │
-│         │                        ~/.config/dailly/    │
-│  renderer (ui/dist) ─── HTTP 127.0.0.1:<porta> ──┘    │
-└───────────────────────────────────────────────────────┘
+navegador ── http://localhost:4173 (make start) · :5173 (make dev)
+   │
+   └─ vite ── serve ui/dist (ou o dev server) e faz proxy de /api
+                 │
+                 ▼
+           Fastify 127.0.0.1:4318 (start) · :4317 (dev) ──► SQLite
+                                                   ~/.config/dailly/ (start)
+                                                   server/dailly.dev.sqlite (dev)
 ```
 
-- **Um processo Node, dois papéis.** O main do Electron *é* Node, então o
-  servidor entra como import — sem sidecar nem segundo binário
-  ([ADR 0008](adrs/0008-electron-como-shell.md)).
-- **A fronteira entre UI e dados é HTTP**, mesmo no mesmo processo
-  ([ADR 0007](adrs/0007-api-local-e-tempo.md)). É o que deixa o servidor subir
-  sem Electron num teste, e o renderer rodar no browser em dev.
-- **Porta efêmera e token por execução**, porque `127.0.0.1` é alcançável por
-  qualquer processo da máquina. O renderer pede os dois por IPC; nunca estão em
-  `argv` nem em URL.
-- **Janela endurecida:** `contextIsolation`, `sandbox`, sem `nodeIntegration`,
-  e navegação para fora abre no browser do sistema.
-- **Em dev** são dois processos: `make dev` sobe a API na porta 4317 e o vite
-  em 5173, com proxy `/api` → API.
+- **Só web, só nesta máquina** ([ADR 0012](adrs/0012-so-web.md), que
+  substituiu a do Electron). A API é um processo Node próprio, e o renderer é
+  servido pelo vite, que faz proxy de `/api` para ela.
+- **A fronteira entre UI e dados é HTTP** ([ADR 0007](adrs/0007-api-local-e-tempo.md)).
+  É o que deixa o servidor subir sozinho num teste e o renderer não conhecer
+  nada do servidor além da URL.
+- **Só a própria máquina fala com a API.** O `Host` tem que ser `localhost`,
+  `127.0.0.1` ou `[::1]` (DNS rebinding), e um `Origin`, quando vem, também
+  (CSRF de outro site). A ameaça é o navegador abrir outros sites, não outro
+  processo local, que já leria o SQLite direto.
+- **Dois processos, nos dois modos:** `make dev` sobe a API na 4317 e o vite em
+  5173; `make start` builda e sobe a API na 4318, com o diário de verdade, e o
+  `vite preview` em 4173. Portas diferentes para os dois rodarem juntos.
 
 ## Os módulos
 
@@ -180,7 +178,7 @@ culpado, cada um onde a regra é verificável:
 
 | Onde | O que prende |
 |---|---|
-| `architecture.test.ts` (raiz) | as setas **entre** projetos: `packages/` não importa `ui/` nem `server/`, os dois não se importam, e ninguém importa `desktop/` |
+| `architecture.test.ts` (raiz) | as setas **entre** projetos: `packages/` não importa `ui/` nem `server/`, e os dois não se importam |
 | `ui/src/` | as camadas da `ui/`: capability não importa módulo, módulo só pelo index público, ninguém importa o shell |
 | `server/src/` | o shell só conhece o manifest; módulo só alcança o contrato e o index de outro |
 | `packages/domain/src/` | o domain roda em qualquer lugar: sem builtin do node, sem DOM, sem vitest na produção |

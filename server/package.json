@@ -15,7 +15,8 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "dev": "tsx watch src/dev.ts"
+    "dev": "tsx watch src/dev.ts",
+    "start": "tsx src/dev.ts"
   },
   "dependencies": {
     "@dailly/domain": "workspace:*",

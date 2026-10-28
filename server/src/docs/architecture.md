@@ -35,12 +35,13 @@ server/src/
 
 | Chamador | Como | Porta | Token |
 |---|---|---|---|
-| `desktop/src/main.ts` | `createServer()` dentro do processo main do Electron | `0` (o SO escolhe) | gerado por execução, entregue ao renderer por IPC |
 | `dev.ts` (`make dev-api`) | processo próprio via `tsx watch` | `4317` (`DAILLY_PORT`) | nenhum |
+| `dev.ts` (`make start`) | processo próprio via `tsx`, com o diário de verdade | `4318` | nenhum |
 | testes | `buildApp()` + `app.inject()`, sem socket | — | quando o teste é sobre auth |
 
-`createServer` é a única função de que o Electron precisa, e ela roda sem
-Electron — o `boots-without-electron.test.ts` prova isso a cada `make check`.
+`createServer` sobe com socket de verdade e sem nenhum shell em volta — o
+`boots-without-electron.test.ts` prova isso a cada `make check`, e desde a ADR
+0012 é o único jeito que ele sobe.
 
 ## O shell
 

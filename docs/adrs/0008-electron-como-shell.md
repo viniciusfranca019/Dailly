@@ -1,6 +1,6 @@
 # ADR 0008 — Electron como shell, no lugar de Tauri
 
-- **Status:** Aceito
+- **Status:** Substituída pela [ADR 0012](0012-so-web.md) em 2026-10-28: o desktop saiu
 - **Data:** 2026-09-15
 - **Decisores:** Vinicius
 - **Relaciona:** [ADR 0001](0001-arquitetura-geral.md) (supersede a escolha de
