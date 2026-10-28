@@ -195,6 +195,19 @@ describe('C2: executar devolve status, headers, corpo e o tempo que levou', () =
     expect(response.json().error).toMatch(/não é válida/)
   })
 
+  it('422 quando a URL nem é uma URL, e não 502', async () => {
+    // O curl colado que não foi importado vira a URL inteira, `curl https://…`.
+    // O `new URL` recusa antes de qualquer socket — e o erro chegava como
+    // "não consegui alcançar", mandando a pessoa depurar a rede.
+    const app = appWith()
+    await seed(app, saved({ spec: spec({ url: 'curl https://x.dev' }) }))
+
+    const response = await execute(app)
+
+    expect(response.statusCode).toBe(422)
+    expect(response.json().error).toMatch(/não é válida/)
+  })
+
   it('404 quando a request não existe, em vez de executar nada', async () => {
     expect((await execute(appWith(), {}, 'fantasma')).statusCode).toBe(404)
   })
