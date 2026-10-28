@@ -224,6 +224,16 @@ describe('the HTTP surface', () => {
       expect(response.statusCode).toBe(403)
     })
 
+    it('recusa Origin: null — iframe com sandbox, página data: ou file:', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/entries',
+        payload: anEntry(),
+        headers: { origin: 'null' },
+      })
+      expect(response.statusCode).toBe(403)
+    })
+
     it('aceita a origem da própria UI, e a ausência de Origin', async () => {
       const daUi = await app.inject({
         method: 'POST',
