@@ -36,7 +36,7 @@ antes de o código entrar. O gatilho de cada uma **já aconteceu**.
       divergência aparece como recusa nomeada — mas são duas verdades. Segundo
       chamador já existe. Ficou de fora do B2b para não misturar refactor do
       servidor com PR de tela.
-- [ ] **Tirar o `newId()` de `modules/requests/ui/ids.ts`** — ele só existe
+- [ ] **Tirar o `newId()` de `modules/requests/model/ids.ts`** — ele só existe
       porque acrescentar um campo `ids` ao contrato seria engordar o que a
       primeira pendência vai dividir. Sai junto com ela, e o id passa a vir da
       raiz de composição como o `uuidIds` das entries já vem.

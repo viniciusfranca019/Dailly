@@ -5,7 +5,7 @@ import ConfirmDelete from './ConfirmDelete.vue'
 import InlineRename from './InlineRename.vue'
 import ItemMenu from './ItemMenu.vue'
 import { actionsFor, useTree } from './tree-context.js'
-import { methodOf } from './tree.js'
+import { methodOf } from '../../model/tree.js'
 
 /**
  * Uma request na árvore: o método colorido, o nome, o `⋯`.

@@ -7,7 +7,7 @@ import ItemMenu from './ItemMenu.vue'
 import RequestRow from './RequestRow.vue'
 import { useOpenFolders } from './open-folders.js'
 import { type Action, type Editing, type Item, TREE, type TreeContext, actionsFor } from './tree-context.js'
-import { type Dragged, buildTree, canDrop, endPosition } from './tree.js'
+import { type Dragged, buildTree, canDrop, endPosition } from '../../model/tree.js'
 
 /**
  * O aside direito: a coleção inteira, e o que dá para fazer com ela.

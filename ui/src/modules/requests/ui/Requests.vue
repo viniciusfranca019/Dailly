@@ -7,15 +7,15 @@ import {
   type ModuleDeps,
 } from '@shared'
 import { computed, onMounted, ref } from 'vue'
-import Collections from './Collections.vue'
-import RequestEditor from './RequestEditor.vue'
-import ResponseView from './ResponseView.vue'
-import { decodeBody, type DecodedBody } from './decode.js'
-import { draftOf, importCurl, savedOf, type Draft } from './draft.js'
-import { parseEnv } from './env.js'
-import { newId } from './ids.js'
-import type { Item } from './tree-context.js'
-import type { Dragged } from './tree.js'
+import Collections from './collection/Collections.vue'
+import RequestEditor from './editor/RequestEditor.vue'
+import ResponseView from './response/ResponseView.vue'
+import { decodeBody, type DecodedBody } from '../model/decode.js'
+import { draftOf, importCurl, savedOf, type Draft } from '../model/draft.js'
+import { parseEnv } from '../model/env.js'
+import { newId } from '../model/ids.js'
+import type { Item } from './collection/tree-context.js'
+import type { Dragged } from '../model/tree.js'
 
 /**
  * Requests: editar em cima, resposta embaixo, coleção à direita.

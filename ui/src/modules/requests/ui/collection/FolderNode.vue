@@ -6,7 +6,7 @@ import InlineRename from './InlineRename.vue'
 import ItemMenu from './ItemMenu.vue'
 import RequestRow from './RequestRow.vue'
 import { actionsFor, useTree } from './tree-context.js'
-import { type TreeFolder, totals } from './tree.js'
+import { type TreeFolder, totals } from '../../model/tree.js'
 
 /**
  * Um galho da árvore — recursivo, porque a árvore é.

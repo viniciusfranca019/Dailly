@@ -1,6 +1,6 @@
 import type { Folder, SavedRequest } from '@dailly/requests-core'
 import { type InjectionKey, type Ref, inject } from 'vue'
-import type { Dragged } from './tree.js'
+import type { Dragged } from '../../model/tree.js'
 
 /** Um item da árvore: o alvo de um menu, de um renomear, de um apagar. */
 export type Item =
