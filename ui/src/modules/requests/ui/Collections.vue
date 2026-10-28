@@ -246,7 +246,7 @@ function onRootDrop(event: DragEvent): void {
     />
 
     <p
-      v-if="treeError && editing === null"
+      v-if="treeError && editing?.mode !== 'rename'"
       role="alert"
       data-testid="tree-error"
       class="mb-2 rounded-md border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-300"

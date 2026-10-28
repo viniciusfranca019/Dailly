@@ -2101,6 +2101,25 @@ describe('a árvore no jeito do Apidog', () => {
     expect((await port.requests()).map((r) => r.id)).toEqual(['c'])
   })
 
+  it('se o servidor recusa apagar, a recusa aparece e nada some', async () => {
+    const base = seeded()
+    const port: RequestsPort = {
+      ...base,
+      deleteFolder: async () => {
+        throw new Error('a API recusou')
+      },
+    }
+    const { host } = mount(deps(port))
+    await settle()
+
+    await click(menuOf(host, 'n8n'))
+    await click(at(host, 'menu-delete'))
+    await click(at(host, 'confirm-delete-yes'))
+
+    expect(text(host, 'tree-error')).toContain('a API recusou')
+    expect(folderRow(host, 'n8n')).not.toBeNull()
+  })
+
   it('renomear e apagar a request aberta acompanham o editor', async () => {
     const port = seeded()
     const { host } = mount(deps(port))
