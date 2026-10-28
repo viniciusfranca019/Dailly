@@ -56,4 +56,12 @@ export interface RequestStore {
   folders(): Promise<Folder[]>
   /** Move uma pasta, recusando o que fecharia laço (`FolderCycleError`). */
   moveFolder(id: string, parentId: string | null): Promise<void>
+  /**
+   * Apaga a pasta **e toda a descendência**: subpastas e as requests delas.
+   *
+   * Recursivo e não "recusar pasta com conteúdo", porque é o que os clientes de
+   * API fazem (Apidog, Postman) e porque a tela pede confirmação dizendo quanto
+   * vai junto. Pasta que não existe é `FolderNotFoundError`, não sucesso.
+   */
+  deleteFolder(id: string): Promise<void>
 }

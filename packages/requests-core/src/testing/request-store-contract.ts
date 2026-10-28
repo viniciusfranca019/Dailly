@@ -153,5 +153,28 @@ export function requestStoreContract(
 
       expect((await store.folders()).find((f) => f.id === 'outra')?.parentId).toBe('raiz')
     })
+
+    it('apagar uma pasta leva as subpastas e as requests de toda a descendência', async () => {
+      const store = make()
+      await store.saveFolder({ id: 'raiz', parentId: null, name: 'APIs', position: 0 })
+      await store.saveFolder({ id: 'filha', parentId: 'raiz', name: 'Stripe', position: 0 })
+      await store.saveFolder({ id: 'neta', parentId: 'filha', name: 'v1', position: 0 })
+      await store.saveFolder({ id: 'vizinha', parentId: null, name: 'Interno', position: 1 })
+      await store.saveRequest(aSpec({ id: 'na-raiz', folderId: 'raiz' }))
+      await store.saveRequest(aSpec({ id: 'na-neta', folderId: 'neta' }))
+      await store.saveRequest(aSpec({ id: 'na-vizinha', folderId: 'vizinha' }))
+      await store.saveRequest(aSpec({ id: 'solta', folderId: null }))
+
+      await store.deleteFolder('raiz')
+
+      expect((await store.folders()).map((f) => f.id)).toEqual(['vizinha'])
+      expect((await store.requests()).map((r) => r.id).sort()).toEqual(['na-vizinha', 'solta'])
+    })
+
+    it('apagar uma pasta que não existe é recusado, não respondido como sucesso', async () => {
+      const store = make()
+
+      await expect(store.deleteFolder('fantasma')).rejects.toThrow(FolderNotFoundError)
+    })
   })
 }

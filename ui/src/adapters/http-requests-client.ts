@@ -156,6 +156,10 @@ export const httpRequestsClient = ({ config, fetch }: HttpRequestsClientDeps): R
       await send(`/requests/${encodeURIComponent(id)}`, { method: 'DELETE' })
     },
 
+    async deleteFolder(id) {
+      await send(`/requests/folders/${encodeURIComponent(id)}`, { method: 'DELETE' })
+    },
+
     async execute(id, env) {
       try {
         const payload = await send(`/requests/${encodeURIComponent(id)}/execute`, {

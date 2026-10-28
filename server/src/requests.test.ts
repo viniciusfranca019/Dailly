@@ -469,6 +469,24 @@ describe('C6: as pastas pela API, que era código que nenhum teste alcançava', 
     expect((await app.inject({ method: 'DELETE', url: '/requests/r-1' })).statusCode).toBe(204)
     expect((await app.inject({ method: 'GET', url: '/requests' })).json()).toEqual([])
   })
+
+  it('apagar a pasta leva as subpastas e as requests dela', async () => {
+    const app = appWith()
+    await post(app, folder())
+    await post(app, folder({ id: 'filha', parentId: 'raiz', name: 'Stripe' }))
+    await seed(app, saved({ folderId: 'filha' }))
+
+    expect((await app.inject({ method: 'DELETE', url: '/requests/folders/raiz' })).statusCode).toBe(204)
+    expect((await app.inject({ method: 'GET', url: '/requests/folders' })).json()).toEqual([])
+    expect((await app.inject({ method: 'GET', url: '/requests' })).json()).toEqual([])
+  })
+
+  it('apagar uma pasta que não existe é 404', async () => {
+    const response = await appWith().inject({ method: 'DELETE', url: '/requests/folders/fantasma' })
+    expect(response.statusCode).toBe(404)
+    // A recusa do domínio, e não o 404 de rota inexistente do Fastify.
+    expect(response.json().error).toMatch(/fantasma/)
+  })
 })
 
 describe('C4: um spec que nem é JSON não derruba a coleção', () => {
