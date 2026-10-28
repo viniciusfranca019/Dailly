@@ -162,6 +162,13 @@ export function registerRequestRoutes(
     return reply.code(204).send()
   })
 
+  app.delete('/requests/folders/:id', async (request, reply) =>
+    answer(reply, async () => {
+      await store.deleteFolder((request.params as { id: string }).id)
+      return reply.code(204).send()
+    }),
+  )
+
   app.post('/requests/folders', async (request, reply) => {
     const validated = validateFolder(request.body)
     if ('errors' in validated) return reply.code(400).send({ errors: validated.errors })

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Folder, SavedRequest } from '@dailly/requests-core'
+import { type Folder, type SavedRequest, descendantsOf } from '@dailly/requests-core'
 import {
   ExecutionFailedError,
   MissingVariablesError,
@@ -7,13 +7,15 @@ import {
   type ModuleDeps,
 } from '@shared'
 import { computed, onMounted, ref } from 'vue'
-import Collections from './Collections.vue'
-import RequestEditor from './RequestEditor.vue'
-import ResponseView from './ResponseView.vue'
-import { decodeBody, type DecodedBody } from './decode.js'
-import { draftOf, importCurl, savedOf, type Draft } from './draft.js'
-import { parseEnv } from './env.js'
-import { newId } from './ids.js'
+import Collections from './collection/Collections.vue'
+import RequestEditor from './editor/RequestEditor.vue'
+import ResponseView from './response/ResponseView.vue'
+import { decodeBody, type DecodedBody } from '../model/decode.js'
+import { draftOf, importCurl, savedOf, type Draft } from '../model/draft.js'
+import { parseEnv } from '../model/env.js'
+import { newId } from '../model/ids.js'
+import type { Item } from './collection/tree-context.js'
+import type { Dragged } from '../model/tree.js'
 
 /**
  * Requests: editar em cima, resposta embaixo, coleção à direita.
@@ -57,6 +59,9 @@ const importError = ref<string | null>(null)
 
 const folderError = ref<string | null>(null)
 const folderSaved = ref(0)
+const treeError = ref<string | null>(null)
+const treeSaved = ref(0)
+const changingTree = ref(false)
 
 /**
  * O env atravessa a troca de request de propósito.
@@ -265,7 +270,7 @@ function importInto(raw: string): void {
  * paralelo), e o preço é um botão desabilitado por alguns milissegundos.
  * Barato perto de duas escritas disputando o mesmo `load()`.
  */
-const busy = () => saving.value || deleting.value
+const busy = () => saving.value || deleting.value || changingTree.value
 
 /**
  * Grava o rascunho e devolve o que ficou gravado — ou `null` se não gravou.
@@ -326,6 +331,98 @@ async function persist(): Promise<SavedRequest | null> {
 async function save(): Promise<void> {
   if (busy()) return
   await persist()
+}
+
+/**
+ * Mover, renomear e apagar pela árvore — a mesma moldura para os três.
+ *
+ * Entra na guarda do `busy()` junto com salvar e apagar do editor: renomear
+ * pela árvore a request que o editor está salvando faria as duas gravações
+ * correrem, e a última a chegar ganharia. Dando certo ou não, a coleção é
+ * relida: em caso de recusa ela mostra o que o servidor tem, que é "como
+ * estava", e não um palpite otimista desfeito à mão.
+ */
+async function changeTree(work: () => Promise<void>, failure: string): Promise<void> {
+  // Dito, e não engolido: a árvore parada sem motivo parece defeito.
+  if (busy()) {
+    treeError.value = `${failure}: há uma gravação em andamento — tente de novo em seguida.`
+    return
+  }
+  changingTree.value = true
+  treeError.value = null
+  try {
+    await work()
+    treeSaved.value += 1
+  } catch (cause) {
+    treeError.value = `${failure}: ${reason(cause, 'a API recusou')}`
+  } finally {
+    changingTree.value = false
+  }
+  await load()
+}
+
+/**
+ * A request aberta no editor acompanha o que a árvore fez com ela.
+ *
+ * O rascunho guarda nome e pasta. Sem isto, mover ou renomear pela árvore a
+ * request que está aberta funcionaria até o próximo Salvar, que regravaria o
+ * nome e a pasta antigos por cima — desfazendo em silêncio o que a pessoa fez.
+ *
+ * **Só o campo que a árvore mudou.** Copiar os dois apagava o outro: mover
+ * pela árvore trazia de volta o nome guardado por cima de um nome que a pessoa
+ * tinha digitado no editor e ainda não salvo.
+ */
+function follow(stored: SavedRequest, field: 'name' | 'folderId'): void {
+  if (selected.value?.id !== stored.id) return
+  selected.value = stored
+  if (draft.value === null) return
+  if (field === 'name') draft.value.name = stored.name
+  else draft.value.folderId = stored.folderId
+}
+
+/** Fecha o editor quando o que ele mostra deixou de existir. */
+function closeEditorIf(gone: (request: SavedRequest) => boolean): void {
+  if (selected.value === null || !gone(selected.value)) return
+  editor += 1
+  selected.value = null
+  draft.value = null
+  notice.value = null
+  invalidate()
+}
+
+function moveInTree(input: { dragged: Dragged; target: string | null; position: number }): void {
+  const { dragged, target, position } = input
+  void changeTree(async () => {
+    if (dragged.kind === 'request') {
+      follow(await props.deps.requests.saveRequest({ ...dragged.item, folderId: target, position }), 'folderId')
+    } else {
+      await props.deps.requests.saveFolder({ ...dragged.item, parentId: target, position })
+    }
+  }, `não consegui mover «${dragged.item.name}»`)
+}
+
+function renameInTree(input: { target: Item; name: string }): void {
+  const { target, name } = input
+  void changeTree(async () => {
+    if (target.kind === 'request') {
+      follow(await props.deps.requests.saveRequest({ ...target.item, name }), 'name')
+    } else {
+      await props.deps.requests.saveFolder({ ...target.item, name })
+    }
+  }, `não consegui renomear «${target.item.name}»`)
+}
+
+function removeFromTree(target: Item): void {
+  void changeTree(async () => {
+    if (target.kind === 'request') {
+      await props.deps.requests.deleteRequest(target.item.id)
+      closeEditorIf((request) => request.id === target.item.id)
+    } else {
+      const gone = new Set([target.item.id, ...descendantsOf(folders.value, target.item.id)])
+      await props.deps.requests.deleteFolder(target.item.id)
+      closeEditorIf((request) => request.folderId !== null && gone.has(request.folderId))
+    }
+  }, `não consegui apagar «${target.item.name}»`)
 }
 
 async function createFolder(input: { name: string; parentId: string | null }): Promise<void> {
@@ -598,6 +695,12 @@ onMounted(load)
         @retry="load"
         @new-request="startDraft"
         @create-folder="createFolder"
+        :tree-error="treeError"
+        :tree-saved="treeSaved"
+        @clear-tree-error="treeError = null"
+        @move="moveInTree"
+        @rename="renameInTree"
+        @remove="removeFromTree"
       />
     </div>
   </div>

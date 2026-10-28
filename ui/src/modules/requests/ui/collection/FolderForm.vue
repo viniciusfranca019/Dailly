@@ -27,7 +27,7 @@ const submit = () => {
 </script>
 
 <template>
-  <form class="my-1 flex flex-col gap-1.5" @submit.prevent="submit">
+  <form @contextmenu.stop class="my-1 flex flex-col gap-1.5" @submit.prevent="submit">
     <input
       ref="field"
       v-model="name"

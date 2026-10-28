@@ -163,20 +163,36 @@ futuro não é aceito. A regra é da tela, não do domain.
 ```
 modules/requests/
   index.ts                 exporta o componente
-  ui/
-    Requests.vue           orquestra: coleção, draft, execução, resposta
-    RequestEditor.vue      método + URL + Enviar; abas Params · Headers · Body · Auth
-    ResponseView.vue       status, headers, corpo decodificado, marcas de truncado/prazo
-    Collections.vue        a coleção à direita, com o + do cabeçalho
-    FolderNode.vue         uma pasta e o seu +
-    FolderForm.vue         nome da pasta nova
-    AddMenu.vue            Nova request / Nova pasta
+  model/                   TypeScript puro, sem Vue — testado sem montar tela
     draft.ts               importCurl · draftOf · savedOf (spec ↔ o que a tela edita)
-    tree.ts                buildTree: pastas + requests → árvore
+    tree.ts                buildTree · totals · canDrop · endPosition · methodOf
     env.ts                 parseEnv: NOME=valor, uma por linha
     decode.ts              decodeBody: gzip/deflate abrem; br é dito, nunca U+FFFD
     ids.ts                 id de pasta/request nova (sai quando ModuleDeps for partido)
+  ui/
+    Requests.vue           orquestra: coleção, draft, execução, resposta
+    editor/
+      RequestEditor.vue    método + URL + Enviar; abas Params · Headers · Body · Auth
+    response/
+      ResponseView.vue     status, headers, corpo decodificado, marcas de truncado/prazo
+    collection/            a árvore à direita, no jeito do Apidog
+      Collections.vue      dona do estado da árvore; entrega às linhas por provide
+      FolderNode.vue       uma pasta: seta, ícone, (contagem), ⋯, alvo de soltar
+      RequestRow.vue       uma request: método colorido, nome, ⋯, arrastável
+      ItemMenu.vue         o ⋯ e o clique direito: as ações de cada nível
+      InlineRename.vue     renomear no lugar (Enter, Esc, vazio recusado)
+      ConfirmDelete.vue    confirmação que diz quanto vai junto
+      FolderForm.vue       nome da pasta nova
+      tree-context.ts      o contrato do provide/inject
+      open-folders.ts      pastas abertas, lembradas no localStorage
+    test-harness.ts        montar, achar, clicar, arrastar — o que as suítes dividem
+    colecao.test.ts · colar-curl.test.ts · editor.test.ts · executar.test.ts
+    regressoes.test.ts     as corridas e o que cada rodada do gate pegou
 ```
+
+**`model/` e `ui/` separados**, como a ADR 0006 desenha para um módulo de
+produto: a regra (a árvore, o curl, o corpo) não importa Vue e é testada sem
+tela; a `ui/` é agrupada pelo pedaço da tela que cada arquivo desenha.
 
 - **O curl entra pela barra de URL**, como no Postman. `importCurl` usa o
   `fromRaw` do driver HTTP e mostra o que foi ignorado.

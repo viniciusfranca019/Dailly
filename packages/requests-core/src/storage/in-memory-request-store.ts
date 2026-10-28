@@ -1,4 +1,4 @@
-import { FolderCycleError, type Folder, assertNoCycle } from './folder.js'
+import { FolderCycleError, type Folder, assertNoCycle, descendantsOf } from './folder.js'
 import { FolderNotFoundError, type RequestStore, type SavedRequest } from './request-store.js'
 
 /**
@@ -62,6 +62,13 @@ export function inMemoryRequestStore(): RequestStore {
       // que ela é função pura e não `CHECK` de SQL.
       assertNoCycle(folders, id, parentId)
       folders = folders.map((folder) => (folder.id === id ? { ...folder, parentId } : folder))
+    },
+
+    async deleteFolder(id) {
+      assertMovedExists(id)
+      const gone = new Set([id, ...descendantsOf(folders, id)])
+      folders = folders.filter((folder) => !gone.has(folder.id))
+      requests = requests.filter((request) => request.folderId === null || !gone.has(request.folderId))
     },
   }
 }

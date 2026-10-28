@@ -218,6 +218,13 @@ describe('a port de Requests sobre HTTP', () => {
     expect(calls[0]!.url).toBe('/api/requests/a%2Fb%3Fx')
   })
 
+  it('apagar uma pasta é DELETE na rota da pasta, com o id escapado', async () => {
+    const { port, calls } = client(() => ({ status: 204 }))
+
+    await expect(port.deleteFolder('a/b')).resolves.toBeUndefined()
+    expect(calls[0]).toMatchObject({ url: '/api/requests/folders/a%2Fb', init: { method: 'DELETE' } })
+  })
+
   it('C11: um `surviving` que não é lista não vira TypeError cru', async () => {
     // `missing` era guardado e `surviving` não. O `.filter` num texto escapa do
     // `catch` como TypeError e a tela mostra "x.filter is not a function"

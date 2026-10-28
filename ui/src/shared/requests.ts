@@ -19,6 +19,8 @@ export interface RequestsPort {
   saveFolder(folder: Folder): Promise<Folder>
   saveRequest(request: SavedRequest): Promise<SavedRequest>
   deleteRequest(id: string): Promise<void>
+  /** Apaga a pasta e toda a descendência — subpastas e requests. */
+  deleteFolder(id: string): Promise<void>
   /**
    * Executa no servidor e devolve o que voltou — nunca guardado.
    *

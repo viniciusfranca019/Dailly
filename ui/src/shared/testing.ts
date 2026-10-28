@@ -111,6 +111,10 @@ export function testRequestsPort(
       await ready
       return store.deleteRequest(id)
     },
+    async deleteFolder(id) {
+      await ready
+      return store.deleteFolder(id)
+    },
     execute:
       options.execute ??
       (async () => {

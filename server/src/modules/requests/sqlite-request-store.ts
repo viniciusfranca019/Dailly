@@ -152,5 +152,13 @@ export function sqliteRequestStore({ db }: { db: Database }): RequestStore {
       assertNoCycle(allFolders(), id, parentId)
       db.prepare('UPDATE request_folders SET parent_id = ? WHERE id = ?').run(parentId, id)
     },
+
+    async deleteFolder(id) {
+      assertFolderExists(id)
+      // A descendência vai pelo `ON DELETE CASCADE` das duas FKs (migration da
+      // v1), com `foreign_keys = ON` no `openDatabase`. O contrato prova que o
+      // cascade de fato acontece, e não só que a linha da pasta sumiu.
+      db.prepare('DELETE FROM request_folders WHERE id = ?').run(id)
+    },
   }
 }

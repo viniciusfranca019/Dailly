@@ -1,6 +1,6 @@
 import type { Folder, SavedRequest } from '@dailly/requests-core'
 import { describe, expect, it } from 'vitest'
-import { buildTree } from './tree.js'
+import { buildTree, canDrop, endPosition, methodOf, totals } from './tree.js'
 
 const folder = (id: string, parentId: string | null, name = id, position = 0): Folder => ({
   id,
@@ -85,5 +85,60 @@ describe('C2: a árvore que o aside mostra', () => {
 
     expect(names(tree.folders)).toEqual(['a'])
     expect(tree.folders[0]!.folders).toEqual([])
+  })
+})
+
+describe('árvore estilo Apidog: as contas e as regras de soltar', () => {
+  const folders = [
+    folder('konsi', null),
+    folder('trigger', 'konsi'),
+    folder('local', 'trigger'),
+    folder('n8n', 'konsi'),
+    folder('vazia', null),
+  ]
+  const requests = [
+    request('a', 'local', 0),
+    request('b', 'local', 1),
+    request('c', 'trigger', 0),
+    request('d', 'n8n', 0),
+    request('solta', null, 3),
+  ]
+  const tree = buildTree(folders, requests)
+  const konsi = tree.folders.find((node) => node.folder.id === 'konsi')!
+
+  it('o total de uma pasta conta as requests de toda a descendência, e as subpastas', () => {
+    expect(totals(konsi)).toEqual({ requests: 4, folders: 3 })
+    expect(totals(tree.folders.find((node) => node.folder.id === 'vazia')!)).toEqual({
+      requests: 0,
+      folders: 0,
+    })
+  })
+
+  it('uma request pode ir para outra pasta ou para a raiz, mas não para onde já está', () => {
+    expect(canDrop(folders, { kind: 'request', item: request('a', 'local') }, 'n8n')).toBe(true)
+    expect(canDrop(folders, { kind: 'request', item: request('a', 'local') }, null)).toBe(true)
+    expect(canDrop(folders, { kind: 'request', item: request('a', 'local') }, 'local')).toBe(false)
+  })
+
+  it('uma pasta não pode ir para dentro dela mesma nem da descendência dela', () => {
+    const trigger = { kind: 'folder', item: folders[1]! } as const
+    expect(canDrop(folders, trigger, 'trigger')).toBe(false)
+    expect(canDrop(folders, trigger, 'local')).toBe(false)
+    expect(canDrop(folders, trigger, 'konsi')).toBe(false) // já está lá
+    expect(canDrop(folders, trigger, 'n8n')).toBe(true)
+    expect(canDrop(folders, trigger, null)).toBe(true)
+  })
+
+  it('quem é solto entra no fim do destino', () => {
+    expect(endPosition(tree, 'local', 'request')).toBe(2)
+    expect(endPosition(tree, null, 'request')).toBe(4)
+    expect(endPosition(tree, 'vazia', 'request')).toBe(0)
+    expect(endPosition(tree, 'konsi', 'folder')).toBe(1)
+  })
+
+  it('o método vem do spec HTTP, e outro protocolo mostra o nome dele', () => {
+    expect(methodOf(request('a', null))).toBe('GET')
+    expect(methodOf({ ...request('a', null), spec: { method: 'post' } })).toBe('POST')
+    expect(methodOf({ ...request('a', null), protocol: 'grpc', spec: {} })).toBe('GRPC')
   })
 })

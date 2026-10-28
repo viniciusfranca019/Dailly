@@ -30,7 +30,11 @@ export function httpClient({
       response = await doFetch(`${config.baseUrl}${path}`, {
         ...init,
         headers: {
-          'content-type': 'application/json',
+          // Só quando há corpo. Um DELETE sem corpo com `application/json` é
+          // recusado pelo Fastify (`FST_ERR_CTP_EMPTY_JSON_BODY`, 400) — e foi
+          // assim que apagar nunca funcionou no app enquanto a suíte, contra o
+          // fake, passava. O `e2e/requests-round-trip.test.ts` prende isto.
+          ...(init.body !== undefined && init.body !== null ? { 'content-type': 'application/json' } : {}),
           ...(config.token ? { authorization: `Bearer ${config.token}` } : {}),
           ...init.headers,
         },

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Folder } from '@dailly/requests-core'
 import { nextTick, ref, useTemplateRef } from 'vue'
-import { rowId, type Draft } from './draft.js'
+import { rowId, type Draft } from '../../model/draft.js'
 
 /**
  * Os campos de uma request HTTP, no arranjo que a categoria inteira usa.

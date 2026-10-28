@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ExecutedResponse } from '@shared'
 import { computed } from 'vue'
-import type { DecodedBody } from './decode.js'
+import type { DecodedBody } from '../../model/decode.js'
 
 /**
  * A resposta, embaixo do editor.

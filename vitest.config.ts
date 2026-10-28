@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config'
+import { alias as uiAlias } from './ui/alias.config.js'
 
 /**
  * The workspace runner: one `vitest run` at the root covers every package.
@@ -30,6 +31,8 @@ export default defineConfig({
       // are forbidden from importing each other (ADR 0007). Here no such rule
       // applies, which is the only reason the pair can be tested together.
       {
+        // Os aliases da `ui/`, porque o e2e importa os adapters dela de verdade.
+        resolve: { alias: uiAlias },
         test: {
           name: 'e2e',
           globals: true,
