@@ -9,7 +9,7 @@ import {
 } from '@shared'
 import { testModuleDeps, testRequestsPort } from '@shared/testing.js'
 import { createApp } from 'vue'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import Requests from './Requests.vue'
 import ResponseView from './ResponseView.vue'
 import { MAX_DECOMPRESSED_BYTES, type DecodedBody } from './decode.js'
@@ -243,6 +243,106 @@ describe('C3, C4, C5: colar um curl', () => {
     expect(at(host, 'import-error')?.getAttribute('role')).toBe('alert')
     expect(at<HTMLInputElement>(host, 'method')?.value).toBe('GET')
     expect(at(host, 'header-name')).toBeNull()
+  })
+})
+
+/**
+ * O colar de um navegador, e não o do jsdom.
+ *
+ * Um evento que o usuário dispara roda cada listener com a pilha vazia, e o
+ * navegador esvazia a fila de microtasks **entre um listener e o próximo** (o
+ * "clean up after running script" do HTML). O `dispatchEvent` do jsdom chama
+ * todos de uma vez, dentro do script do teste, e a fila só roda no fim. Com o
+ * `fill` acima a suíte passava enquanto colar não importava nada no Chromium:
+ * o `v-model` gravava a URL, um `watch` rodava no intervalo, e o segundo
+ * listener já não via salto nenhum.
+ *
+ * Por isso os listeners de `input` do campo são gravados quando o Vue os
+ * registra, e chamados aqui um a um, com a fila esvaziada entre eles.
+ */
+const registered = new WeakMap<EventTarget, EventListenerOrEventListenerObject[]>()
+const addEventListener = HTMLInputElement.prototype.addEventListener
+
+const inputLikeABrowser = async (
+  element: HTMLElement | null,
+  value: string,
+  inputType: 'insertFromPaste' | 'insertText' = 'insertFromPaste',
+) => {
+  const field = element as HTMLInputElement | null
+  if (!field) throw new Error('campo não está na tela')
+  field.value = value
+  const event = new InputEvent('input', { bubbles: true, inputType, data: value })
+  Object.defineProperty(event, 'target', { value: field })
+  Object.defineProperty(event, 'currentTarget', { value: field })
+  for (const listener of registered.get(field) ?? []) {
+    if (typeof listener === 'function') listener.call(field, event)
+    else listener.handleEvent(event)
+    for (let turn = 0; turn < 4; turn++) await Promise.resolve()
+  }
+  await settle()
+}
+
+describe('colar um curl num navegador de verdade', () => {
+  beforeEach(() => {
+    HTMLInputElement.prototype.addEventListener = function (
+      this: HTMLInputElement,
+      type: string,
+      listener: EventListenerOrEventListenerObject,
+      options?: boolean | AddEventListenerOptions,
+    ) {
+      if (type === 'input') registered.set(this, [...(registered.get(this) ?? []), listener])
+      addEventListener.call(this, type, listener, options)
+    }
+  })
+  afterEach(() => {
+    HTMLInputElement.prototype.addEventListener = addEventListener
+  })
+
+  it('recria a request com método, URL, header e body', async () => {
+    const { host } = mount(deps(testRequestsPort()))
+    await settle()
+
+    await novaRequest(host)
+    await inputLikeABrowser(
+      at(host, 'url'),
+      `curl -X POST https://httpbin.org/post -H 'X-Teste: 1' -d '{"a":1}'`,
+    )
+
+    expect(at<HTMLInputElement>(host, 'method')?.value).toBe('POST')
+    expect(at<HTMLInputElement>(host, 'url')?.value).toBe('https://httpbin.org/post')
+    expect(at<HTMLInputElement>(host, 'header-name')?.value).toBe('X-Teste')
+    expect(at<HTMLInputElement>(host, 'header-value')?.value).toBe('1')
+    await click(at(host, 'tab-body'))
+    expect(at<HTMLTextAreaElement>(host, 'body')?.value).toBe('{"a":1}')
+  })
+
+  it('digitar um curl tecla a tecla não importa nada', async () => {
+    const { host } = mount(deps(testRequestsPort()))
+    await settle()
+    await novaRequest(host)
+
+    const texto = `curl https://x.dev -H 'A: 1'`
+    for (let fim = 1; fim <= texto.length; fim++) {
+      await inputLikeABrowser(at(host, 'url'), texto.slice(0, fim), 'insertText')
+    }
+
+    expect(at<HTMLInputElement>(host, 'url')?.value).toBe(texto)
+    expect(at<HTMLInputElement>(host, 'method')?.value).toBe('GET')
+    expect(at(host, 'header-name')).toBeNull()
+  })
+
+  it('o segundo curl colado também importa', async () => {
+    // O caso que o `watch` antigo existia para cobrir: depois de um import, o
+    // "antes" é a URL curta, e a próxima colagem tem que ser salto.
+    const { host } = mount(deps(testRequestsPort()))
+    await settle()
+    await novaRequest(host)
+
+    await inputLikeABrowser(at(host, 'url'), `curl https://x.dev/um -H 'A: 1'`)
+    await inputLikeABrowser(at(host, 'url'), `curl -X PUT https://x.dev/dois`)
+
+    expect(at<HTMLInputElement>(host, 'method')?.value).toBe('PUT')
+    expect(at<HTMLInputElement>(host, 'url')?.value).toBe('https://x.dev/dois')
   })
 })
 

@@ -147,6 +147,12 @@ export async function executeHttp(
   // inteiro é ser uma medição.
   const started = performance.now()
 
+  // URL que nem é URL é recusa do spec, como as do undici abaixo. Ela não chega
+  // como `InvalidArgumentError`: o `new URL` lá dentro lança `TypeError`, e caía
+  // no "não consegui alcançar". O caso real é um curl colado que não foi
+  // importado e virou a URL inteira — `curl https://…`.
+  if (!URL.canParse(wire.url)) throw new InvalidWireError(`URL inválida: ${wire.url}`)
+
   let response: Awaited<ReturnType<typeof undiciRequest>>
   try {
     response = await undiciRequest(wire.url, {
