@@ -26,7 +26,7 @@ ui/src/
     deps.ts                  ModuleDeps: o que a raiz entrega a todo módulo
     requests.ts              RequestsPort e os erros da execução, nas palavras da tela
   adapters/                  ← o outro lado das ports, sobre HTTP
-    api.ts                   onde está a API: /api no dev, bridge do Electron em produção
+    api.ts                   onde está a API: /api, pelo proxy do vite
     http.ts                  a chamada comum: token, content-type, 204, "recusou" vs "ninguém atendeu"
     errors.ts                ApiError · ApiUnreachableError
     http-entry-repository.ts EntryRepository sobre /entries
@@ -77,7 +77,7 @@ própria.
 
 ```
 main.ts
-  resolveApiConfig()           ─► { baseUrl, token? }
+  API_CONFIG                   ─► { baseUrl: "/api" }
   httpEntryRepository(config)  ─► createEntry · queryEntries  (de @dailly/domain)
   GET /health                  ─► zone  (UTC se a API não responder)
   httpRequestsClient(config)   ─► requests
@@ -129,10 +129,11 @@ Não confundir os dois níveis de composição: o manifest compõe **módulos**;
 | Ambiente | `baseUrl` | Token |
 |---|---|---|
 | dev (`make dev`) | `/api`, que o vite faz proxy para `127.0.0.1:4317` | nenhum |
-| Electron | a porta efêmera que o main process escolheu | por execução, pedido via `window.dailly.apiConfig()` |
+| `make start` | `/api`, que o `vite preview` faz proxy para `127.0.0.1:4318` | nenhum |
 
-O token nunca vai em query string nem em `argv`: o preload expõe uma *função*,
-e o valor atravessa por IPC só quando pedido.
+Uma resposta só, desde a ADR 0012: o renderer nunca segura URL absoluta e não
+há CORS a configurar. A proteção da API é dela mesma (`Host` e `Origin`), não
+de um token.
 
 ---
 

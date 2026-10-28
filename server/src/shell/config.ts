@@ -23,7 +23,7 @@ export interface ServerConfig {
    */
   readonly token?: string
   readonly host: string
-  /** `0` asks the OS for a free port — which is what a desktop app should do. */
+  /** `0` asks the OS for a free port — what the tests do; `make dev` and `make start` pin one. */
   readonly port: number
 }
 

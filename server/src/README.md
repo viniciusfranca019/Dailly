@@ -1,8 +1,8 @@
 # server
 
 A API local do dailly (`@dailly/server`): Fastify sobre SQLite, ouvindo só em
-`127.0.0.1`. No app, roda dentro do processo main do Electron; em dev, sozinha
-na porta 4317, atrás do proxy do vite.
+`127.0.0.1`. Roda sozinha, atrás do proxy do vite: na porta 4317 em dev, na 4318 com o
+diário de verdade (`make start`, ADR 0012).
 
 ## Briefing
 
@@ -12,7 +12,7 @@ na porta 4317, atrás do proxy do vite.
 | `modules/entries` | o Daily Log: `GET` e `POST /entries`, a tabela `entries` |
 | `modules/requests` | o cliente de API: a coleção e `POST /requests/:id/execute` |
 | `adapters/` | `SqliteEntryRepository`, que implementa a port de `@dailly/domain` |
-| `index.ts` | `createServer()`, o composition root — a única função de que o Electron precisa |
+| `index.ts` | `createServer()`, o composition root — o que `dev.ts` e os testes chamam |
 
 ## Setup e comandos
 
@@ -28,10 +28,10 @@ make clean-db                             # apaga o banco de dev (pare a API ant
 | Variável | Para quê | Padrão |
 |---|---|---|
 | `DAILLY_TZ` | fuso IANA dos dias; inválido derruba o boot com mensagem | `UTC` |
-| `DAILLY_PORT` | porta em dev | `4317` |
-| `DAILLY_DB` | arquivo SQLite em dev | `dailly.dev.sqlite` (em `server/`) |
+| `DAILLY_PORT` | porta | `4317` (`make start` usa `4318`) |
+| `DAILLY_DB` | arquivo SQLite | `dailly.dev.sqlite` (em `server/`); `make start` usa `~/.config/dailly/dailly.sqlite` |
 
-Sem token em dev. No app, o token é gerado a cada execução pelo `desktop/`.
+Sem token: desde a ADR 0012, a API aceita só a própria máquina (`Host` e `Origin`), e nada no app gera token.
 
 ## Mais
 

@@ -55,8 +55,9 @@ antes de o código entrar. O gatilho de cada uma **já aconteceu**.
 - [ ] **Store de estado** (Pinia ou nada) — decidir quando houver estado
       compartilhado entre telas. → ADR 0010
 - [ ] **Testing Library para Vue** em vez do harness DOM cru → ADR 0010
-- [ ] **Empacotamento AppImage** — em stand-by por decisão do autor; nada mais
-      da Fase 1 depende dele. → [roadmap, Fase 1](docs/roadmap.md)
+- [ ] **O token sem quem o gere** — o servidor ainda aceita um, e nada no app o
+      produz desde que o desktop saiu. Fica para um modo hospedado; se ele não
+      vier, remover. → [ADR 0012, O token](docs/adrs/0012-so-web.md)
 - [ ] **Excluir `PropertyDef`, reexecutar análise do mesmo período, e combinar
       `EntryFilter` entre dimensões** → [ADR 0007, Pendências](docs/adrs/0007-api-local-e-tempo.md)
 

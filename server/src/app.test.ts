@@ -191,4 +191,67 @@ describe('the HTTP surface', () => {
       expect((await app.inject({ method: 'GET', url: '/entries' })).statusCode).toBe(200)
     })
   })
+
+  /**
+   * Sem o Electron, quem fala com a API é um navegador — e um navegador também
+   * abre outros sites. A ADR 0012 escreve o modelo: a máquina é confiável (um
+   * processo dela já lê o SQLite direto), os outros sites não.
+   */
+  describe('só a própria máquina, ADR 0012', () => {
+    it('recusa um Host que não é desta máquina — DNS rebinding', async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/entries',
+        headers: { host: 'atacante.example:4317' },
+      })
+      expect(response.statusCode).toBe(403)
+    })
+
+    it('aceita os nomes desta máquina, em qualquer porta', async () => {
+      for (const host of ['localhost:4317', '127.0.0.1:4317', '[::1]:4317', 'localhost']) {
+        const response = await app.inject({ method: 'GET', url: '/entries', headers: { host } })
+        expect(response.statusCode, host).toBe(200)
+      }
+    })
+
+    it('recusa uma requisição vinda de outro site', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/entries',
+        payload: anEntry(),
+        headers: { origin: 'https://atacante.example' },
+      })
+      expect(response.statusCode).toBe(403)
+    })
+
+    it('recusa Origin: null — iframe com sandbox, página data: ou file:', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/entries',
+        payload: anEntry(),
+        headers: { origin: 'null' },
+      })
+      expect(response.statusCode).toBe(403)
+    })
+
+    it('aceita a origem da própria UI, e a ausência de Origin', async () => {
+      const daUi = await app.inject({
+        method: 'POST',
+        url: '/entries',
+        payload: anEntry(),
+        headers: { origin: 'http://localhost:5173' },
+      })
+      expect(daUi.statusCode).toBe(201)
+      expect((await app.inject({ method: 'GET', url: '/entries' })).statusCode).toBe(200)
+    })
+
+    it('o /health também é guardado: ele não tem isenção aqui', async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/health',
+        headers: { origin: 'https://atacante.example' },
+      })
+      expect(response.statusCode).toBe(403)
+    })
+  })
 })

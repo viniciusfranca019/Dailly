@@ -42,6 +42,30 @@ export function buildApp(
 
   const app = Fastify({ logger: false })
 
+  /**
+   * Só a própria máquina fala com esta API (ADR 0012).
+   *
+   * Sem o Electron, o cliente é um navegador, que também abre outros sites. O
+   * modelo de ameaça é esse e não "outro processo local": um processo desta
+   * máquina já lê o SQLite direto, então protegê-lo da API não protege nada.
+   *
+   * - **Host** fecha o DNS rebinding: um site que faz seu domínio resolver
+   *   para 127.0.0.1 ainda manda o próprio nome no `Host`.
+   * - **Origin** fecha o CSRF: um `POST` `text/plain` de outro site não passa
+   *   por preflight, e chegaria ao `/execute` — egresso a partir desta máquina.
+   *   Sem `Origin` é curl, teste ou o proxy do vite num GET: passa.
+   *
+   * Sem isenção para o `/health`: a do token existe porque o shell fazia
+   * polling antes de ter o token, e aqui não há o que esperar.
+   */
+  app.addHook('onRequest', async (request, reply) => {
+    const origin = request.headers.origin
+    const local =
+      isLoopback(hostnameOf(request.headers.host)) &&
+      (origin === undefined || isLoopback(hostnameOf(origin, '')))
+    if (!local) await reply.code(403).send({ error: 'só esta máquina fala com a API' })
+  })
+
   if (token) {
     app.addHook('onRequest', async (request, reply) => {
       // `/health` é isento: o shell faz polling nele para saber quando o
@@ -85,4 +109,25 @@ export function buildApp(
   }
 
   return app
+}
+
+/** Os nomes desta máquina. `URL` devolve o IPv6 entre colchetes. */
+const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]'])
+
+const isLoopback = (hostname: string | undefined): boolean =>
+  hostname !== undefined && LOOPBACK.has(hostname)
+
+/**
+ * O hostname de um `Host` (`localhost:4317`) ou de um `Origin`
+ * (`http://localhost:5173`), sem porta. Pelo `URL` e não por `split(':')`,
+ * que quebraria no IPv6. Ilegível — `Origin: null` incluído — é `undefined`,
+ * e `undefined` não é desta máquina.
+ */
+function hostnameOf(value: string | undefined, scheme = 'http://'): string | undefined {
+  if (!value) return undefined
+  try {
+    return new URL(`${scheme}${value}`).hostname
+  } catch {
+    return undefined
+  }
 }

@@ -5,11 +5,9 @@ import { alias, at } from './alias.config.js'
 
 export default defineConfig({
   root: 'src',
-  // Relative asset paths, because the built app is opened over `file://` by the
-  // Electron shell (`loadFile`), not served. With vite's default `base: '/'`,
-  // `/assets/app.js` resolves to the filesystem root there — every script 404s
-  // and the window renders blank with nothing in the terminal to say why. The
-  // dev server is unaffected.
+  // Relative asset paths. They were needed when the Electron shell opened the
+  // build over `file://`; since ADR 0012 the build is served (`vite preview`),
+  // where they still work, and they keep the `dist/` openable from any path.
   base: './',
   // Two pages: the app is the product, the playground is the harness where
   // real browser behaviour of the whiteboard gets checked by eye (the README
@@ -28,12 +26,16 @@ export default defineConfig({
   server: {
     proxy: {
       // The renderer only ever fetches `/api/...`, in dev and in production
-      // alike. Here that is proxied to the API running on a fixed port
-      // (`make dev-api`); in production the Electron shell hands over a base
-      // URL with the ephemeral port instead. One code path, two answers.
+      // alike, proxied to the API on its fixed port (`DAILLY_PORT`). `vite
+      // preview` (`make start`) inherits this proxy, so it is one answer for both
+      // since ADR 0012.
       '/api': {
         target: `http://127.0.0.1:${process.env['DAILLY_PORT'] ?? 4317}`,
-        changeOrigin: true,
+        // `false`, e não `true`: a API recusa `Host` que não é desta máquina
+        // (ADR 0012, DNS rebinding), e com `true` o proxy trocava todo `Host`
+        // por `127.0.0.1:<porta>` — a API nunca via o do atacante. O do
+        // navegador legítimo (`localhost:5173`, `localhost:4173`) já passa.
+        changeOrigin: false,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
     },

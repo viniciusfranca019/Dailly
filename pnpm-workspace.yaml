@@ -2,12 +2,10 @@ packages:
   - packages/*
   - ui
   - server
-  - desktop
 
 # Dependências autorizadas a rodar script de instalação. Sem isto o pnpm 11 as
-# ignora em silêncio, e o sintoma aparece longe da causa: o electron sem binário
-# para executar, o better-sqlite3 sem o .node compilado, o tsx sem o esbuild.
+# ignora em silêncio, e o sintoma aparece longe da causa: o better-sqlite3 sem
+# o .node compilado, o tsx sem o esbuild.
 allowBuilds:
-  electron: true
   better-sqlite3: true
   esbuild: true

@@ -39,9 +39,9 @@ export interface RunningServer {
 /**
  * Sobe o servidor inteiro: banco, migrations, store, rotas, socket.
  *
- * Este é o composition root do processo. É a única função de que o shell
- * Electron precisa e — o ponto da regra da ADR 0009 — ela roda perfeitamente
- * sem Electron, o que o `boots-without-electron.test.ts` prova a cada
+ * Este é o composition root do processo. É o que o `dev.ts` chama, em dev e no
+ * `make start` (ADR 0012) — e, o ponto da regra da ADR 0009, ela roda sem shell
+ * nenhum em volta, o que o `boots-without-electron.test.ts` prova a cada
  * `make check`. Enquanto esse teste puder ser escrito, a separação é um fato;
  * no dia em que não puder, o HTTP deixou de se pagar.
  *

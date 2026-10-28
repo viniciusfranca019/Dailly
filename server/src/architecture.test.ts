@@ -126,8 +126,8 @@ const OUT_OF_MODULE = ['shell/module.js', 'shell/module.ts']
  *
  * `import { LATEST_VERSION } from '@dailly/server'` alcança o mesmo interior
  * que `../index.js`, e é especificador **bare**, então uma regra que só olha
- * import relativo nunca dispara nele. O `desktop/` importa por esse nome (e
- * deve); o que não pode é um arquivo do interior entrar por ele.
+ * import relativo nunca dispara nele. Quem está fora do servidor (o
+ * `e2e/`) importa por esse nome; o que não pode é um arquivo do interior entrar por ele.
  */
 const SELF_REFERENCE = '@dailly/server'
 
