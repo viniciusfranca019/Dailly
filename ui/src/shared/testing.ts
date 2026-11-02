@@ -149,6 +149,7 @@ export function testVaultPort(
 ): VaultPort & { readonly saved: ReadonlyMap<string, string> } {
   let state: VaultState = options.state ?? 'aberto'
   let password = options.password ?? 'uma senha longa'
+  const recoveryKey = options.recoveryKey ?? 'ABCD-EFGH'
   const secrets = new Map(Object.entries(options.secrets ?? {}))
   const open = () => {
     if (state !== 'aberto') throw new VaultRefusedError('locked', 'o cofre está trancado: abra-o com a senha')
@@ -164,7 +165,8 @@ export function testVaultPort(
       if (next.length < 8) throw new VaultRefusedError('invalid', 'a senha precisa ter pelo menos 8 caracteres')
       password = next
       state = 'aberto'
-      return 'ABCD-EFGH-IJKL-MNOP-QRST-UVWX-YZ23-4567-ABCD-EFGH-IJKL-MNOP-QRST'
+      // A mesma chave que `unlockWithRecovery` aceita, como no servidor.
+      return recoveryKey
     },
     async unlock(attempt) {
       if (state === 'sem-chave' || state === 'so-recuperacao') {
@@ -177,7 +179,7 @@ export function testVaultPort(
       if (state === 'sem-chave' || state === 'nao-criado') {
         throw new VaultRefusedError('invalid', 'o cofre ainda não foi criado')
       }
-      if (key.toUpperCase() !== (options.recoveryKey ?? 'ABCD-EFGH').toUpperCase()) {
+      if (key.toUpperCase() !== recoveryKey.toUpperCase()) {
         throw new VaultRefusedError('wrong-password', 'a chave de recuperação não abre o cofre')
       }
       state = 'aberto'
