@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { LockedSecretsError } from '@shared'
 import type { HttpSpec } from '@dailly/requests-core/http'
 import { testRequestsPort, testVaultPort } from '@shared/testing.js'
-import { at, allAt, click, deps, fill, mount, novaRequest, request, requestRow, settle, text } from './test-harness.js'
+import { at, allAt, click, deps, fill, held, mount, novaRequest, request, requestRow, settle, text } from './test-harness.js'
 
 /**
  * Passo 10: colar um curl com credencial (ADR 0013). A chave sai do curl para
@@ -184,5 +184,27 @@ describe('gate 1 do passo 10', () => {
     expect(at(host, 'credentials-prompt')).not.toBeNull()
     expect(at(host, 'vault-locked')).toBeNull()
     expect(save).not.toHaveBeenCalled()
+  })
+})
+
+describe('gate 2 do passo 10 (major)', () => {
+  it('cancelar fica desabilitado enquanto a gravação no cofre está em voo', async () => {
+    const vault = testVaultPort({ state: 'aberto' })
+    const gate = held()
+    const slow = {
+      ...vault,
+      save: async (environment: string, name: string, value: string) => {
+        await gate.promise
+        await vault.save(environment, name, value)
+      },
+    }
+    const { host } = await pasteInNew(slow as typeof vault)
+
+    await click(at(host, 'credentials-confirm'))
+    expect(at<HTMLButtonElement>(host, 'credentials-cancel')?.disabled).toBe(true)
+
+    gate.release()
+    await settle()
+    expect(at(host, 'credentials-prompt')).toBeNull()
   })
 })

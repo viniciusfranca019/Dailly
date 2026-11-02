@@ -1,5 +1,5 @@
 import { hasPlaceholder } from '../placeholder.js'
-import type { HttpSpec } from './spec.js'
+import type { HttpAuth, HttpSpec } from './spec.js'
 
 /**
  * Credenciais escritas direto num spec HTTP, e a troca delas por `{{nome}}`.
@@ -73,6 +73,20 @@ const split = (name: string, value: string): { scheme: string | null; secret: st
 }
 
 /**
+ * Qual metade do `-u` é o segredo — uma regra só, que achar e trocar dividem.
+ *
+ * Com senha, é a senha: `-u ana:s3nha`. Sem senha (`-u tok`) ou com ela vazia
+ * (`-u sk_live_123:`, o jeito que a doc do Stripe ensina), é o usuário. Com a
+ * senha em `{{variável}}`, o usuário é só um nome e não há segredo literal.
+ */
+const authSecret = (auth: HttpAuth): { field: 'user' | 'password'; value: string } | null => {
+  if (auth.password !== null && auth.password !== '') {
+    return hasPlaceholder(auth.password) ? null : { field: 'password', value: auth.password }
+  }
+  return { field: 'user', value: auth.user }
+}
+
+/**
  * As credenciais literais do spec: headers primeiro, na ordem, depois o `-u`.
  *
  * Um valor que já tem `{{…}}` não é literal — é a forma protegida, e mexer nele
@@ -106,10 +120,13 @@ export function findCredentials(spec: HttpSpec): FoundCredential[] {
 
   const auth = spec.auth
   if (auth !== null) {
-    if (auth.password !== null && auth.password !== '' && !hasPlaceholder(auth.password)) {
-      found.push({ id: 'auth', label: '-u (senha)', scheme: null, value: auth.password, suggested: nameFor('senha', auth.password) })
-    } else if (auth.password === null && auth.user !== '' && !hasPlaceholder(auth.user)) {
-      found.push({ id: 'auth', label: '-u', scheme: null, value: auth.user, suggested: nameFor('token', auth.user) })
+    const secret = authSecret(auth)
+    if (secret !== null && secret.value !== '' && !hasPlaceholder(secret.value)) {
+      found.push(
+        secret.field === 'password'
+          ? { id: 'auth', label: '-u (senha)', scheme: null, value: secret.value, suggested: nameFor('senha', secret.value) }
+          : { id: 'auth', label: '-u', scheme: null, value: secret.value, suggested: nameFor('token', secret.value) },
+      )
     }
   }
   return found
@@ -128,12 +145,13 @@ export function hideCredentials(spec: HttpSpec, choices: readonly CredentialChoi
   })
 
   const authName = names.get('auth')
+  const secret = spec.auth === null ? null : authSecret(spec.auth)
   const auth =
-    spec.auth === null || authName === undefined
+    spec.auth === null || authName === undefined || secret === null
       ? spec.auth
-      : spec.auth.password === null
-        ? { user: placeholder(authName), password: null }
-        : { user: spec.auth.user, password: placeholder(authName) }
+      : secret.field === 'password'
+        ? { ...spec.auth, password: placeholder(authName) }
+        : { ...spec.auth, user: placeholder(authName) }
 
   return { ...spec, headers, auth }
 }

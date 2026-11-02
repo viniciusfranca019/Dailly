@@ -56,5 +56,16 @@ export async function stashCredentials(
       `${taken.map((name) => `«${name}»`).join(', ')} já ${taken.length === 1 ? 'existe' : 'existem'} no cofre com outro valor: escolha outro nome`,
     )
   }
-  for (const { name, value } of toSave) await vault.save(environment, name, value)
+  // Tudo ou nada: um save recusado no meio desfaz os anteriores, senão o
+  // cofre ficaria com metade das chaves de um curl que a pessoa vai cancelar.
+  const written: string[] = []
+  try {
+    for (const { name, value } of toSave) {
+      await vault.save(environment, name, value)
+      written.push(name)
+    }
+  } catch (cause) {
+    await Promise.allSettled(written.map((name) => vault.remove(environment, name)))
+    throw cause
+  }
 }

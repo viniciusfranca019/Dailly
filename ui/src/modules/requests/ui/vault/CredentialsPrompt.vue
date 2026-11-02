@@ -153,6 +153,7 @@ async function confirm(): Promise<void> {
       <button
         type="button"
         data-testid="credentials-cancel"
+        :disabled="busy"
         class="rounded border border-[#1e2638] px-3 py-1.5 text-xs hover:bg-white/5"
         @click="emit('cancel')"
       >

@@ -102,3 +102,19 @@ describe('C3: troca cada credencial por {{nome}}, mantendo o esquema', () => {
     })
   })
 })
+
+describe('gate 2 do passo 10', () => {
+  it('(blocker) -u chave: — senha vazia — é o usuário que é o segredo', () => {
+    const original = spec(`curl https://api.stripe.com/v1/charges -u sk_live_123:`)
+    const found = findCredentials(original)
+    expect(found).toMatchObject([{ label: '-u', value: 'sk_live_123', suggested: 'api_stripe_com_token' }])
+    expect(hideCredentials(original, [{ id: 'auth', name: 'stripe' }]).auth).toEqual({
+      user: '{{stripe}}',
+      password: '',
+    })
+  })
+
+  it('usuário comum com senha em {{variável}} não é credencial literal', () => {
+    expect(findCredentials(spec(`curl -u ana:'{{pw}}' https://x.dev`))).toEqual([])
+  })
+})
