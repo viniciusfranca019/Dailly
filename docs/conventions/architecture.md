@@ -211,8 +211,9 @@ servidor porque a lista de proibidos foi furada duas vezes.
 **Descartado:** um `domain/` global (vira um monólito com pastas); flag de
 runtime (carrega todo módulo em todo bundle); `components/` e `lib/` como camada
 (sem critério de entrada); no servidor, uma tabela de versão por módulo (largaria
-o `user_version`). Um pnpm workspace por módulo foi recusado aqui e adotado depois,
-na ADR 0007, por outro motivo.
+o `user_version`); um pnpm workspace por módulo (custo de `package.json` sem
+consumidor externo). O repo virou workspace depois, na ADR 0007, mas de pacotes
+compartilhados (`domain`, `periods`), não um por módulo.
 
 ## API local, fuso e o contrato do tempo (era a ADR 0007)
 
@@ -278,7 +279,8 @@ separava Vue de Svelte, e investigar custaria mais que a diferença. Um
 alcançasse os módulos.
 
 **Descartado:** manter React com shadcn/ui; Svelte (tão defensável quanto);
-reescrever o whiteboard em Vue. **Gatilho anotado:** reabrir a ilha quando o
+continuar vanilla e decidir na Fase 2 (a timeline seria feita duas vezes, e uma
+vanilla funcionando enviesaria a decisão); reescrever o whiteboard em Vue. **Gatilho anotado:** reabrir a ilha quando o
 adapter precisar de estado que só o framework tem; a saída, então, é Vue *dentro*
 da ilha (renderers por bloco), não o contrário. **Limite conhecido:** o
 `vue-tsc` não roda com o TypeScript 7 nativo, então nenhum `.vue` passa pelo
@@ -355,18 +357,20 @@ impede testar senhas offline a partir de um backup. A senha vem pela tela, não
 pelo terminal, porque o `make start` roda API e UI em paralelo e um prompt se
 perderia.
 
-**Descartado:** SQLCipher no banco inteiro (troca o driver nativo e não resolve
-onde a chave mora); keychain do sistema (no WSL depende de D-Bus nem sempre
-presente); só `.env` (o disco aberto abre tudo); só senha (um backup vazado
+**Descartado:** keychain do sistema como peça principal (no WSL depende de D-Bus
+nem sempre presente; continua possível como adapter do `SecretStore`); só `.env` (o disco aberto abre tudo); só senha (um backup vazado
 permite ataque offline); `.env` **ou** senha (tão forte quanto a peça mais fraca);
-a tela nunca ver o valor (conferir a chave colada é parte do uso). **Limite:** as
-entradas do diário continuam em texto puro; cifrar o banco é outra decisão.
+a tela nunca ver o valor (conferir a chave colada é parte do uso). **Adiado:** SQLCipher no banco inteiro, que troca o driver nativo e não resolve
+onde a chave mora; volta se o dono quiser o diário cifrado. **Limite:** as
+entradas do diário continuam em texto puro.
 
 # O que está decidido e ainda não existe
 
 | O quê | Decidido em | Gatilho |
 |-------|-------------|---------|
 | Labels, propriedades, edição, exclusão e filtros do Daily Log | dados (era a ADR 0002) | Fase 2; as rotas que dependem deles respondem 501 |
+| Em aberto: o que excluir uma `PropertyDef` faz com os valores já gravados, e se o `EntryFilter` combina período, labels e propriedades por AND | ninguém ainda | decidir na decomposição da Fase 2 |
+| Em aberto: reexecutar a análise do mesmo período (nova, substitui ou recusa), e se o `Processor` é port formal ou só convenção de use-case | ninguém ainda | decidir antes da Fase 4 |
 | `Processor`, `Materialization`, `Summarizer` e Settings com BYOK | local-first (era a ADR 0001), IA (era a ADR 0004) | Fases 3 a 5 |
 | Backup em nuvem (`StorageProvider`) | backup (era a ADR 0005) | pós-MVP |
 | gRPC e AMQP, streaming, cancelamento e histórico de execução no Requests | Requests (era a ADR 0011) | quando um uso pedir |

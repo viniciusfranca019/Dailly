@@ -48,7 +48,8 @@ ponta a ponta.
       produz desde que o desktop saiu. Fica para um modo hospedado; se ele não
       vier, remover. → [ADR 0012](docs/conventions/architecture.md)
 - [ ] **Excluir `PropertyDef`, reexecutar análise do mesmo período, e combinar
-      `EntryFilter` entre dimensões** → ADR 0007, ainda em aberto
+      `EntryFilter` entre dimensões**, e se o `Processor` é port formal → em aberto, na
+      tabela do fim de [`docs/conventions/architecture.md`](docs/conventions/architecture.md)
 
 ## Requests — fora do corte, de propósito
 
