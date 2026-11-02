@@ -14,6 +14,13 @@ import type { FastifyInstance, FastifyReply } from 'fastify'
 import { ExecutionTimeoutError, InvalidWireError, TargetUnreachableError } from './execute.js'
 import { PROTOCOLS, type Protocol } from './protocols.js'
 import { validateFolder, validateSavedRequest } from './validate.js'
+import { CorruptSecretError, type Vault } from '../../shell/module.js'
+
+/**
+ * O ambiente do cofre que a execução lê. Um só por enquanto (ADR 0013): a
+ * escolha de ambiente na tela vem com o importador do Apidog.
+ */
+const VAULT_ENVIRONMENT = 'default'
 
 /**
  * As rotas de coleção: guardar, listar, apagar, organizar.
@@ -22,16 +29,79 @@ import { validateFolder, validateSavedRequest } from './validate.js'
  * store, não um use-case. A única decisão que mora aqui é qual erro do domínio
  * vira qual status, e ela é feita uma vez, no `answer`.
  */
+/** As variáveis existem no cofre, mas ele não está aberto — nada saiu para a rede. */
+class LockedVariablesError extends Error {
+  override readonly name = 'LockedVariablesError'
+  constructor(
+    readonly names: readonly string[],
+    missingKey: boolean,
+  ) {
+    const which = `${names.length === 1 ? 'a variável' : 'as variáveis'} ${names.join(', ')}`
+    super(
+      missingKey
+        ? `${which} só existe${names.length === 1 ? '' : 'm'} no cofre, e falta a DAILLY_SECRET_KEY no .env ` +
+            'para abri-lo com a senha (ou abra com a chave de recuperação)'
+        : `o cofre está trancado, e ${which} só existe${names.length === 1 ? '' : 'm'} nele: abra o cofre com a senha`,
+    )
+  }
+}
+
+/**
+ * Troca cada valor vindo do cofre por `{{nome}}` numa mensagem.
+ *
+ * As recusas da execução citam a URL já resolvida ("não consegui alcançar
+ * …"), e um segredo interpolado na URL voltava em claro no corpo do 502. A
+ * ADR 0013 diz que nenhuma mensagem de erro carrega um valor; esta é a borda
+ * onde isso se cumpre, porque é aqui que se sabe quais valores vieram do cofre.
+ */
+const redact = (message: string, secrets: ReadonlyMap<string, string>): string => {
+  // O mais longo primeiro: com `sk_live` e `sk_live_9f8e` no cofre, trocar o
+  // curto antes deixava `{{curto}}_9f8e` — o resto do longo em claro.
+  const forms = [...secrets].flatMap(([name, value]) => {
+    const encoded = encodeURIComponent(value)
+    return encoded === value ? [{ name, text: value }] : [{ name, text: value }, { name, text: encoded }]
+  })
+  return forms
+    .filter((form) => form.text !== '')
+    .sort((a, b) => b.text.length - a.text.length)
+    .reduce((out, form) => out.replaceAll(form.text, `{{${form.name}}}`), message)
+}
+
 export function registerRequestRoutes(
   app: FastifyInstance,
   store: RequestStore,
   protocols: readonly Protocol[] = PROTOCOLS,
+  vault?: Vault,
 ): void {
   // O registry é montado da lista, e não importado do pacote, porque registrar
   // é composição: o dia em que existir gRPC, ele entra em `PROTOCOLS` e nada
   // aqui muda. O mapa ao lado é a metade efetiva, escolhida pela mesma chave.
   const registry = protocols.reduce((r, p) => r.register(p.driver), new ProtocolRegistry())
   const executors = new Map(protocols.map((p) => [p.driver.protocol, p] as const))
+
+  /**
+   * Resolve com o `env` da tela e, para o que faltar, com o cofre.
+   *
+   * A tela vale primeiro porque é a escolha do momento. O cofre só é tocado
+   * quando a tela não basta, e então só pelos nomes que faltaram: um cofre
+   * trancado não impede uma request que não precisa dele.
+   */
+  const resolveWithVault = (
+    saved: SavedRequest,
+    env: Record<string, string>,
+  ): { wire: WireRequest; secrets: ReadonlyMap<string, string> } => {
+    try {
+      return { wire: resolve(registry, saved, env), secrets: new Map() }
+    } catch (error) {
+      if (!(error instanceof UnresolvedVariableError) || !vault) throw error
+      const stored = error.missing.filter((name) => vault.has(VAULT_ENVIRONMENT, name))
+      if (stored.length === 0) throw error
+      const state = vault.status().state
+      if (state !== 'aberto') throw new LockedVariablesError(stored, state === 'sem-chave')
+      const secrets = new Map(stored.map((name) => [name, vault.get(VAULT_ENVIRONMENT, name)] as const))
+      return { wire: resolve(registry, saved, { ...Object.fromEntries(secrets), ...env }), secrets }
+    }
+  }
 
   /**
    * Traduz o vocabulário do domínio para HTTP, num lugar só.
@@ -107,9 +177,18 @@ export function registerRequestRoutes(
     if (naoTexto.length > 0) return reply.code(400).send({ errors: naoTexto })
 
     let wire: WireRequest
+    let secrets: ReadonlyMap<string, string>
     try {
-      wire = resolve(registry, saved, (env ?? {}) as Record<string, string>)
+      ;({ wire, secrets } = resolveWithVault(saved, (env ?? {}) as Record<string, string>))
     } catch (error) {
+      // 422 como nas rotas do cofre: a linha foi alterada por fora, e um 500
+      // mandaria procurar o defeito aqui dentro.
+      if (error instanceof CorruptSecretError) return reply.code(422).send({ error: error.message })
+      if (error instanceof LockedVariablesError) {
+        // 423, e não 400: a variável existe, só está trancada. Mandar "falta
+        // variável" faria a pessoa procurar um valor que já está guardado.
+        return reply.code(423).send({ error: error.message, locked: error.names })
+      }
       // As três recusas são do cliente, não do servidor — e cada uma diz o que
       // falta consertar. Um 500 mandaria procurar defeito aqui dentro.
       if (error instanceof UnresolvedVariableError) {
@@ -141,17 +220,17 @@ export function registerRequestRoutes(
       if (error instanceof InvalidWireError) {
         // 422 e não 502: a recusa é do spec, e aconteceu antes de qualquer
         // socket. Dizer 502 mandaria procurar na rede.
-        return reply.code(422).send({ error: error.message })
+        return reply.code(422).send({ error: redact(error.message, secrets) })
       }
       if (error instanceof ExecutionTimeoutError) {
         // 504 e não 502: o alvo foi alcançado e respondeu — ele só não
         // terminou no prazo que **este** servidor impõe.
-        return reply.code(504).send({ error: error.message })
+        return reply.code(504).send({ error: redact(error.message, secrets) })
       }
       if (error instanceof TargetUnreachableError) {
         // 502: quem falhou foi o alvo. Dizer 500 seria assumir a culpa de
         // outro processo, e mandar a pessoa depurar o lugar errado.
-        return reply.code(502).send({ error: error.message })
+        return reply.code(502).send({ error: redact(error.message, secrets) })
       }
       throw error
     }

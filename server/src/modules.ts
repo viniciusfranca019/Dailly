@@ -1,6 +1,7 @@
 import { entriesModule } from './modules/entries/index.js'
 import { requestsModule } from './modules/requests/index.js'
 import { type AnyServerModule, defineModule } from './shell/module.js'
+import { vaultModule } from './modules/vault/index.js'
 
 /**
  * O manifest — o único lugar que sabe quais módulos existem no servidor.
@@ -16,4 +17,5 @@ export const MODULES: readonly AnyServerModule[] = [
   // pelo tipo de autoria, onde declarar `TOwn` sem `provide` é erro.
   defineModule(entriesModule),
   defineModule(requestsModule),
+  defineModule(vaultModule),
 ]

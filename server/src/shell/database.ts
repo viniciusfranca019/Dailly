@@ -24,6 +24,9 @@ export function openDatabase(
   // WAL é propriedade do arquivo, e um banco em memória não tem nenhum.
   if (file !== ':memory:') db.pragma('journal_mode = WAL')
   db.pragma('foreign_keys = ON')
+  // ADR 0013: apagar ou sobrescrever zera as páginas, para um segredo que já
+  // esteve em texto puro não sobreviver nas páginas livres.
+  db.pragma('secure_delete = ON')
   migrate(db, migrations)
   return db
 }

@@ -39,6 +39,8 @@ export class InvalidTimeZoneError extends Error {
 
 export interface ConfigInput {
   readonly databaseFile: string
+  /** `DAILLY_SECRET_KEY`, a metade do cofre que mora no `.env` (ADR 0013). */
+  readonly secretKey?: string
   readonly zone?: string
   readonly token?: string
   readonly host?: string

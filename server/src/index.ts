@@ -80,6 +80,9 @@ export async function createServer(
       zone: config.zone,
       db,
       ...(config.token ? { token: config.token } : {}),
+      // Fora do `ServerConfig` de propósito: a config é devolvida por
+      // `createServer`, e um segredo não deve viajar com ela.
+      ...(input.secretKey ? { secretKey: input.secretKey } : {}),
     },
     modules,
   )

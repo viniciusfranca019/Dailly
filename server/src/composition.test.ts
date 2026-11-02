@@ -249,7 +249,7 @@ describe('o módulo traz a própria dependência, em vez de o contrato crescer u
     expect(zona).toBe(UTC)
   })
 
-  it('o provide recebe o banco e a zona, e mais nada', () => {
+  it('o provide recebe o banco, a zona e o cofre, e mais nada', () => {
     let contexto: unknown
     const db = fakeDb()
 
@@ -262,7 +262,10 @@ describe('o módulo traz a própria dependência, em vez de o contrato crescer u
       }),
     ])
 
-    expect(contexto).toEqual({ db, zone: UTC })
+    // O cofre entrou com a ADR 0013: um por processo, porque a DEK aberta é
+    // estado que o Requests e as rotas do cofre precisam compartilhar.
+    expect(Object.keys(contexto as object).sort()).toEqual(['db', 'vault', 'zone'])
+    expect(contexto).toMatchObject({ db, zone: UTC })
   })
 
   it('falha nomeando o módulo quando ele precisa de banco e não há banco', () => {
