@@ -1,4 +1,4 @@
-.PHONY: help install dev dev-api dev-ui dev-all start start-api start-ui test test-all test-watch build build-all check clean-db clean-db-app clean
+.PHONY: help install dev dev-api dev-ui dev-all start start-api start-ui test test-all test-watch build build-all check clean-db clean-db-app clean import-apidog
 
 # Os dois bancos, que têm riscos bem diferentes.
 DEV_DB  := server/dailly.dev.sqlite
@@ -56,6 +56,10 @@ start-api:
 
 start-ui:
 	DAILLY_PORT=$(START_PORT) pnpm --filter @dailly/ui exec vite preview --port 4173 --strictPort
+
+import-apidog: ## Importa o export do Apidog (Postman v2.1) pela API do `make start`: FILE=export.json
+	@test -n "$(FILE)" || { echo 'uso: make import-apidog FILE=caminho/do/export.json'; exit 2; }
+	pnpm --filter @dailly/server exec tsx src/import-apidog-cli.ts "$(abspath $(FILE))"
 
 check: ## Typecheck + testes, com e sem as flags de módulo
 	pnpm -r typecheck
