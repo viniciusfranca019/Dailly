@@ -15,7 +15,7 @@ export class ApiDownError extends Error {
   override readonly name = 'ApiDownError'
   constructor(baseUrl: string) {
     super(
-      `a API do dailly não respondeu em ${baseUrl}. Suba-a com \`make start\` ` +
+      `a API do dailly não respondeu em ${baseUrl} (ou o que respondeu lá não é o dailly). Suba-a com \`make start\` ` +
         '(ou aponte outra com DAILLY_URL) e rode de novo.',
     )
   }
@@ -60,14 +60,15 @@ export async function runImport(options: {
 
   // Antes de tudo: sem API não há o que fazer, e converter primeiro só
   // atrasaria a única mensagem que interessa.
-  try {
-    await http(url('/health'))
-  } catch {
-    throw new ApiDownError(options.baseUrl)
-  }
-
-  const existing = (await (await http(url('/requests/folders'))).json()) as { name: string; parentId: string | null }[]
-  if (existing.some((folder) => folder.parentId === null && folder.name === ROOT_FOLDER)) {
+  // `ok` e o formato conferidos: um DAILLY_URL apontado para outra coisa
+  // responderia, e o erro seria um `SyntaxError` de JSON sem dizer onde.
+  const health = await http(url('/health')).catch(() => null)
+  if (!health?.ok) throw new ApiDownError(options.baseUrl)
+  const listed = await http(url('/requests/folders'))
+  const existing = listed.ok ? ((await listed.json().catch(() => null)) as unknown) : null
+  if (!Array.isArray(existing)) throw new ApiDownError(options.baseUrl)
+  const folders = existing as { name: string; parentId: string | null }[]
+  if (folders.some((folder) => folder.parentId === null && folder.name === ROOT_FOLDER)) {
     throw new AlreadyImportedError()
   }
 

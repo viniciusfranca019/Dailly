@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { fromPostman, NotAPostmanCollectionError } from './from-postman.js'
+import type { HttpSpec } from './spec.js'
 
 /** Ids previsíveis: `id-1`, `id-2`, … na ordem em que o conversor os pede. */
 const sequential = () => {
@@ -186,5 +187,85 @@ describe('I5: o que não converte é dito', () => {
     expect(() => fromPostman({ openapi: '3.0.0' }, { root: 'Apidog', nextId: sequential() })).toThrow(
       NotAPostmanCollectionError,
     )
+  })
+})
+
+describe('gate 1: auth herdado, placeholder único, nomes sem colisão', () => {
+  it('(major) uma request sem auth herda o da pasta mais próxima, e a pasta o da coleção', () => {
+    const result = fromPostman(
+      collection(
+        [
+          request('me'),
+          {
+            name: 'Admin',
+            auth: { type: 'basic', basic: [{ key: 'username', value: '{{u}}' }, { key: 'password', value: '{{p}}' }] },
+            item: [request('users'), request('aberta', { auth: { type: 'noauth' } }), request('herda', { auth: { type: 'inherit' } })],
+          },
+        ],
+        { auth: { type: 'bearer', bearer: [{ key: 'token', value: '{{token}}' }] } },
+      ),
+      { root: 'Apidog', nextId: sequential() },
+    )
+    const byName = new Map(result.requests.map((r) => [r.name, r.spec]))
+    expect(byName.get('me')).toMatchObject({ headers: [{ name: 'Authorization', value: 'Bearer {{token}}' }] })
+    expect(byName.get('users')).toMatchObject({ auth: { user: '{{u}}', password: '{{p}}' } })
+    expect(byName.get('herda')).toMatchObject({ auth: { user: '{{u}}', password: '{{p}}' } })
+    expect(byName.get('aberta')).toMatchObject({ headers: [], auth: null })
+  })
+
+  it('(major) um `{{` que não forma variável é credencial literal, e vira variável', () => {
+    const result = fromPostman(
+      collection([request('a', { header: [{ key: 'X-Api-Key', value: 'k9{{x7Qz' }] })]),
+      { root: 'Apidog', nextId: sequential() },
+    )
+    expect(JSON.stringify(result.requests)).not.toContain('k9{{x7Qz')
+    expect(result.literalSecrets).toHaveLength(1)
+  })
+
+  it('(major) credenciais diferentes nunca dividem o nome; a mesma credencial reaproveita', () => {
+    const result = fromPostman(
+      collection([
+        {
+          name: 'Stripe',
+          item: [
+            request('cobrar', { header: [{ key: 'X-Api-Key', value: 'sk_live_A' }] }),
+            request('cobrar', { header: [{ key: 'X-Api-Key', value: 'sk_live_B' }] }),
+            request('cobrar', { header: [{ key: 'X-Api-Key', value: 'sk_live_A' }] }),
+          ],
+        },
+        { name: '支付', item: [request('订单', { header: [{ key: 'X-Api-Key', value: 'outro' }] })] },
+      ]),
+      { root: 'Apidog', nextId: sequential() },
+    )
+    const keys = result.requests.map((r) => (r.spec as HttpSpec).headers[0]!.value)
+    expect(keys[0]).toBe('{{stripe_cobrar_x_api_key}}')
+    expect(keys[1]).toBe('{{stripe_cobrar_x_api_key_2}}')
+    expect(keys[2]).toBe(keys[0])
+    expect(new Set(keys).size).toBe(3)
+    expect(keys[3]).toMatch(/^\{\{[a-z0-9_]+\}\}$/)
+  })
+
+  it('(nit) apikey no header e na query, e a senha Basic literal, viram variável', () => {
+    const result = fromPostman(
+      collection([
+        request('h', { auth: { type: 'apikey', apikey: [{ key: 'key', value: 'X-Key' }, { key: 'value', value: 'lit1' }, { key: 'in', value: 'header' }] } }),
+        request('q', { auth: { type: 'apikey', apikey: [{ key: 'key', value: 'api_key' }, { key: 'value', value: '{{k}}' }, { key: 'in', value: 'query' }] } }),
+        request('b', { auth: { type: 'basic', basic: [{ key: 'username', value: 'eu' }, { key: 'password', value: 'lit2' }] } }),
+      ]),
+      { root: 'Apidog', nextId: sequential() },
+    )
+    const [h, q, b] = result.requests.map((r) => r.spec as HttpSpec)
+    expect(h!.headers).toEqual([{ name: 'X-Key', value: '{{h_x_key}}' }])
+    expect(q!.query).toEqual(['api_key={{k}}'])
+    expect(b!.auth).toEqual({ user: 'eu', password: '{{b_password}}' })
+    expect(JSON.stringify(result.requests)).not.toMatch(/lit1|lit2/)
+  })
+
+  it('(nit) Cookie e Proxy-Authorization literais também viram variável', () => {
+    const result = fromPostman(
+      collection([request('c', { header: [{ key: 'Cookie', value: 'sid=abc' }, { key: 'Proxy-Authorization', value: 'Basic xyz' }] })]),
+      { root: 'Apidog', nextId: sequential() },
+    )
+    expect(JSON.stringify(result.requests)).not.toMatch(/sid=abc|Basic xyz/)
   })
 })

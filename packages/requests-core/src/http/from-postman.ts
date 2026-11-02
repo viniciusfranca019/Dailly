@@ -1,5 +1,6 @@
 import type { HttpAuth, HttpHeader, HttpSpec } from './spec.js'
 import { placeholdersOf } from '../interpolate.js'
+import { hasPlaceholder } from '../placeholder.js'
 import type { Folder } from '../storage/folder.js'
 import type { SavedRequest } from '../storage/request-store.js'
 
@@ -59,6 +60,8 @@ const CREDENTIAL_HEADERS = new Set([
   'x-auth-token',
   'x-access-token',
   'token',
+  'cookie',
+  'proxy-authorization',
 ])
 
 type Json = Record<string, unknown>
@@ -70,8 +73,6 @@ const str = (value: unknown): string => (typeof value === 'string' ? value : '')
 
 const list = (value: unknown): Json[] => (Array.isArray(value) ? value.filter(isRecord) : [])
 
-/** `{{a}}` puro, ou texto que já traz uma variável: nada a esconder. */
-const isVariable = (value: string) => value.includes('{{')
 
 const slug = (...parts: string[]) =>
   parts
@@ -102,6 +103,18 @@ const form = (body: Json): string =>
     .map((pair) => new URLSearchParams([[str(pair['key']), str(pair['value'])]]).toString())
     .join('&')
 
+/**
+ * O auth que vale num nível: o próprio, ou o herdado do ancestral mais próximo.
+ *
+ * No Postman v2.1 uma request sem `auth` (ou com `type: inherit`) usa o da
+ * pasta, e a pasta o da coleção. Ler só o da request fazia a coleção inteira
+ * sair sem credencial e voltar 401, sem o relatório dizer por quê.
+ */
+const authOf = (own: unknown, inherited: Json | null): Json | null => {
+  if (!isRecord(own) || str(own['type']) === 'inherit') return inherited
+  return own
+}
+
 export function fromPostman(
   input: unknown,
   options: { readonly root: string; readonly nextId: () => string },
@@ -118,15 +131,30 @@ export function fromPostman(
   const root: Folder = { id: options.nextId(), parentId: null, name: options.root, position: 0 }
   folders.push(root)
 
-  /** Uma credencial escrita direto vira `{{slug}}`, e fica anotada. */
+  /**
+   * Os nomes já dados, e a credencial de cada um — só em memória, nunca na saída.
+   *
+   * Dois valores diferentes nunca dividem um nome: com o mesmo nome, o cofre
+   * guardaria um só, e uma das requests sairia com a credencial da outra. O
+   * mesmo valor reaproveita o nome, que é o que o autor quer (uma chave, um
+   * cadastro).
+   */
+  const named = new Map<string, string>()
+
+  /** Uma credencial escrita direto vira `{{nome}}`, e fica anotada. */
   const hide = (value: string, trail: string[], field: string, suffix: string): string => {
-    if (value === '' || isVariable(value)) return value
-    const variable = slug(...trail, suffix)
+    // A mesma regra de "isto é variável" que a interpolação usa, e não um
+    // `includes('{{')`: um segredo gerado que contém `{{` continua segredo.
+    if (value === '' || hasPlaceholder(value)) return value
+    const base = slug(...trail, suffix) || slug('segredo', suffix)
+    let variable = base
+    for (let n = 2; named.has(variable) && named.get(variable) !== value; n++) variable = `${base}_${n}`
+    if (!named.has(variable)) named.set(variable, value)
     literalSecrets.push({ path: trail.join(' / '), field, variable })
     return `{{${variable}}}`
   }
 
-  const convert = (item: Json, trail: string[]): HttpSpec | Skipped => {
+  const convert = (item: Json, trail: string[], inherited: Json | null): HttpSpec | Skipped => {
     const path = trail.join(' / ')
     const request = isRecord(item['request']) ? item['request'] : {}
     const url = urlOf(request['url'])
@@ -168,7 +196,7 @@ export function fromPostman(
 
     let auth: HttpAuth | null = null
     const query: string[] = []
-    const rawAuth = isRecord(request['auth']) ? request['auth'] : null
+    const rawAuth = authOf(request['auth'], inherited)
     const type = rawAuth ? str(rawAuth['type']) : ''
     if (rawAuth && type === 'basic') {
       const basic = pairs(rawAuth['basic'])
@@ -199,16 +227,16 @@ export function fromPostman(
     }
   }
 
-  const walk = (items: Json[], parent: Folder, trail: string[]) => {
+  const walk = (items: Json[], parent: Folder, trail: string[], inherited: Json | null) => {
     items.forEach((item, position) => {
       const name = str(item['name']) || '(sem nome)'
       if (Array.isArray(item['item'])) {
         const folder: Folder = { id: options.nextId(), parentId: parent.id, name, position }
         folders.push(folder)
-        walk(list(item['item']), folder, [...trail, name])
+        walk(list(item['item']), folder, [...trail, name], authOf(item['auth'], inherited))
         return
       }
-      const spec = convert(item, [...trail, name])
+      const spec = convert(item, [...trail, name], inherited)
       if ('reason' in spec) {
         skipped.push(spec)
         return
@@ -217,7 +245,7 @@ export function fromPostman(
     })
   }
 
-  walk(list(input['item']), root, [])
+  walk(list(input['item']), root, [], authOf(input['auth'], null))
 
   const declared = list(input['variable']).map((variable) => str(variable['key']))
   const used = requests.flatMap((request) => placeholdersOf(request.spec))
