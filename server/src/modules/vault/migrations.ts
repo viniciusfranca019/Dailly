@@ -1,4 +1,4 @@
-import type { Migration } from '../shell/module.js'
+import type { Migration } from '../../shell/module.js'
 
 /**
  * As tabelas do cofre (ADR 0013). Nada aqui é legível sem a DEK: `vault` guarda

@@ -1,6 +1,6 @@
 import Fastify, { type FastifyInstance } from 'fastify'
 import { MODULES } from '../modules.js'
-import { createVault, type KdfParams } from '../vault/vault.js'
+import { createVault, type KdfParams } from './vault.js'
 import type { Database } from 'better-sqlite3'
 import {
   ManifestError,

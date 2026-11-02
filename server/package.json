@@ -15,8 +15,8 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "dev": "tsx watch src/dev.ts",
-    "start": "tsx src/dev.ts"
+    "dev": "tsx watch --env-file-if-exists=../.env src/dev.ts",
+    "start": "tsx --env-file-if-exists=../.env src/dev.ts"
   },
   "dependencies": {
     "@dailly/domain": "workspace:*",

@@ -14,7 +14,6 @@ import type { EntryRepository } from '@dailly/domain'
 import type { TimeZone } from '@dailly/periods'
 import type { Database } from 'better-sqlite3'
 import type { FastifyInstance } from 'fastify'
-import type { Vault } from '../vault/vault.js'
 
 /**
  * Uma fatia de schema, e o motivo de ela morar no arquivo do contrato.
@@ -30,6 +29,23 @@ import type { Vault } from '../vault/vault.js'
  * seta legítima de um módulo para o shell é este arquivo — e aí a regra fica
  * enunciável sem exceção, que é o que o `architecture.test.ts` cobra.
  */
+/**
+ * O cofre (ADR 0013) entra no contrato porque é do shell, como o banco: um por
+ * processo, já que a DEK aberta é estado que mais de um módulo compartilha. Os
+ * erros vão junto porque são a forma de um módulo nomear a recusa.
+ */
+export type { SecretStore, SecretSummary, Vault, VaultStatus } from './vault.js'
+export {
+  CorruptSecretError,
+  MissingSecretKeyError,
+  SecretNotFoundError,
+  VaultExistsError,
+  VaultLockedError,
+  VaultNotCreatedError,
+  WrongPasswordError,
+} from './vault.js'
+import type { Vault } from './vault.js'
+
 export interface Migration {
   readonly version: number
   readonly up: string

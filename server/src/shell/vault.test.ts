@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
-import { openDatabase } from '../shell/database.js'
+import { openDatabase } from './database.js'
 import {
   CorruptSecretError,
   MissingSecretKeyError,

@@ -14,6 +14,13 @@ import type { FastifyInstance, FastifyReply } from 'fastify'
 import { ExecutionTimeoutError, InvalidWireError, TargetUnreachableError } from './execute.js'
 import { PROTOCOLS, type Protocol } from './protocols.js'
 import { validateFolder, validateSavedRequest } from './validate.js'
+import type { Vault } from '../../shell/module.js'
+
+/**
+ * O ambiente do cofre que a execução lê. Um só por enquanto (ADR 0013): a
+ * escolha de ambiente na tela vem com o importador do Apidog.
+ */
+const VAULT_ENVIRONMENT = 'default'
 
 /**
  * As rotas de coleção: guardar, listar, apagar, organizar.
@@ -22,16 +29,48 @@ import { validateFolder, validateSavedRequest } from './validate.js'
  * store, não um use-case. A única decisão que mora aqui é qual erro do domínio
  * vira qual status, e ela é feita uma vez, no `answer`.
  */
+/** As variáveis existem no cofre, mas ele está trancado — nada saiu para a rede. */
+class LockedVariablesError extends Error {
+  override readonly name = 'LockedVariablesError'
+  constructor(readonly names: readonly string[]) {
+    super(
+      `o cofre está trancado, e ${names.length === 1 ? 'a variável' : 'as variáveis'} ` +
+        `${names.join(', ')} só existe${names.length === 1 ? '' : 'm'} nele: abra o cofre com a senha`,
+    )
+  }
+}
+
 export function registerRequestRoutes(
   app: FastifyInstance,
   store: RequestStore,
   protocols: readonly Protocol[] = PROTOCOLS,
+  vault?: Vault,
 ): void {
   // O registry é montado da lista, e não importado do pacote, porque registrar
   // é composição: o dia em que existir gRPC, ele entra em `PROTOCOLS` e nada
   // aqui muda. O mapa ao lado é a metade efetiva, escolhida pela mesma chave.
   const registry = protocols.reduce((r, p) => r.register(p.driver), new ProtocolRegistry())
   const executors = new Map(protocols.map((p) => [p.driver.protocol, p] as const))
+
+  /**
+   * Resolve com o `env` da tela e, para o que faltar, com o cofre.
+   *
+   * A tela vale primeiro porque é a escolha do momento. O cofre só é tocado
+   * quando a tela não basta, e então só pelos nomes que faltaram: um cofre
+   * trancado não impede uma request que não precisa dele.
+   */
+  const resolveWithVault = (saved: SavedRequest, env: Record<string, string>): WireRequest => {
+    try {
+      return resolve(registry, saved, env)
+    } catch (error) {
+      if (!(error instanceof UnresolvedVariableError) || !vault) throw error
+      const stored = error.missing.filter((name) => vault.has(VAULT_ENVIRONMENT, name))
+      if (stored.length === 0) throw error
+      if (vault.status().state !== 'aberto') throw new LockedVariablesError(stored)
+      const fromVault = Object.fromEntries(stored.map((name) => [name, vault.get(VAULT_ENVIRONMENT, name)]))
+      return resolve(registry, saved, { ...fromVault, ...env })
+    }
+  }
 
   /**
    * Traduz o vocabulário do domínio para HTTP, num lugar só.
@@ -108,8 +147,13 @@ export function registerRequestRoutes(
 
     let wire: WireRequest
     try {
-      wire = resolve(registry, saved, (env ?? {}) as Record<string, string>)
+      wire = resolveWithVault(saved, (env ?? {}) as Record<string, string>)
     } catch (error) {
+      if (error instanceof LockedVariablesError) {
+        // 423, e não 400: a variável existe, só está trancada. Mandar "falta
+        // variável" faria a pessoa procurar um valor que já está guardado.
+        return reply.code(423).send({ error: error.message, locked: error.names })
+      }
       // As três recusas são do cliente, não do servidor — e cada uma diz o que
       // falta consertar. Um 500 mandaria procurar defeito aqui dentro.
       if (error instanceof UnresolvedVariableError) {

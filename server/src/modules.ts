@@ -1,7 +1,7 @@
 import { entriesModule } from './modules/entries/index.js'
 import { requestsModule } from './modules/requests/index.js'
 import { type AnyServerModule, defineModule } from './shell/module.js'
-import { vaultModule } from './vault/index.js'
+import { vaultModule } from './modules/vault/index.js'
 
 /**
  * O manifest — o único lugar que sabe quais módulos existem no servidor.

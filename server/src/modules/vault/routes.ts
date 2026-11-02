@@ -8,7 +8,7 @@ import {
   VaultNotCreatedError,
   WrongPasswordError,
   type Vault,
-} from './vault.js'
+} from '../../shell/module.js'
 
 /** O mínimo para uma senha nova. A força vem do scrypt + `.env`; isto só evita o acidente. */
 const MIN_PASSWORD = 8

@@ -13,6 +13,7 @@ const port = Number(process.env['DAILLY_PORT'] ?? 4317)
 const server = await createServer({
   databaseFile: process.env['DAILLY_DB'] ?? 'dailly.dev.sqlite',
   ...(process.env['DAILLY_TZ'] ? { zone: process.env['DAILLY_TZ'] } : {}),
+  ...(process.env['DAILLY_SECRET_KEY'] ? { secretKey: process.env['DAILLY_SECRET_KEY'] } : {}),
   port,
 })
 

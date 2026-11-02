@@ -6,8 +6,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { FastifyInstance } from 'fastify'
 import { afterEach, describe, expect, it } from 'vitest'
-import { buildApp } from '../shell/app.js'
-import { openDatabase } from '../shell/database.js'
+import { buildApp } from './shell/app.js'
+import { openDatabase } from './shell/database.js'
 
 const FAST = { N: 2 ** 10, r: 8, p: 1 }
 const SECRET_KEY = randomBytes(32).toString('base64')
