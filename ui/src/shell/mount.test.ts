@@ -2,8 +2,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, inject, onUnmounted, type InjectionKey } from 'vue'
 import { mountShell } from './mount.js'
-import { testModuleDeps } from '@shared/testing.js'
-import type { ModuleDeps, ModuleDescriptor, VueModule } from '@shared'
+import { testShellDeps } from './testing.js'
+import type { ModuleDescriptor, SharedDeps, VueModule } from '@shared'
 
 let host: HTMLElement
 
@@ -15,11 +15,11 @@ let host: HTMLElement
  */
 const fakeModule = (marker: string) => {
   const destroy = vi.fn()
-  const seen: ModuleDeps[] = []
+  const seen: SharedDeps[] = []
   const component = defineComponent({
     props: { deps: { type: Object, required: true } },
     setup(props) {
-      seen.push(props.deps as ModuleDeps)
+      seen.push(props.deps as SharedDeps)
       onUnmounted(destroy)
       return () => h('p', { 'data-marker': marker })
     },
@@ -43,7 +43,7 @@ describe('mountShell', () => {
     const first = fakeModule('daily-log')
     const { descriptor } = descriptorFor('daily-log', '/', first.module)
 
-    const shell = await mountShell(host, { modules: [descriptor], deps: testModuleDeps() })
+    const shell = await mountShell(host, { modules: [descriptor], deps: testShellDeps() })
 
     expect(shell.current).toBe('/')
     expect(host.querySelector('[data-marker="daily-log"]')).not.toBeNull()
@@ -56,7 +56,7 @@ describe('mountShell', () => {
     const a = descriptorFor('daily-log', '/', fakeModule('daily-log').module)
     const b = descriptorFor('analyse', '/analyse', fakeModule('analyse').module)
 
-    const shell = await mountShell(host, { modules: [a.descriptor, b.descriptor], deps: testModuleDeps() })
+    const shell = await mountShell(host, { modules: [a.descriptor, b.descriptor], deps: testShellDeps() })
 
     expect(a.load).toHaveBeenCalledTimes(1)
     expect(b.load).not.toHaveBeenCalled()
@@ -71,7 +71,7 @@ describe('mountShell', () => {
     const a = descriptorFor('daily-log', '/', first.module)
     const b = descriptorFor('analyse', '/analyse', second.module)
 
-    const shell = await mountShell(host, { modules: [a.descriptor, b.descriptor], deps: testModuleDeps() })
+    const shell = await mountShell(host, { modules: [a.descriptor, b.descriptor], deps: testShellDeps() })
     await shell.go('/analyse')
 
     expect(first.destroy).toHaveBeenCalledTimes(1)
@@ -81,7 +81,7 @@ describe('mountShell', () => {
 
   it('ignores a route no module claims, instead of blanking the screen', async () => {
     const a = descriptorFor('daily-log', '/', fakeModule('daily-log').module)
-    const shell = await mountShell(host, { modules: [a.descriptor], deps: testModuleDeps() })
+    const shell = await mountShell(host, { modules: [a.descriptor], deps: testShellDeps() })
 
     await shell.go('/analyse')
 
@@ -93,7 +93,7 @@ describe('mountShell', () => {
     const a = descriptorFor('daily-log', '/', fakeModule('daily-log').module)
     const b = descriptorFor('analyse', '/analyse', fakeModule('analyse').module)
 
-    await mountShell(host, { modules: [a.descriptor, b.descriptor], deps: testModuleDeps() })
+    await mountShell(host, { modules: [a.descriptor, b.descriptor], deps: testShellDeps() })
 
     const routes = [...host.querySelectorAll('[data-testid="nav"] button')].map(
       (button) => (button as HTMLElement).dataset['route'],
@@ -124,7 +124,7 @@ describe('C1: what the shell root provides reaches inside a module', () => {
 
     await mountShell(host, {
       modules: [descriptor],
-      deps: testModuleDeps(),
+      deps: testShellDeps(),
       configure: (app) => app.provide(probe, 'from-the-root'),
     })
 
@@ -148,7 +148,7 @@ describe('C1: what the shell root provides reaches inside a module', () => {
 
     const shell = await mountShell(host, {
       modules: [a.descriptor, b.descriptor],
-      deps: testModuleDeps(),
+      deps: testShellDeps(),
       configure: (app) => app.provide(probe, 'from-the-root'),
     })
     await shell.go('/analyse')
@@ -161,19 +161,20 @@ describe('C2: a module declares a component, not a mount function', () => {
   it('hands the module its deps as a prop, without the module wiring anything', async () => {
     const first = fakeModule('daily-log')
     const { descriptor } = descriptorFor('daily-log', '/', first.module)
-    const deps = testModuleDeps({ zone: 'America/Sao_Paulo' })
+    const deps = testShellDeps({ zone: 'America/Sao_Paulo' })
 
     await mountShell(host, { modules: [descriptor], deps })
 
     expect(first.seen).toHaveLength(1)
-    expect(first.seen[0]).toBe(deps)
+    // O contrato mudou com C1: o módulo recebe o comum mais o seu, não o saco.
+    expect(first.seen[0]).toEqual({ ...deps.shared, ...deps.own['daily-log'] })
   })
 
   it('tears the module down on destroy and leaves the host empty', async () => {
     const first = fakeModule('daily-log')
     const { descriptor } = descriptorFor('daily-log', '/', first.module)
 
-    const shell = await mountShell(host, { modules: [descriptor], deps: testModuleDeps() })
+    const shell = await mountShell(host, { modules: [descriptor], deps: testShellDeps() })
     shell.destroy()
 
     expect(first.destroy).toHaveBeenCalledTimes(1)
@@ -194,7 +195,7 @@ describe('C4: the current route is reported only once the screen has changed', (
     const a = descriptorFor('daily-log', '/', fakeModule('daily-log').module)
     const b = descriptorFor('analyse', '/analyse', fakeModule('analyse').module)
 
-    const shell = await mountShell(host, { modules: [a.descriptor, b.descriptor], deps: testModuleDeps() })
+    const shell = await mountShell(host, { modules: [a.descriptor, b.descriptor], deps: testShellDeps() })
     await shell.go('/analyse')
 
     // No settle, no timer: if this needs one, `go` is lying about being done.
@@ -205,7 +206,7 @@ describe('C4: the current route is reported only once the screen has changed', (
   it('has the first module on screen by the time mountShell() resolves', async () => {
     const a = descriptorFor('daily-log', '/', fakeModule('daily-log').module)
 
-    await mountShell(host, { modules: [a.descriptor], deps: testModuleDeps() })
+    await mountShell(host, { modules: [a.descriptor], deps: testShellDeps() })
 
     expect(host.querySelector('[data-marker="daily-log"]')).not.toBeNull()
   })
@@ -214,7 +215,7 @@ describe('C4: the current route is reported only once the screen has changed', (
     const a = descriptorFor('daily-log', '/', fakeModule('daily-log').module)
     const b = descriptorFor('analyse', '/analyse', fakeModule('analyse').module)
 
-    const shell = await mountShell(host, { modules: [a.descriptor, b.descriptor], deps: testModuleDeps() })
+    const shell = await mountShell(host, { modules: [a.descriptor, b.descriptor], deps: testShellDeps() })
     await shell.go('/analyse')
 
     const active = host.querySelector('[data-testid="nav"] [aria-current="page"]')
@@ -256,7 +257,7 @@ describe('overlapping navigation', () => {
 
     const shell = await mountShell(host, {
       modules: [a.descriptor, slow, quick],
-      deps: testModuleDeps(),
+      deps: testShellDeps(),
     })
 
     // Two clicks in a row, the slow destination first — a double-click on the
@@ -277,7 +278,7 @@ describe('overlapping navigation', () => {
       load: slowModule('analyse', 20),
     }
 
-    const shell = await mountShell(host, { modules: [a.descriptor, slow], deps: testModuleDeps() })
+    const shell = await mountShell(host, { modules: [a.descriptor, slow], deps: testShellDeps() })
     const pending = shell.go('/analyse')
     shell.destroy()
     await pending
@@ -313,7 +314,7 @@ describe('gate iteration 1 — navigation that was asked for last', () => {
       load: slowModule('analyse', 50),
     }
 
-    const shell = await mountShell(host, { modules: [a.descriptor, slow], deps: testModuleDeps() })
+    const shell = await mountShell(host, { modules: [a.descriptor, slow], deps: testShellDeps() })
 
     // Click Analyse, then click Daily Log again before the chunk lands.
     const leaving = shell.go('/analyse')
@@ -332,7 +333,7 @@ describe('gate iteration 1 — navigation that was asked for last', () => {
     const load = slowModule('analyse', 20)
     const slow: ModuleDescriptor<VueModule> = { id: 'analyse', title: 'analyse', route: '/analyse', load }
 
-    const shell = await mountShell(host, { modules: [a.descriptor, slow], deps: testModuleDeps() })
+    const shell = await mountShell(host, { modules: [a.descriptor, slow], deps: testShellDeps() })
     await Promise.all([shell.go('/analyse'), shell.go('/analyse')])
 
     expect(load).toHaveBeenCalledTimes(1)
@@ -342,7 +343,7 @@ describe('gate iteration 1 — navigation that was asked for last', () => {
     const a = descriptorFor('daily-log', '/', fakeModule('daily-log').module)
     const b = descriptorFor('analyse', '/analyse', fakeModule('analyse').module)
 
-    const shell = await mountShell(host, { modules: [a.descriptor, b.descriptor], deps: testModuleDeps() })
+    const shell = await mountShell(host, { modules: [a.descriptor, b.descriptor], deps: testShellDeps() })
     shell.destroy()
     await shell.go('/analyse')
 
@@ -371,7 +372,7 @@ describe('gate iteration 1 — a module that fails to load', () => {
     const a = descriptorFor('daily-log', '/', fakeModule('daily-log').module)
     const shell = await mountShell(host, {
       modules: [a.descriptor, broken('/analyse')],
-      deps: testModuleDeps(),
+      deps: testShellDeps(),
     })
 
     await shell.go('/analyse')
@@ -386,7 +387,7 @@ describe('gate iteration 1 — a module that fails to load', () => {
     const a = descriptorFor('daily-log', '/', fakeModule('daily-log').module)
     const shell = await mountShell(host, {
       modules: [a.descriptor, broken('/analyse')],
-      deps: testModuleDeps(),
+      deps: testShellDeps(),
     })
 
     await expect(shell.go('/analyse')).resolves.toBeUndefined()
@@ -405,7 +406,7 @@ describe('gate iteration 1 — a module that fails to load', () => {
       ),
     }
 
-    const shell = await mountShell(host, { modules: [a.descriptor, flaky], deps: testModuleDeps() })
+    const shell = await mountShell(host, { modules: [a.descriptor, flaky], deps: testShellDeps() })
 
     await shell.go('/analyse')
     expect(host.querySelector('[role="alert"]')).not.toBeNull()
@@ -421,7 +422,7 @@ describe('gate iteration 1 — a module that fails to load', () => {
     const a = descriptorFor('daily-log', '/', fakeModule('daily-log').module)
     const shell = await mountShell(host, {
       modules: [a.descriptor, broken('/analyse')],
-      deps: testModuleDeps(),
+      deps: testShellDeps(),
     })
 
     await shell.go('/analyse')
@@ -429,5 +430,54 @@ describe('gate iteration 1 — a module that fails to load', () => {
 
     expect(host.querySelector('[role="alert"]')).toBeNull()
     expect(host.querySelector('[data-marker="daily-log"]')).not.toBeNull()
+  })
+})
+
+/**
+ * C1 e C2 — cada módulo recebe o que é de todo módulo, mais só o que é dele.
+ *
+ * O saco único entregava ao Daily Log a port de Requests e ao Requests os
+ * use-cases de Entry. Aqui o shell junta `shared` com `own[id]` e nada mais:
+ * o que um módulo não declarou não chega até ele.
+ */
+describe('C1/C2: cada módulo recebe o comum e só o seu', () => {
+  const ownDeps = () => testShellDeps({ zone: 'America/Sao_Paulo' })
+
+  it('C1: o Daily Log recebe zone, now e os use-cases de Entry — nada do Requests', async () => {
+    const log = fakeModule('daily-log')
+    const { descriptor } = descriptorFor('daily-log', '/', log.module)
+    const deps = ownDeps()
+
+    await mountShell(host, { modules: [descriptor], deps })
+
+    const seen = log.seen[0] as unknown as Record<string, unknown>
+    expect(Object.keys(seen).sort()).toEqual(['createEntry', 'now', 'queryEntries', 'zone'])
+    expect(seen['zone']).toBe('America/Sao_Paulo')
+    expect(seen['createEntry']).toBe(deps.own['daily-log'].createEntry)
+  })
+
+  it('C2: o Requests recebe zone, now, a port e o gerador de ids — nenhum use-case de Entry', async () => {
+    const home = descriptorFor('daily-log', '/', fakeModule('daily-log').module)
+    const requests = fakeModule('requests')
+    const req = descriptorFor('requests', '/requests', requests.module)
+    const deps = ownDeps()
+
+    const shell = await mountShell(host, { modules: [home.descriptor, req.descriptor], deps })
+    await shell.go('/requests')
+
+    const seen = requests.seen[0] as unknown as Record<string, unknown>
+    expect(Object.keys(seen).sort()).toEqual(['ids', 'now', 'requests', 'zone'])
+    expect(seen['requests']).toBe(deps.own.requests.requests)
+  })
+
+  it('um módulo sem dependência própria recebe só o comum', async () => {
+    const home = descriptorFor('daily-log', '/', fakeModule('daily-log').module)
+    const analyse = fakeModule('analyse')
+    const other = descriptorFor('analyse', '/analyse', analyse.module)
+
+    const shell = await mountShell(host, { modules: [home.descriptor, other.descriptor], deps: ownDeps() })
+    await shell.go('/analyse')
+
+    expect(Object.keys(analyse.seen[0] as object).sort()).toEqual(['now', 'zone'])
   })
 })

@@ -4,7 +4,7 @@ import {
   ExecutionFailedError,
   MissingVariablesError,
   type ExecutedResponse,
-  type ModuleDeps,
+  type SharedDeps,
 } from '@shared'
 import { computed, onMounted, ref } from 'vue'
 import Collections from './collection/Collections.vue'
@@ -13,7 +13,7 @@ import ResponseView from './response/ResponseView.vue'
 import { decodeBody, type DecodedBody } from '../model/decode.js'
 import { draftOf, importCurl, savedOf, type Draft } from '../model/draft.js'
 import { parseEnv } from '../model/env.js'
-import { newId } from '../model/ids.js'
+import type { RequestsDeps } from '../deps.js'
 import type { Item } from './collection/tree-context.js'
 import type { Dragged } from '../model/tree.js'
 
@@ -31,7 +31,7 @@ import type { Dragged } from '../model/tree.js'
  * webview. O que chega de volta é um envelope, e descomprimi-lo é trabalho
  * desta tela — a outra metade daquela decisão.
  */
-const props = defineProps<{ deps: ModuleDeps }>()
+const props = defineProps<{ deps: SharedDeps & RequestsDeps }>()
 
 const folders = ref<readonly Folder[]>([])
 const requests = ref<readonly SavedRequest[]>([])
@@ -285,7 +285,7 @@ async function persist(): Promise<SavedRequest | null> {
   if (draft.value === null) return null
 
   const request = savedOf(draft.value, {
-    id: selected.value?.id ?? newId(),
+    id: selected.value?.id ?? props.deps.ids.next(),
     position: selected.value?.position ?? requests.value.length,
   })
   if (request === null) {
@@ -426,7 +426,7 @@ function removeFromTree(target: Item): void {
 }
 
 async function createFolder(input: { name: string; parentId: string | null }): Promise<void> {
-  // Sem esta guarda, dois cliques criavam duas pastas com `newId()` diferentes
+  // Sem esta guarda, dois cliques criavam duas pastas com ids diferentes
   // — nem o servidor deduplica. E como não há rota de apagar pasta neste
   // corte, a duplicata não teria como sair pela tela.
   if (savingFolder.value) return
@@ -435,7 +435,7 @@ async function createFolder(input: { name: string; parentId: string | null }): P
   folderError.value = null
   try {
     await props.deps.requests.saveFolder({
-      id: newId(),
+      id: props.deps.ids.next(),
       parentId: input.parentId,
       name: input.name,
       position: folders.value.length,

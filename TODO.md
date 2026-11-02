@@ -16,31 +16,6 @@ competem:
 
 ---
 
-## Dívida com gatilho já disparado
-
-Estas duas foram contraídas de propósito, com a correção combinada por escrito
-antes de o código entrar. O gatilho de cada uma **já aconteceu**.
-
-- [ ] **Partir o `ModuleDeps`** — `ui/src/shared/deps.ts` é um saco único:
-      o Daily Log recebe a port de Requests que nunca chama, e o Requests recebe
-      os use-cases de Entry que nunca chama. É o mesmo sintoma da Lei 4 que o
-      servidor tinha antes do `provide`, do lado da UI. Partir em "o que é de
-      todo módulo" (`zone`, `now`) e "o que é deste módulo", como o
-      `ProvideContext` fez do outro lado. Mexe em `mount.ts`, `shared/testing.ts`
-      e nos testes de composição. **Combinado como a próxima feature.**
-      → o custo e a alternativa estão no docblock do próprio arquivo.
-- [ ] **Mover `ExecutedResponse` para `@dailly/requests-core/http`** — hoje ele
-      existe duas vezes, em `ui/src/shared/requests.ts` e em
-      `server/src/modules/requests/execute.ts`, porque a `ui/` não importa o
-      `server/`. O adapter valida campo a campo em vez de castar, então a
-      divergência aparece como recusa nomeada — mas são duas verdades. Segundo
-      chamador já existe. Ficou de fora do B2b para não misturar refactor do
-      servidor com PR de tela.
-- [ ] **Tirar o `newId()` de `modules/requests/model/ids.ts`** — ele só existe
-      porque acrescentar um campo `ids` ao contrato seria engordar o que a
-      primeira pendência vai dividir. Sai junto com ela, e o id passa a vir da
-      raiz de composição como o `uuidIds` das entries já vem.
-
 ## Deferido, com o gatilho escrito
 
 - [ ] **`vue-tsc` rodando** — **nenhuma linha de SFC é typechecada hoje**, nem
@@ -66,10 +41,6 @@ antes de o código entrar. O gatilho de cada uma **já aconteceu**.
 Escrito para não ser lido como esquecimento. Cada um tem o motivo de não ter
 entrado, e nenhum deles bloqueia o uso do módulo.
 
-- [ ] **Apagar e renomear pasta** — o servidor não tem a rota. É a que mais
-      incomoda: uma pasta criada no lugar errado é permanente pela tela.
-- [ ] **Arrastar request entre pastas** — o select de pasta no editor faz o
-      mesmo com menos interface.
 - [ ] **Histórico de execução** — outro schema, e a ADR 0011 decidiu que a
       resposta vive enquanto a tela a mostra.
 - [ ] **Aba Params editável** — hoje só-leitura. Torná-la editável exige o

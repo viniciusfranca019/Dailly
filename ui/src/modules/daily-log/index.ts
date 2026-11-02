@@ -12,3 +12,4 @@
  * and the shell owns it.
  */
 export { default as component } from './ui/DailyLog.vue'
+export type { DailyLogDeps } from './deps.js'

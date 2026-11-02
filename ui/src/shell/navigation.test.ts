@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import { mountShell } from './mount.js'
-import { testModuleDeps } from '@shared/testing.js'
+import { testShellDeps } from './testing.js'
 import type { ModuleDescriptor, VueModule } from '@shared'
 
 let host: HTMLElement
@@ -40,7 +40,7 @@ describe('navigation under interleaving', () => {
     const home = ok('daily-log', '/', 0)
     const f = bad('analyse', '/analyse', 60)
     const g = ok('third', '/third', 1)
-    const shell = await mountShell(host, { modules: [home, f, g], deps: testModuleDeps() })
+    const shell = await mountShell(host, { modules: [home, f, g], deps: testShellDeps() })
 
     const failing = shell.go('/analyse')
     await shell.go('/third')
@@ -55,7 +55,7 @@ describe('navigation under interleaving', () => {
     const home = ok('daily-log', '/', 0)
     const slow = ok('analyse', '/analyse', 60)
     const f = bad('third', '/third', 1)
-    const shell = await mountShell(host, { modules: [home, slow, f], deps: testModuleDeps() })
+    const shell = await mountShell(host, { modules: [home, slow, f], deps: testShellDeps() })
 
     const slowNav = shell.go('/analyse')
     await shell.go('/third')
@@ -69,7 +69,7 @@ describe('navigation under interleaving', () => {
   it('destroy during a failing load leaves nothing behind', async () => {
     const home = ok('daily-log', '/', 0)
     const f = bad('analyse', '/analyse', 20)
-    const shell = await mountShell(host, { modules: [home, f], deps: testModuleDeps() })
+    const shell = await mountShell(host, { modules: [home, f], deps: testShellDeps() })
 
     const pending = shell.go('/analyse')
     shell.destroy()
@@ -82,7 +82,7 @@ describe('navigation under interleaving', () => {
   it('a failed route can be left and come back to', async () => {
     const home = ok('daily-log', '/', 0)
     const f = bad('analyse', '/analyse', 1)
-    const shell = await mountShell(host, { modules: [home, f], deps: testModuleDeps() })
+    const shell = await mountShell(host, { modules: [home, f], deps: testShellDeps() })
 
     await shell.go('/analyse')
     await shell.go('/')

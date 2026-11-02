@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Entry } from '@dailly/domain'
-import type { ModuleDeps } from '@shared'
+import type { SharedDeps } from '@shared'
+import type { DailyLogDeps } from '../deps.js'
 import { computed, onMounted, ref, useTemplateRef } from 'vue'
 import Composer from './Composer.vue'
 import Timeline from './Timeline.vue'
@@ -15,7 +16,7 @@ import { dayOf, type CalendarDay } from '@dailly/periods'
  * editor card and the timeline are components because they are two screens'
  * worth of markup and they change for different reasons.
  */
-const props = defineProps<{ deps: ModuleDeps }>()
+const props = defineProps<{ deps: SharedDeps & DailyLogDeps }>()
 
 const composer = useTemplateRef<InstanceType<typeof Composer>>('composer')
 

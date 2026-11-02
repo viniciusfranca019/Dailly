@@ -9,7 +9,7 @@ whiteboard é um adapter vanilla montado como ilha dentro do Vue.
 | Parte | O que é |
 |---|---|
 | `shell/` | composition root, manifest de módulos por flag, roteamento e a moldura |
-| `shared/` | os contratos que todo mundo importa: descritor de módulo, `ModuleDeps`, `RequestsPort` |
+| `shared/` | os contratos que todo mundo importa: descritor de módulo, `SharedDeps`, `RequestsPort` |
 | `adapters/` | o outro lado das ports, sobre HTTP: entries e requests |
 | `capabilities/whiteboard` | o adapter DOM do `@dailly/whiteboard-core` — sem produto, sem `Entry` |
 | `modules/daily-log` | a timeline e o composer |
