@@ -10,10 +10,12 @@ import {
 import { computed, onMounted, ref } from 'vue'
 import Collections from './collection/Collections.vue'
 import VaultPanel from './vault/VaultPanel.vue'
+import CredentialsPrompt from './vault/CredentialsPrompt.vue'
 import RequestEditor from './editor/RequestEditor.vue'
 import ResponseView from './response/ResponseView.vue'
 import { decodeBody, type DecodedBody } from '../model/decode.js'
-import { draftOf, importCurl, savedOf, type Draft } from '../model/draft.js'
+import { draftOf, importCurl, savedOf, type Draft, type Imported } from '../model/draft.js'
+import type { CredentialChoice } from '@dailly/requests-core/http'
 import { parseEnv } from '../model/env.js'
 import type { RequestsDeps } from '../deps.js'
 import type { Item } from './collection/tree-context.js'
@@ -86,6 +88,21 @@ const showVault = ref(false)
  */
 const lockedNames = ref<readonly string[] | null>(null)
 
+/**
+ * Um curl com credencial esperando o form (passo 10): o import fica parado
+ * aqui, fora do editor, até a pessoa mandar as chaves para o cofre ou
+ * cancelar. O editor some enquanto isso, porque a barra de URL ainda tem o
+ * curl colado — com a chave em claro — e um Salvar ali a gravaria.
+ */
+const pendingCredentials = ref<{
+  readonly result: Extract<Imported, { kind: 'imported' }>
+  readonly previous: string
+  /** O dono do editor antes da colagem: um save dele que terminar agora é da request de antes. */
+  readonly owner: number
+  /** O que esse save gravou, se terminou com o form aberto. Só o cancelar usa. */
+  landed: SavedRequest | null
+} | null>(null)
+
 const reason = (cause: unknown, fallback: string) =>
   cause instanceof Error ? cause.message : fallback
 
@@ -154,6 +171,9 @@ function invalidate(): void {
   // O pedido de senha era daquela request: abrir o cofre agora executaria a
   // outra, que ninguém mandou executar.
   lockedNames.value = null
+  // O mesmo vale para o form das credenciais: confirmar depois de trocar de
+  // request jogaria o curl em cima da outra.
+  pendingCredentials.value = null
 }
 
 /**
@@ -234,7 +254,7 @@ function startDraft(parentId: string | null = null): void {
  * colado, e quem já batizou a request não quer perder o nome porque trocou o
  * curl. O resto é substituído, que é o ponto de colar de novo.
  */
-function importInto(raw: string): void {
+function importInto(raw: string, previous: string): void {
   const result = importCurl(raw)
   if (result.kind === 'rejected') {
     // Recusa não troca de request: nada em voo muda de dono, e o texto colado
@@ -249,7 +269,54 @@ function importInto(raw: string): void {
   }
 
   importError.value = null
-  ignored.value = result.ignored
+
+  // Credencial escrita direto não entra no editor: antes o form manda o valor
+  // para o cofre (C1). Sem credencial, o caminho é o de sempre (C6).
+  if (result.credentials.length > 0) {
+    ignored.value = []
+    // O pedido de senha de uma execução anterior sai junto: destrancar por
+    // ali executaria — e executar grava — o rascunho com o curl ainda na
+    // barra de URL, a chave em claro (gate 1, blocker).
+    //
+    // O editor muda de dono aqui, como no colar sem credencial: um save em voo
+    // não batiza nem seleciona a request importada (gate 3). O que esse save
+    // gravou fica anotado no form, para o cancelar devolver (gate 4).
+    const owner = editor
+    editor += 1
+    invalidate()
+    pendingCredentials.value = { result, previous, owner, landed: null }
+    return
+  }
+  applyImport(result.draft, result.ignored)
+}
+
+/** O form confirmou: cada credencial já está no cofre, e a request leva `{{nome}}` (C3). */
+function credentialsStored(choices: CredentialChoice[]): void {
+  const pending = pendingCredentials.value
+  if (pending === null) return
+  pendingCredentials.value = null
+  applyImport(pending.result.hidden(choices), pending.result.ignored)
+}
+
+/** Cancelar devolve a barra de URL ao que era: o curl colado tem a chave em claro (C4). */
+function credentialsCancelled(): void {
+  const pending = pendingCredentials.value
+  pendingCredentials.value = null
+  if (pending === null || draft.value === null) return
+  draft.value.url = pending.previous
+  // O save da request de antes terminou com o form aberto: o editor volta a
+  // apontar para ela, senão o próximo Salvar a duplicaria (gate 4). Lida da
+  // lista, que já foi relida, para um renomear feito depois valer.
+  if (pending.landed !== null && selected.value?.id !== pending.landed.id) {
+    const fresh = requests.value.find((request) => request.id === pending.landed!.id) ?? pending.landed
+    selected.value = fresh
+    draft.value.name = fresh.name
+    draft.value.folderId = fresh.folderId
+  }
+}
+
+function applyImport(imported: Draft, ignoredFlags: readonly string[]): void {
+  ignored.value = ignoredFlags
 
   /**
    * Colar um curl **troca de request**, mesmo sem trocar de linha na árvore.
@@ -269,7 +336,7 @@ function importInto(raw: string): void {
   // valor legítimo e não uma ausência.
   const current = draft.value
   if (current === null) return
-  draft.value = { ...result.draft, name: current.name, folderId: current.folderId }
+  draft.value = { ...imported, name: current.name, folderId: current.folderId }
 }
 
 /**
@@ -294,7 +361,9 @@ const busy = () => saving.value || deleting.value || changingTree.value
  * outro "a cada tentativa".
  */
 async function persist(): Promise<SavedRequest | null> {
-  if (draft.value === null) return null
+  // Com o form das credenciais aberto a barra de URL tem o curl colado, com a
+  // chave: nenhum caminho grava isso, nem um que este form não previu.
+  if (draft.value === null || pendingCredentials.value !== null) return null
 
   const request = savedOf(draft.value, {
     id: selected.value?.id ?? props.deps.ids.next(),
@@ -326,6 +395,10 @@ async function persist(): Promise<SavedRequest | null> {
        * do que o `rowId` existe para garantir.
        */
       if (draft.value !== null) draft.value.name = stored.name
+    } else if (pendingCredentials.value?.owner === ticket) {
+      // A request de antes da colagem foi gravada com o form aberto: fica
+      // anotado para o cancelar devolver o editor a ela (gate 4).
+      pendingCredentials.value.landed = stored
     }
     await load()
     return stored
@@ -547,8 +620,11 @@ async function execute(): Promise<void> {
    * em vez de por tecla, e o preço é o mesmo que o Insomnia cobra — todo
    * experimento persiste.
    */
+  const owner = editor
   const stored = await persist()
-  if (stored === null) return
+  // Colaram outro curl ou trocaram de request enquanto gravava: a execução
+  // era daquela tela, não desta (gate 5). Gravar valeu; executar não.
+  if (stored === null || owner !== editor) return
 
   const id = stored.id
 
@@ -674,8 +750,17 @@ onMounted(load)
           Apagar esta request
         </button>
 
+        <CredentialsPrompt
+          v-if="draft && pendingCredentials"
+          :vault="props.deps.vault"
+          :credentials="pendingCredentials.result.credentials"
+          :waiting="saving"
+          @confirm="credentialsStored"
+          @cancel="credentialsCancelled"
+        />
+
         <RequestEditor
-          v-if="draft"
+          v-if="draft && !pendingCredentials"
           v-model="draft"
           :folders="folders"
           :saved-id="selected?.id ?? null"

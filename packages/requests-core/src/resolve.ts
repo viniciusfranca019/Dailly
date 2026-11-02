@@ -68,7 +68,7 @@ export function resolve<W extends WireRequest = WireRequest>(
   env: Env,
 ): W {
   const driver = registry.get(request.protocol)
-  const { value, missing } = interpolate(request.spec, env)
+  const { value, missing } = driver.interpolate?.(request.spec, env) ?? interpolate(request.spec, env)
 
   // A substituição é de uma passada só. Uma variável cujo **valor** traz outra
   // — `{{baseUrl}}` = `{{scheme}}://{{host}}`, rotina nesta classe de

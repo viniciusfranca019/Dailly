@@ -1,3 +1,5 @@
+import type { Env, Interpolated } from './interpolate.js'
+
 /**
  * O envelope, e o contrato que o torna extensível.
  *
@@ -71,4 +73,12 @@ export interface ProtocolDriver<T, W extends WireRequest = WireRequest> {
    * protocolo tem texto que alguém cola.
    */
   fromRaw?(raw: string): Imported<T>
+  /**
+   * A interpolação deste protocolo, quando a genérica não basta. Opcional: o
+   * `resolve` usa `interpolate` quando o driver não traz a sua.
+   *
+   * O HTTP traz por causa do corpo JSON, onde um valor dentro de string
+   * precisa entrar escapado (passo 10, C8).
+   */
+  interpolate?(spec: unknown, env: Env): Interpolated<unknown>
 }
