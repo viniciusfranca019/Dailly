@@ -3,7 +3,7 @@ import type { Migration } from '../../shell/module.js'
 /**
  * A fatia do módulo Requests no `user_version`.
  *
- * O envelope é genérico de propósito ([ADR 0011](../../../../docs/adrs/0011-requests-modulo-e-execucao.md)):
+ * O envelope é genérico de propósito (ADR 0011):
  * `protocol` mais `spec` como JSON. Colunas com cara de HTTP — `method`,
  * `url`, `headers` — significariam uma migration por protocolo novo, e a
  * validação desse JSON é o que o driver puro já sabe fazer.

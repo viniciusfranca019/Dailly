@@ -10,7 +10,7 @@ import type { Env, Interpolated } from './interpolate.js'
  *
  * A alternativa, um spec com cara de HTTP e `protocol` como etiqueta, é mais
  * fácil de tipar hoje e morre no dia do gRPC, que não tem URL nem header
- * nenhum ([ADR 0011](../../../docs/adrs/0011-requests-modulo-e-execucao.md)).
+ * nenhum (ADR 0011).
  */
 export interface ProtocolSpec<T = unknown> {
   readonly id: string

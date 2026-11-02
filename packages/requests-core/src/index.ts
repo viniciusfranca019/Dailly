@@ -5,7 +5,7 @@
  * dois runtimes, e é por isso que ele é um pacote e não uma pasta da `ui/`:
  * o renderer o usa para importar um curl e mostrar o preview; o servidor o usa
  * para validar o que recebe antes de executar
- * ([ADR 0011](../../../docs/adrs/0011-requests-modulo-e-execucao.md)).
+ * (ADR 0011).
  *
  * **O que ele deliberadamente não faz: executar.** Essa metade mora no
  * `server/`, porque um renderer não consegue mandar `Host`, `Origin` nem

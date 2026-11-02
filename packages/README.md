@@ -34,5 +34,5 @@ Cada pacote tem os mesmos dois scripts, `test` (vitest) e `typecheck` (tsc).
 - [`docs/architecture.md`](docs/architecture.md) — a estrutura de cada pacote,
   quem usa o quê, a sintaxe do whiteboard e como acrescentar um bloco ou um
   protocolo.
-- [`../docs/architecture.md`](../docs/architecture.md) — como os pacotes entram
+- [`../docs/conventions/architecture.md`](../docs/conventions/architecture.md) — como os pacotes entram
   no comportamento de cada módulo.

@@ -38,5 +38,5 @@ com elas desligadas, o módulo nem entra no bundle.
 - [`docs/architecture.md`](docs/architecture.md) — as camadas e a direção da
   seta, a composição, cada módulo por dentro e o whiteboard (atalhos, como a
   edição funciona, limitações).
-- [`../../docs/architecture.md`](../../docs/architecture.md) — o comportamento
+- [`../../docs/conventions/architecture.md`](../../docs/conventions/architecture.md) — o comportamento
   de cada módulo, de ponta a ponta.

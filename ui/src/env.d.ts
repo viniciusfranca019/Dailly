@@ -37,7 +37,7 @@ interface ImportMeta {
  * It is why `daily-log.test.ts` asserts on rendered text rather than on
  * internals, and why the shell's props seam has its own tests rather than
  * trusting the compiler. Getting `vue-tsc` running is an open pendency of
- * [ADR 0010](../../docs/adrs/0010-vue-no-renderer.md).
+ * ADR 0010.
  */
 declare module '*.vue' {
   import type { DefineComponent } from 'vue'

@@ -3,8 +3,8 @@
  *
  * It says how a module is *identified and loaded*, never how it is drawn, and
  * that neutrality has now been cashed in. The renderer question
- * (`docs/adaptacao-dailly.md` §1) resolved to Vue in
- * [ADR 0010](../../../docs/adrs/0010-vue-no-renderer.md), and Emenda 2 replaced
+ * (`docs/conventions/architecture.md`) resolved to Vue in
+ * ADR 0010, and Emenda 2 replaced
  * the rendering half of the contract outright — `mount(host)` became a
  * component. **This file did not change**: the descriptor is generic over
  * whatever surface the shell of the day needs, so the manifest, the flags and

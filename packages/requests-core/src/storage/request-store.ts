@@ -42,7 +42,7 @@ export class FolderNotFoundError extends Error {
  * em vez do formato do uso.
  *
  * O que ela **não** tem: nada sobre executar. Executar é efeito e mora no
- * servidor ([ADR 0011](../../../../docs/adrs/0011-requests-modulo-e-execucao.md));
+ * servidor (ADR 0011);
  * guardar é outro trabalho, e juntá-los faria um teste de persistência
  * precisar de rede.
  */

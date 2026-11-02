@@ -99,13 +99,13 @@ main.ts
   execução (zod) foi descartado: o `own` é feito de funções, e um schema só
   diria "é função", nunca a assinatura.
 - Use-cases, nunca um repositório
-  ([ADR 0001](../../../docs/adrs/0001-arquitetura-geral.md)).
+  ([ADR 0001](../../../docs/conventions/architecture.md)).
 - **`mountShell`** carrega cada módulo na primeira visita, guarda a *promise*
   (dois cliques dividem um `load()`), descarta a rejeitada para permitir nova
   tentativa, e resolve a corrida pelo último pedido — não pelo último que
   terminou.
 - **Uma aplicação só.** Um módulo é um componente
-  ([ADR 0010, Emenda 2](../../../docs/adrs/0010-vue-no-renderer.md)), então um
+  ([ADR 0010, Emenda 2](../../../docs/conventions/architecture.md)), então um
   plugin instalado em `configure(app)` alcança todos.
 
 ### Módulos e flags
@@ -218,7 +218,7 @@ A tradução de status HTTP para o que a tela mostra mora em
 
 ### `analyse`
 
-Placeholder da Fase 4/5 do [roadmap](../../../docs/roadmap.md). Existe para
+Placeholder da Fase 4/5 do [roadmap](../../../TODO.md). Existe para
 manter a flag honesta: ligada, o chunk aparece; desligada, não.
 
 ---
@@ -227,7 +227,7 @@ manter a flag honesta: ligada, o chunk aparece; desligada, não.
 
 O **modelo** (parser, blocos, serializer, `WhiteboardDocument`) é o pacote
 `@dailly/whiteboard-core`. Aqui mora só o **adapter DOM**, vanilla, montado
-como ilha dentro do Vue ([ADR 0010](../../../docs/adrs/0010-vue-no-renderer.md)).
+como ilha dentro do Vue ([ADR 0010](../../../docs/conventions/architecture.md)).
 
 ```
 capabilities/whiteboard/

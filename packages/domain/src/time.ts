@@ -1,5 +1,5 @@
 /**
- * The time contract, exactly as [ADR 0007](../../../docs/adrs/0007-api-local-e-tempo.md)
+ * The time contract, exactly as ADR 0007
  * wrote it.
  *
  * `Clock` answers *"what instant is it now"* and nothing else. It does **not**

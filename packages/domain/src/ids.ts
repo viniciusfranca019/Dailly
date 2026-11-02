@@ -1,7 +1,7 @@
 /**
  * Identity, injected for the same reason the clock is.
  *
- * [ADR 0002 §6](../../../docs/adrs/0002-data-layer.md) decided ids are UUIDs
+ * ADR 0002 §6 decided ids are UUIDs
  * generated on the client, not autoincrement: an id that is stable no matter
  * which file a restore came from. Generating one is a side effect, so it enters
  * through the composition root like any other — which also makes `createEntry`

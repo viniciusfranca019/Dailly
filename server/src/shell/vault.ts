@@ -8,7 +8,7 @@ import {
 import type { Database } from 'better-sqlite3'
 
 /**
- * @file O cofre de segredos da [ADR 0013](../../../docs/adrs/0013-cofre-de-segredos.md).
+ * @file O cofre de segredos da ADR 0013.
  *
  * Três chaves, e cada operação toca só a que precisa:
  *

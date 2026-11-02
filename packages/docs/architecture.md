@@ -3,8 +3,8 @@
 Os quatro pacotes são o código que **dois runtimes precisam ao mesmo tempo**: o
 renderer (`ui/`) e o servidor (`server/`). Por isso nenhum deles conhece DOM,
 Fastify, SQLite ou rede — e por isso eles moram fora dos dois projetos
-([ADR 0007](../../docs/adrs/0007-api-local-e-tempo.md),
-[ADR 0009](../../docs/adrs/0009-topologia-do-workspace.md)).
+([ADR 0007](../../docs/conventions/architecture.md),
+[ADR 0009](../../docs/conventions/architecture.md)).
 
 O critério de entrada é esse, e não "é reutilizável": um modelo que só um lado
 usa mora naquele lado.
@@ -191,7 +191,7 @@ recarimbar.
 **Decisões que moldam o pacote:**
 
 - `EntryRepository.create` recebe uma `Entry` completa, não uma `NewEntry`
-  (Emenda 1 da [ADR 0002](../../docs/adrs/0002-data-layer.md)). Com HTTP no
+  (Emenda 1 da [ADR 0002](../../docs/conventions/architecture.md)). Com HTTP no
   meio, só assim o id continua "gerado no cliente" sem cada adapter mintar o
   seu.
 - **O corpo é normalizado uma vez, na criação.** Gravar já o ponto fixo do
@@ -203,7 +203,7 @@ recarimbar.
   e o contract test a cobra de toda implementação.
 - `update`, `delete` e `getById` estão declarados e lançam
   `NotImplementedError`: a port é declarada inteira, e a Fase 2 do
-  [roadmap](../../docs/roadmap.md) os implementa.
+  [roadmap](../../TODO.md) os implementa.
 
 **Quem usa:** `ui/` compõe os use-cases e implementa a port sobre HTTP;
 `server/` implementa a port sobre SQLite e tipa o contrato de módulo com ela.
@@ -234,7 +234,7 @@ periods/src/
 `server/` (valida `DAILLY_TZ` no boot e traduz o `EntryFilter` em SQL).
 
 **Deliberadamente ausente:** semana, mês e quadrimestre. As regras estão fixadas
-na [ADR 0007](../../docs/adrs/0007-api-local-e-tempo.md), e entram com o
+na [ADR 0007](../../docs/conventions/architecture.md), e entram com o
 primeiro chamador, o Analyse da Fase 4.
 
 ---
@@ -245,7 +245,7 @@ O modelo do módulo Requests: texto cru → `ProtocolSpec` → a requisição li
 que sairia na fita. **Não executa** — essa metade mora no `server/`, porque um
 renderer não manda `Host`/`Origin`/`Cookie`, CORS devolve resposta opaca a
 partir de `file://`, e gRPC não existe num webview
-([ADR 0011](../../docs/adrs/0011-requests-modulo-e-execucao.md)).
+([ADR 0011](../../docs/conventions/architecture.md)).
 
 ```
 requests-core/src/

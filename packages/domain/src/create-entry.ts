@@ -14,7 +14,7 @@ export interface CreateEntryDeps {
 /**
  * Create an entry.
  *
- * **The body is normalized here, once** (`docs/adaptacao-dailly.md` §3). The
+ * **The body is normalized here, once** (`docs/conventions/architecture.md`). The
  * whiteboard's `serialize` is canonical — `* a` becomes `- a`, `3)` becomes
  * `3.`, tabs become two spaces — so what the user typed and what round-trips
  * are not the same string. Normalizing on the way in means the stored body

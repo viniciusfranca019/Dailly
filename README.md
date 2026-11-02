@@ -69,12 +69,22 @@ O que a pessoa usa. Cada módulo existe na `ui/` e, quando persiste, no
 
 ## Documentação
 
-- [`docs/architecture.md`](docs/architecture.md) — como o sistema se comporta,
-  módulo por módulo, e onde cada pedaço mora. **Comece por aqui.**
-- [`docs/README.md`](docs/README.md) — o índice: MVP em BDD, roadmap, ADRs,
-  auditoria de lacunas.
-- [`TODO.md`](TODO.md) — o que foi decidido e ainda não foi feito, com o
-  gatilho de cada um.
+O `docs/` é um bundle [OKF](docs/conventions/okf.md), e o índice é
+[`docs/index.md`](docs/index.md).
+
+- [`docs/conventions/architecture.md`](docs/conventions/architecture.md): a
+  arquitetura, o desenho de hoje e o porquê de cada decisão. **Comece por aqui.**
+- [`docs/conventions/modules.md`](docs/conventions/modules.md): como adicionar
+  um módulo novo.
+- [`docs/features/`](docs/features/index.md): o que cada feature faz.
+- [`TODO.md`](TODO.md): o que foi decidido e ainda não foi feito, e as fases
+  que faltam.
+
+## Versão
+
+SemVer, com o número em [`VERSION`](VERSION) e o que mudou nesta versão em
+[`CHANGELOG.md`](CHANGELOG.md). Todo PR sobe os dois; a regra está em
+[`docs/conventions/versioning.md`](docs/conventions/versioning.md).
 
 ## Licença
 

@@ -24,7 +24,7 @@ export default defineConfig({
           name: 'workspace',
           globals: true,
           environment: 'node',
-          include: ['architecture.test.ts'],
+          include: ['architecture.test.ts', 'docs.test.ts'],
         },
       },
       // End-to-end lives outside every project because it must import two that
