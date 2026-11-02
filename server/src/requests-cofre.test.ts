@@ -186,3 +186,17 @@ describe('gate: a execução e o cofre', () => {
     expect(response.json().error).toMatch(/DAILLY_SECRET_KEY/)
   })
 })
+
+describe('gate 2 (major): um segredo que contém outro não vaza o sufixo', () => {
+  it('troca o mais longo primeiro', async () => {
+    const app = await appWithVault(() => 'http://127.0.0.1:1/x?a={{short}}&b={{long}}')
+    await app.inject({ method: 'PUT', url: '/secrets/default/short', payload: { value: 'sk_live' } })
+    await app.inject({ method: 'PUT', url: '/secrets/default/long', payload: { value: 'sk_live_9f8e7d' } })
+
+    const response = await execute(app)
+
+    expect(response.statusCode).toBe(502)
+    expect(response.body).not.toContain('9f8e7d')
+    expect(response.body).toContain('b={{long}}')
+  })
+})

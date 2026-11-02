@@ -55,13 +55,16 @@ class LockedVariablesError extends Error {
  * onde isso se cumpre, porque é aqui que se sabe quais valores vieram do cofre.
  */
 const redact = (message: string, secrets: ReadonlyMap<string, string>): string => {
-  let out = message
-  for (const [name, value] of secrets) {
-    if (value !== '') out = out.replaceAll(value, `{{${name}}}`)
+  // O mais longo primeiro: com `sk_live` e `sk_live_9f8e` no cofre, trocar o
+  // curto antes deixava `{{curto}}_9f8e` — o resto do longo em claro.
+  const forms = [...secrets].flatMap(([name, value]) => {
     const encoded = encodeURIComponent(value)
-    if (encoded !== value && encoded !== '') out = out.replaceAll(encoded, `{{${name}}}`)
-  }
-  return out
+    return encoded === value ? [{ name, text: value }] : [{ name, text: value }, { name, text: encoded }]
+  })
+  return forms
+    .filter((form) => form.text !== '')
+    .sort((a, b) => b.text.length - a.text.length)
+    .reduce((out, form) => out.replaceAll(form.text, `{{${form.name}}}`), message)
 }
 
 export function registerRequestRoutes(

@@ -77,8 +77,8 @@ dependência nova.
 
 Cada valor é cifrado com **AES-256-GCM**, com um nonce aleatório de 12 bytes a
 cada gravação. O nome e o ambiente do segredo entram como dado autenticado
-(`AAD = "dailly/secret/v1:<ambiente>:<nome>"`), então copiar o texto cifrado de
-uma linha para outra não decifra: a tag falha.
+(`AAD = 'dailly/secret/v1:' + JSON.stringify([ambiente, nome])`), então copiar o
+texto cifrado de uma linha para outra não decifra: a tag falha.
 
 ```sql
 vault(id = 1, kdf JSON, salt, created_at)            -- parâmetros, uma linha
@@ -171,3 +171,15 @@ segredos de requests já gravadas termina com `wal_checkpoint(TRUNCATE)` e
   fica tão forte quanto a peça mais fraca, e a do `.env` está no disco.
 - **A tela nunca vê o valor.** Rejeitada pelo autor: conferir a chave colada é
   parte do uso, e a ameaça coberta está no disco, não na tela.
+
+## Emenda 1 (2026-11-02) — o AAD em JSON
+
+A primeira redação dava o AAD como `dailly/secret/v1:<ambiente>:<nome>`. A
+revisão da implementação mostrou a colisão: com `:` cru, `(a, "b:c")` e
+`("a:b", c)` produziam o mesmo AAD, e um texto cifrado copiado entre as duas
+linhas decifrava como o valor da outra. O AAD passou a ser
+`'dailly/secret/v1:' + JSON.stringify([ambiente, nome])`, que não tem ambiguidade,
+e a rota de gravar passou a validar o ambiente (`[A-Za-z0-9_.-]`) e o nome (sem
+espaço nem chaves, para poder ser escrito como `{{nome}}`). Quem ler a tabela
+`secrets` por outro caminho (backup, exportação, outro adapter) tem que usar
+esta forma.
