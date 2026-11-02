@@ -3,7 +3,8 @@
 - **Status:** Aceito
 - **Data:** 2026-07-24
 - **Decisores:** Vinicius
-- **Relaciona:** [ADR 0001 — Arquitetura Geral](0001-arquitetura-geral.md)
+- **Relaciona:** [ADR 0001 — Arquitetura Geral](0001-arquitetura-geral.md) ·
+  emendada pela [ADR 0013](0013-cofre-de-segredos.md) (onde a chave mora)
 
 ## Contexto
 
@@ -58,6 +59,11 @@ interface AiProviderConfig {
 ```
 
 ### Armazenamento seguro da chave
+
+> **Emendado pela [ADR 0013](0013-cofre-de-segredos.md):** o keychain do
+> Tauri deixou de existir com as ADRs 0008 e 0012. A chave vai para o cofre:
+> cifrada no SQLite, atrás do port `SecretStore`, aberta por senha + `.env`. A
+> garantia continua a mesma (nunca em texto puro); o mecanismo mudou.
 
 - A **chave de API vive no keychain do SO** (via plugin do Tauri, ex.:
   keyring/stronghold), **nunca** em texto plano no SQLite nem em arquivo de
