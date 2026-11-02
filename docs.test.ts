@@ -130,9 +130,12 @@ function outsideDocs(dir = ROOT): string[] {
 }
 
 describe('as ADRs viraram o bundle', () => {
-  const GONE = ['docs/adrs', 'docs/README.md', 'docs/architecture.md', 'docs/mvp.md', 'docs/roadmap.md', 'docs/auditoria-lacunas.md', 'docs/adaptacao-dailly.md', 'adrs/00']
+  // `docs/architecture.md` fica de fora da lista: ele também é o fim de
+  // `packages/docs/architecture.md`, que continua existindo. Quem cobre os links
+  // para ele é o teste de resolução abaixo.
+  const GONE = ['docs/adrs', 'adrs/00', 'adaptacao-dailly', 'auditoria-lacunas', 'docs/mvp.md', 'docs/roadmap.md', 'docs/README.md']
 
-  it('nada fora de docs/ aponta para um doc que saiu', () => {
+  it('nada fora de docs/ cita um doc que saiu', () => {
     const files = outsideDocs()
     expect(files.length).toBeGreaterThan(50)
     const dangling = files.flatMap((path) => {
@@ -140,6 +143,19 @@ describe('as ADRs viraram o bundle', () => {
       return GONE.filter((gone) => text.includes(gone)).map((gone) => `${path} → ${gone}`)
     })
     expect(dangling).toEqual([])
+  })
+
+  it('todo link relativo de um .md fora de docs/ resolve para um arquivo', () => {
+    const broken = outsideDocs()
+      .filter((path) => path.endsWith('.md'))
+      .flatMap((path) =>
+        [...read(join(ROOT, path)).matchAll(/\]\(([^)\s]+)\)/g)]
+          .map((m) => m[1]!.split('#')[0]!)
+          .filter((target) => target !== '' && !/^[a-z]+:/.test(target) && !target.startsWith('/'))
+          .filter((target) => !existsSync(join(ROOT, dirname(path), target)))
+          .map((target) => `${path} → ${target}`),
+      )
+    expect(broken).toEqual([])
   })
 
   it('o docs/adrs/ não existe mais', () => {
