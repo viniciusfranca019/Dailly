@@ -197,3 +197,31 @@ describe('C4: a recusa diz o que de fato aconteceu', () => {
     )
   })
 })
+
+describe('C8: valor dentro de string de corpo JSON entra escapado', () => {
+  const post = (body: string) => spec({ body, method: 'POST', headers: [] })
+
+  it('aspas e barra invertida no valor não quebram o JSON', () => {
+    const wire = resolve<HttpWire>(registry(), post('{"senha":"{{senha}}","n":1}'), { host: 'h', senha: 'a"b\\c' })
+    expect(JSON.parse(wire.body!)).toEqual({ senha: 'a"b\\c', n: 1 })
+  })
+
+  it('fora de string o valor entra cru: {{n}} como número continua número', () => {
+    const wire = resolve<HttpWire>(registry(), post('{"n": {{n}}, "s": "x{{n}}y"}'), { host: 'h', n: '42' })
+    expect(JSON.parse(wire.body!)).toEqual({ n: 42, s: 'x42y' })
+  })
+
+  it('aspas escapadas dentro da string não confundem a varredura', () => {
+    const wire = resolve<HttpWire>(registry(), post('{"a":"\\"{{v}}\\""}'), { host: 'h', v: 'q"q' })
+    expect(JSON.parse(wire.body!)).toEqual({ a: '"q"q"' })
+  })
+
+  it('corpo que não é JSON recebe o valor cru, como antes', () => {
+    const wire = resolve<HttpWire>(registry(), post('senha={{senha}}'), { host: 'h', senha: 'a"b' })
+    expect(wire.body).toBe('senha=a"b')
+  })
+
+  it('variável ausente no corpo JSON continua recusada', () => {
+    expect(() => resolve(registry(), post('{"a":"{{nada}}"}'), { host: 'h' })).toThrow(UnresolvedVariableError)
+  })
+})

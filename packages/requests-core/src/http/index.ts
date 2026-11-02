@@ -1,3 +1,4 @@
+import { type Env, type Interpolated, interpolate, interpolateJsonText } from '../interpolate.js'
 import type { Invalid, ProtocolDriver } from '../protocol.js'
 import { toBase64 } from './base64.js'
 import { fromRaw } from './from-raw.js'
@@ -122,6 +123,21 @@ export const httpDriver = {
   }),
 
   fromRaw,
+
+  /**
+   * A genérica em tudo, menos no corpo: lá um valor dentro de string JSON
+   * entra escapado (C8). Um segredo com `"` quebrava o corpo sem aviso.
+   */
+  interpolate: (spec: unknown, env: Env): Interpolated<unknown> => {
+    if (!isRecord(spec) || typeof spec['body'] !== 'string') return interpolate(spec, env)
+    const { body, ...rest } = spec
+    const others = interpolate(rest, env)
+    const text = interpolateJsonText(body, env)
+    return {
+      value: { ...others.value, body: text.value },
+      missing: [...new Set([...others.missing, ...text.missing])],
+    }
+  },
 } satisfies ProtocolDriver<HttpSpec, HttpWire>
 
 export type { HttpSpec, HttpHeader, HttpAuth } from './spec.js'
@@ -129,3 +145,4 @@ export type { HttpWire } from './wire.js'
 export { NotACurlError, AmbiguousUrlError, MissingUrlError } from './from-raw.js'
 export { UnterminatedQuoteError, tokenize } from './tokenize.js'
 export type { ExecutedResponse, ResponseHeader } from './executed.js'
+export { findCredentials, hideCredentials, type FoundCredential, type CredentialChoice } from './credentials.js'
