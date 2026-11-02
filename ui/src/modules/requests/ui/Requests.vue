@@ -97,6 +97,9 @@ const lockedNames = ref<readonly string[] | null>(null)
 const pendingCredentials = ref<{
   readonly result: Extract<Imported, { kind: 'imported' }>
   readonly previous: string
+  /** A request e o nome no instante da colagem — o que um import aplicado ali teria mantido. */
+  readonly selected: SavedRequest | null
+  readonly name: string
 } | null>(null)
 
 const reason = (cause: unknown, fallback: string) =>
@@ -274,11 +277,12 @@ function importInto(raw: string, previous: string): void {
     // ali executaria — e executar grava — o rascunho com o curl ainda na
     // barra de URL, a chave em claro (gate 1, blocker).
     //
-    // E o editor muda de dono já aqui, como no colar sem credencial: um save
-    // em voo batizaria a request importada com o nome da anterior (gate 3).
-    editor += 1
+    // O editor **não** muda de dono aqui: se a pessoa cancelar, um save em voo
+    // da request de antes tem que terminar de apontar o editor para ela, senão
+    // o próximo Salvar a duplica (gate 4). Quem confirma volta ao retrato
+    // deste instante, que é o que o colar sem credencial faz (gate 3).
     invalidate()
-    pendingCredentials.value = { result, previous }
+    pendingCredentials.value = { result, previous, selected: selected.value, name: draft.value?.name ?? '' }
     return
   }
   applyImport(result.draft, result.ignored)
@@ -289,6 +293,10 @@ function credentialsStored(choices: CredentialChoice[]): void {
   const pending = pendingCredentials.value
   if (pending === null) return
   pendingCredentials.value = null
+  // Um save em voo pode ter apontado o editor para a request de antes enquanto
+  // o form estava aberto. Confirmar é colar naquele instante: volta ao retrato.
+  selected.value = pending.selected
+  if (draft.value !== null) draft.value.name = pending.name
   applyImport(pending.result.hidden(choices), pending.result.ignored)
 }
 

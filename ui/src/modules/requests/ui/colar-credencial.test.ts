@@ -232,3 +232,30 @@ describe('gate 3 do passo 10 (major)', () => {
     expect(at<HTMLInputElement>(host, 'name')?.value).toBe('')
   })
 })
+
+describe('gate 4 do passo 10 (major)', () => {
+  it('cancelar depois de um save em voo deixa o editor na request salva: salvar de novo não duplica', async () => {
+    const port = testRequestsPort()
+    const gate = held()
+    const realSave = port.saveRequest.bind(port)
+    let holding = true
+    port.saveRequest = async (request) => {
+      if (holding) await gate.promise
+      return realSave(request)
+    }
+    const { host } = mount(deps(port, testVaultPort({ state: 'aberto' })))
+    await settle()
+    await novaRequest(host)
+    await fill(at(host, 'url'), 'https://a.dev')
+    await click(at(host, 'save'))
+
+    await fill(at(host, 'url'), CURL_KEY)
+    holding = false
+    gate.release()
+    await settle()
+    await click(at(host, 'credentials-cancel'))
+    await click(at(host, 'save'))
+
+    expect(await port.requests()).toHaveLength(1)
+  })
+})
