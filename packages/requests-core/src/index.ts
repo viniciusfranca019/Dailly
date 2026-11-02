@@ -40,6 +40,3 @@ export type { Folder } from './storage/folder.js'
 export { FolderCycleError, assertNoCycle, descendantsOf, reparent, wouldCycle } from './storage/folder.js'
 export type { RequestStore, SavedRequest } from './storage/request-store.js'
 export { FolderNotFoundError, CorruptSpecError } from './storage/request-store.js'
-
-export { fromPostman, NotAPostmanCollectionError } from './import/postman.js'
-export type { LiteralSecret, PostmanImport, Skipped } from './import/postman.js'

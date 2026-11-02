@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fromPostman, NotAPostmanCollectionError } from './postman.js'
+import { fromPostman, NotAPostmanCollectionError } from './from-postman.js'
 
 /** Ids previsíveis: `id-1`, `id-2`, … na ordem em que o conversor os pede. */
 const sequential = () => {

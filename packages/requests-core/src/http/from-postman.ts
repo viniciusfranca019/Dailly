@@ -1,4 +1,4 @@
-import type { HttpAuth, HttpHeader, HttpSpec } from '../http/index.js'
+import type { HttpAuth, HttpHeader, HttpSpec } from './spec.js'
 import { placeholdersOf } from '../interpolate.js'
 import type { Folder } from '../storage/folder.js'
 import type { SavedRequest } from '../storage/request-store.js'
