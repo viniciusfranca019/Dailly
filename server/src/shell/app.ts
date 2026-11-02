@@ -1,5 +1,6 @@
 import Fastify, { type FastifyInstance } from 'fastify'
 import { MODULES } from '../modules.js'
+import { createVault, type KdfParams } from '../vault/vault.js'
 import type { Database } from 'better-sqlite3'
 import {
   ManifestError,
@@ -20,6 +21,10 @@ export interface AppDeps extends ServerModuleDeps {
    * primeira rota com `undefined`.
    */
   readonly db?: Database
+  /** A metade do cofre que vem do `.env` (ADR 0013). Ausente, o cofre só abre pela recuperação. */
+  readonly secretKey?: string
+  /** Custo do scrypt para cofres novos; só os testes o baixam. */
+  readonly kdf?: KdfParams
 }
 
 /**
@@ -35,10 +40,15 @@ export interface AppDeps extends ServerModuleDeps {
  * socket de verdade (ADR 0009) seja a exceção, não a regra.
  */
 export function buildApp(
-  { entries, zone, token, db }: AppDeps,
+  { entries, zone, token, db, secretKey, kdf }: AppDeps,
   modules: readonly AnyServerModule[] = MODULES,
 ): FastifyInstance {
   assertManifest(modules)
+  // Um cofre por processo: a DEK aberta é estado, e o Requests e as rotas do
+  // cofre precisam ver a mesma.
+  const context = db
+    ? { db, zone, vault: createVault({ db, secretKey, ...(kdf ? { kdf } : {}) }) }
+    : undefined
 
   const app = Fastify({ logger: false })
 
@@ -99,13 +109,13 @@ export function buildApp(
       module.register(app, { entries, zone }, undefined)
       continue
     }
-    if (!db) {
+    if (!context) {
       throw new ManifestError(
         `o módulo ${module.id} constrói a própria dependência e precisa do banco, ` +
           'mas `buildApp` foi chamado sem ele.',
       )
     }
-    module.register(app, { entries, zone }, module.provide({ db, zone }))
+    module.register(app, { entries, zone }, module.provide(context))
   }
 
   return app

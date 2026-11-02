@@ -14,6 +14,7 @@ import type { EntryRepository } from '@dailly/domain'
 import type { TimeZone } from '@dailly/periods'
 import type { Database } from 'better-sqlite3'
 import type { FastifyInstance } from 'fastify'
+import type { Vault } from '../vault/vault.js'
 
 /**
  * Uma fatia de schema, e o motivo de ela morar no arquivo do contrato.
@@ -43,6 +44,8 @@ export interface ServerModuleDeps {
 export interface ProvideContext {
   readonly db: Database
   readonly zone: TimeZone
+  /** O cofre da ADR 0013: um por processo, porque a DEK aberta é estado. */
+  readonly vault: Vault
 }
 
 interface ServerModuleBase {
