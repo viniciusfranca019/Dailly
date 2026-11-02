@@ -23,11 +23,12 @@ describe('a versão tem uma fonte só, e o changelog a acompanha', () => {
     expect(version()).toMatch(/^\d+\.\d+\.\d+$/)
   })
 
-  it('a primeira seção do CHANGELOG.md é a versão de VERSION, com data', () => {
-    const first = read(join(ROOT, 'CHANGELOG.md'))
-      .split('\n')
-      .find((line) => line.startsWith('## '))
-    expect(first).toMatch(new RegExp(`^## ${version().replaceAll('.', '\\.')} — \\d{4}-\\d{2}-\\d{2}$`))
+  it('o CHANGELOG.md guarda só a versão atual, a mesma de VERSION', () => {
+    const changelog = read(join(ROOT, 'CHANGELOG.md'))
+    expect(changelog.split('\n')[0]).toBe(`version: ${version()}`)
+    // As anteriores ficam no `git log -p CHANGELOG.md`, não no arquivo.
+    expect(changelog.match(/^version: /gm)).toHaveLength(1)
+    expect(changelog).toMatch(/^- /m)
   })
 })
 
