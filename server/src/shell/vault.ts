@@ -32,7 +32,16 @@ export interface KdfParams {
 export const DEFAULT_KDF: KdfParams = { N: 2 ** 17, r: 8, p: 1 }
 
 export type VaultStatus =
-  | { readonly state: 'sem-chave'; readonly missing: 'DAILLY_SECRET_KEY' }
+  | {
+      readonly state: 'sem-chave'
+      readonly missing: 'DAILLY_SECRET_KEY'
+      /**
+       * Se o cofre já existe. Sem a chave, um cofre criado ainda abre pela
+       * recuperação; um que não existe não tem recuperação nenhuma — e a tela
+       * precisa saber qual dos dois, para não pedir uma chave impossível.
+       */
+      readonly created: boolean
+    }
   | { readonly state: 'nao-criado' | 'trancado' | 'aberto' }
 
 export interface SecretSummary {
@@ -272,7 +281,9 @@ export function createVault(options: {
 
   return {
     status() {
-      if ('problem' in parsedPepper && !dek) return { state: 'sem-chave', missing: 'DAILLY_SECRET_KEY' }
+      if ('problem' in parsedPepper && !dek) {
+        return { state: 'sem-chave', missing: 'DAILLY_SECRET_KEY', created: header() !== undefined }
+      }
       if (!header()) return { state: 'nao-criado' }
       return { state: dek ? 'aberto' : 'trancado' }
     },

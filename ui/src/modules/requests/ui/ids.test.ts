@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { sequentialIds } from '@dailly/domain'
 import { describe, expect, it } from 'vitest'
-import { testRequestsPort, testSharedDeps } from '@shared/testing.js'
+import { testRequestsPort, testSharedDeps, testVaultPort } from '@shared/testing.js'
 import { allAt, at, click, fill, mount, novaPasta, novaRequest, settle } from './test-harness.js'
 
 /**
@@ -14,7 +14,7 @@ import { allAt, at, click, fill, mount, novaPasta, novaRequest, settle } from '.
 describe('C3: o id de uma pasta ou request nova vem do gerador que a raiz entrega', () => {
   it('a pasta nova leva o id do gerador', async () => {
     const port = testRequestsPort()
-    const { host } = mount({ ...testSharedDeps(), requests: port, ids: sequentialIds('novo') })
+    const { host } = mount({ ...testSharedDeps(), requests: port, ids: sequentialIds('novo'), vault: testVaultPort() })
     await settle()
 
     await novaPasta(host)
@@ -26,7 +26,7 @@ describe('C3: o id de uma pasta ou request nova vem do gerador que a raiz entreg
 
   it('a request nova leva o id do gerador', async () => {
     const port = testRequestsPort()
-    const { host } = mount({ ...testSharedDeps(), requests: port, ids: sequentialIds('novo') })
+    const { host } = mount({ ...testSharedDeps(), requests: port, ids: sequentialIds('novo'), vault: testVaultPort() })
     await settle()
 
     await novaRequest(host)

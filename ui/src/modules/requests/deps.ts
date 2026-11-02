@@ -1,5 +1,5 @@
 import type { IdGenerator } from '@dailly/domain'
-import type { RequestsPort } from '@shared'
+import type { RequestsPort, VaultPort } from '@shared'
 
 /**
  * O que é só do Requests: a port da coleção e o gerador de ids.
@@ -11,4 +11,6 @@ import type { RequestsPort } from '@shared'
 export interface RequestsDeps {
   readonly requests: RequestsPort
   readonly ids: IdGenerator
+  /** O cofre da ADR 0013: a tela pede a senha e revela sob clique. */
+  readonly vault: VaultPort
 }

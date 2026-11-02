@@ -10,3 +10,5 @@ export type {
   ResponseHeader,
 } from './requests.js'
 export { ExecutionFailedError, MissingVariablesError } from './requests.js'
+export type { SecretSummary, VaultPort, VaultRefusal, VaultState } from './vault.js'
+export { LockedSecretsError, VaultRefusedError } from './vault.js'

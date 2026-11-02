@@ -466,7 +466,8 @@ describe('C1/C2: cada módulo recebe o comum e só o seu', () => {
     await shell.go('/requests')
 
     const seen = requests.seen[0] as unknown as Record<string, unknown>
-    expect(Object.keys(seen).sort()).toEqual(['ids', 'now', 'requests', 'zone'])
+    // O cofre entrou com a ADR 0013 (PR B): é do Requests, e só dele.
+    expect(Object.keys(seen).sort()).toEqual(['ids', 'now', 'requests', 'vault', 'zone'])
     expect(seen['requests']).toBe(deps.own.requests.requests)
   })
 

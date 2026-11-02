@@ -59,7 +59,7 @@ describe('C1/C2/C3 pelas rotas', () => {
 
   it('sem DAILLY_SECRET_KEY, diz o que falta e recusa criar', async () => {
     const app = appWith(openDatabase(':memory:'), null)
-    expect((await call(app, 'GET', '/vault')).json()).toEqual({ state: 'sem-chave', missing: 'DAILLY_SECRET_KEY' })
+    expect((await call(app, 'GET', '/vault')).json()).toEqual({ state: 'sem-chave', missing: 'DAILLY_SECRET_KEY', created: false })
     const response = await call(app, 'POST', '/vault', { password: 'uma senha longa' })
     expect(response.statusCode).toBe(412)
     expect(response.json().error).toMatch(/DAILLY_SECRET_KEY/)

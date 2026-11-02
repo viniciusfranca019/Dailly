@@ -91,7 +91,7 @@ describe('C2: trancar e destrancar', () => {
 describe('C3: sem DAILLY_SECRET_KEY', () => {
   it('o status diz o que falta, e criar e destrancar recusam com esse motivo', () => {
     const { vault } = fresh(null)
-    expect(vault.status()).toEqual({ state: 'sem-chave', missing: 'DAILLY_SECRET_KEY' })
+    expect(vault.status()).toEqual({ state: 'sem-chave', missing: 'DAILLY_SECRET_KEY', created: false })
     expect(() => vault.create('uma senha longa')).toThrow(MissingSecretKeyError)
     expect(() => vault.unlock('uma senha longa')).toThrow(MissingSecretKeyError)
   })
@@ -192,5 +192,14 @@ describe('gate 1 (blocker): o AAD não colide entre ambiente e nome', () => {
     ).run()
 
     expect(() => vault.get('a:b', 'c')).toThrow(CorruptSecretError)
+  })
+})
+
+describe('gate 2 do PR B: sem-chave diz se o cofre existe', () => {
+  it('um cofre criado e depois sem .env só abre pela recuperação, e o status diz isso', () => {
+    const state = fresh()
+    state.vault.create('uma senha longa')
+    const semEnv = createVault({ db: state.db, secretKey: undefined, kdf: FAST })
+    expect(semEnv.status()).toEqual({ state: 'sem-chave', missing: 'DAILLY_SECRET_KEY', created: true })
   })
 })

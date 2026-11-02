@@ -1,7 +1,7 @@
 import { sequentialIds, type Entry } from '@dailly/domain'
 import type { TimeZone } from '@dailly/periods'
 import type { RequestsPort } from '@shared'
-import { testEntryDeps, testRequestsPort, testSharedDeps } from '@shared/testing.js'
+import { testEntryDeps, testRequestsPort, testSharedDeps, testVaultPort } from '@shared/testing.js'
 import type { ShellDeps } from './own-deps.js'
 
 /**
@@ -15,7 +15,11 @@ export function testShellDeps(
     shared: testSharedDeps(options),
     own: {
       'daily-log': testEntryDeps(options),
-      requests: { requests: options.requests ?? testRequestsPort(), ids: sequentialIds('request') },
+      requests: {
+        requests: options.requests ?? testRequestsPort(),
+        ids: sequentialIds('request'),
+        vault: testVaultPort(),
+      },
     },
   }
 }

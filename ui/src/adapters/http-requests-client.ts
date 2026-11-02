@@ -1,6 +1,7 @@
 import type { Folder, SavedRequest } from '@dailly/requests-core'
 import {
   ExecutionFailedError,
+  LockedSecretsError,
   MissingVariablesError,
   type ExecutedResponse,
   type ExecutionFailure,
@@ -188,6 +189,13 @@ export const httpRequestsClient = ({ config, fetch }: HttpRequestsClientDeps): R
                 : []
             }
             throw new MissingVariablesError(names('missing'), names('surviving'), error.message)
+          }
+
+          // 423: a variável existe, mas só no cofre, e ele está trancado. É um
+          // erro à parte porque a tela responde pedindo a senha, não com texto.
+          if (error.status === 423 && isRecord(details) && Array.isArray(details['locked'])) {
+            const locked = details['locked'].filter((name): name is string => typeof name === 'string')
+            throw new LockedSecretsError(locked, error.message)
           }
 
           // O tipo diz `| undefined` porque é isso que um mapa indexado por

@@ -3,6 +3,7 @@ import { UTC } from '@dailly/periods'
 import { API_CONFIG } from '../adapters/api.js'
 import { httpEntryRepository } from '../adapters/http-entry-repository.js'
 import { httpRequestsClient } from '../adapters/http-requests-client.js'
+import { httpVaultClient } from '../adapters/http-vault-client.js'
 import { mountShell } from './mount.js'
 import { MODULES } from './modules.js'
 import './styles.css'
@@ -44,7 +45,11 @@ async function boot(): Promise<void> {
           createEntry: createEntry({ entries, clock: systemClock, ids: uuidIds }),
           queryEntries: queryEntries({ entries }),
         },
-        requests: { requests: httpRequestsClient({ config }), ids: uuidIds },
+        requests: {
+          requests: httpRequestsClient({ config }),
+          ids: uuidIds,
+          vault: httpVaultClient({ config }),
+        },
       },
     },
   })
