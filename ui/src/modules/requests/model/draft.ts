@@ -4,7 +4,11 @@ import {
   MissingUrlError,
   NotACurlError,
   UnterminatedQuoteError,
+  findCredentials,
+  hideCredentials,
   httpDriver,
+  type CredentialChoice,
+  type FoundCredential,
   type HttpSpec,
 } from '@dailly/requests-core/http'
 
@@ -51,7 +55,15 @@ export interface Draft {
 }
 
 export type Imported =
-  | { readonly kind: 'imported'; readonly draft: Draft; readonly ignored: readonly string[] }
+  | {
+      readonly kind: 'imported'
+      readonly draft: Draft
+      readonly ignored: readonly string[]
+      /** As credenciais escritas direto no curl. Vazio: nada a proteger. */
+      readonly credentials: readonly FoundCredential[]
+      /** Os campos com cada credencial escolhida trocada por `{{nome}}`. */
+      readonly hidden: (choices: readonly CredentialChoice[]) => Draft
+    }
   | { readonly kind: 'rejected'; readonly reason: string }
 
 const draftFrom = (spec: HttpSpec, over: Partial<Draft> = {}): Draft => ({
@@ -76,7 +88,13 @@ const draftFrom = (spec: HttpSpec, over: Partial<Draft> = {}): Draft => ({
 export function importCurl(raw: string): Imported {
   try {
     const { spec, ignored } = httpDriver.fromRaw(raw)
-    return { kind: 'imported', draft: draftFrom(spec), ignored }
+    return {
+      kind: 'imported',
+      draft: draftFrom(spec),
+      ignored,
+      credentials: findCredentials(spec),
+      hidden: (choices) => draftFrom(hideCredentials(spec, choices)),
+    }
   } catch (error) {
     if (
       error instanceof NotACurlError ||

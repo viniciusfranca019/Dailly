@@ -30,7 +30,7 @@ defineProps<{
   running: boolean
 }>()
 
-const emit = defineEmits<{ save: []; execute: []; remove: []; pasteCurl: [raw: string] }>()
+const emit = defineEmits<{ save: []; execute: []; remove: []; pasteCurl: [raw: string, previous: string] }>()
 
 /**
  * A barra de URL também é por onde um curl entra — como no Postman.
@@ -66,11 +66,12 @@ const CURL = /^\s*curl\s/
  */
 function onUrl(event: Event): void {
   const value = (event.target as HTMLInputElement).value
-  const pasted = value.length - draft.value.url.length > 1
+  const previous = draft.value.url
+  const pasted = value.length - previous.length > 1
   // Grava sempre, mesmo quando é import: um curl recusado fica no campo **e**
   // no modelo para a pessoa consertar, senão o Enviar mandaria a URL antiga.
   draft.value.url = value
-  if (pasted && CURL.test(value)) emit('pasteCurl', value)
+  if (pasted && CURL.test(value)) emit('pasteCurl', value, previous)
 }
 
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']

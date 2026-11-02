@@ -10,10 +10,12 @@ import {
 import { computed, onMounted, ref } from 'vue'
 import Collections from './collection/Collections.vue'
 import VaultPanel from './vault/VaultPanel.vue'
+import CredentialsPrompt from './vault/CredentialsPrompt.vue'
 import RequestEditor from './editor/RequestEditor.vue'
 import ResponseView from './response/ResponseView.vue'
 import { decodeBody, type DecodedBody } from '../model/decode.js'
-import { draftOf, importCurl, savedOf, type Draft } from '../model/draft.js'
+import { draftOf, importCurl, savedOf, type Draft, type Imported } from '../model/draft.js'
+import type { CredentialChoice } from '@dailly/requests-core/http'
 import { parseEnv } from '../model/env.js'
 import type { RequestsDeps } from '../deps.js'
 import type { Item } from './collection/tree-context.js'
@@ -86,6 +88,17 @@ const showVault = ref(false)
  */
 const lockedNames = ref<readonly string[] | null>(null)
 
+/**
+ * Um curl com credencial esperando o form (passo 10): o import fica parado
+ * aqui, fora do editor, até a pessoa mandar as chaves para o cofre ou
+ * cancelar. O editor some enquanto isso, porque a barra de URL ainda tem o
+ * curl colado — com a chave em claro — e um Salvar ali a gravaria.
+ */
+const pendingCredentials = ref<{
+  readonly result: Extract<Imported, { kind: 'imported' }>
+  readonly previous: string
+} | null>(null)
+
 const reason = (cause: unknown, fallback: string) =>
   cause instanceof Error ? cause.message : fallback
 
@@ -154,6 +167,9 @@ function invalidate(): void {
   // O pedido de senha era daquela request: abrir o cofre agora executaria a
   // outra, que ninguém mandou executar.
   lockedNames.value = null
+  // O mesmo vale para o form das credenciais: confirmar depois de trocar de
+  // request jogaria o curl em cima da outra.
+  pendingCredentials.value = null
 }
 
 /**
@@ -234,7 +250,7 @@ function startDraft(parentId: string | null = null): void {
  * colado, e quem já batizou a request não quer perder o nome porque trocou o
  * curl. O resto é substituído, que é o ponto de colar de novo.
  */
-function importInto(raw: string): void {
+function importInto(raw: string, previous: string): void {
   const result = importCurl(raw)
   if (result.kind === 'rejected') {
     // Recusa não troca de request: nada em voo muda de dono, e o texto colado
@@ -249,7 +265,34 @@ function importInto(raw: string): void {
   }
 
   importError.value = null
-  ignored.value = result.ignored
+
+  // Credencial escrita direto não entra no editor: antes o form manda o valor
+  // para o cofre (C1). Sem credencial, o caminho é o de sempre (C6).
+  if (result.credentials.length > 0) {
+    ignored.value = []
+    pendingCredentials.value = { result, previous }
+    return
+  }
+  applyImport(result.draft, result.ignored)
+}
+
+/** O form confirmou: cada credencial já está no cofre, e a request leva `{{nome}}` (C3). */
+function credentialsStored(choices: CredentialChoice[]): void {
+  const pending = pendingCredentials.value
+  if (pending === null) return
+  pendingCredentials.value = null
+  applyImport(pending.result.hidden(choices), pending.result.ignored)
+}
+
+/** Cancelar devolve a barra de URL ao que era: o curl colado tem a chave em claro (C4). */
+function credentialsCancelled(): void {
+  const pending = pendingCredentials.value
+  pendingCredentials.value = null
+  if (pending !== null && draft.value !== null) draft.value.url = pending.previous
+}
+
+function applyImport(imported: Draft, ignoredFlags: readonly string[]): void {
+  ignored.value = ignoredFlags
 
   /**
    * Colar um curl **troca de request**, mesmo sem trocar de linha na árvore.
@@ -269,7 +312,7 @@ function importInto(raw: string): void {
   // valor legítimo e não uma ausência.
   const current = draft.value
   if (current === null) return
-  draft.value = { ...result.draft, name: current.name, folderId: current.folderId }
+  draft.value = { ...imported, name: current.name, folderId: current.folderId }
 }
 
 /**
@@ -674,8 +717,16 @@ onMounted(load)
           Apagar esta request
         </button>
 
+        <CredentialsPrompt
+          v-if="draft && pendingCredentials"
+          :vault="props.deps.vault"
+          :credentials="pendingCredentials.result.credentials"
+          @confirm="credentialsStored"
+          @cancel="credentialsCancelled"
+        />
+
         <RequestEditor
-          v-if="draft"
+          v-if="draft && !pendingCredentials"
           v-model="draft"
           :folders="folders"
           :saved-id="selected?.id ?? null"
