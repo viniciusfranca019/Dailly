@@ -5,7 +5,7 @@
  * itself twice. `ModuleDescriptor` survives any UI decision; **this file does
  * not** — it said so while it still described a vanilla `mount(host)` handle,
  * and it was replaced the moment the renderer settled on Vue
- * ([ADR 0010](../../../docs/adrs/0010-vue-no-renderer.md), Emenda 2).
+ * (ADR 0010, Emenda 2).
  *
  * A module is now a component, which is what lets the whole app run inside a
  * single Vue application: a plugin installed at the root reaches every module,

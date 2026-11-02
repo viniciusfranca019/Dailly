@@ -37,5 +37,5 @@ Sem token: desde a ADR 0012, a API aceita só a própria máquina (`Host` e `Ori
 
 - [`docs/architecture.md`](docs/architecture.md) — shell, contrato de módulo,
   migrations, rotas e o mapa de status de cada falha.
-- [`../../docs/architecture.md`](../../docs/architecture.md) — o comportamento
+- [`../../docs/conventions/architecture.md`](../../docs/conventions/architecture.md) — o comportamento
   de cada módulo, de ponta a ponta.

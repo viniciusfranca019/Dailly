@@ -58,7 +58,7 @@ describe('createEntry', () => {
   it('drops the blank line between blocks, which the user will notice', async () => {
     // Worth its own test because it is the one normalization that changes what
     // someone typed on purpose rather than a marker they did not care about.
-    // Blank lines are not part of the model (`docs/adaptacao-dailly.md` §3), so
+    // Blank lines are not part of the model (`docs/conventions/architecture.md`), so
     // a body written with breathing room comes back without it — once, at
     // creation, and never again.
     const { create } = subject()

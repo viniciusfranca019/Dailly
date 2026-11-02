@@ -4,7 +4,7 @@ import { ManifestError, type AnyServerModule, type Migration } from './module.js
 
 /**
  * Versionamento de schema por `PRAGMA user_version`, como a
- * [ADR 0002 §5](../../../docs/adrs/0002-data-layer.md) decidiu.
+ * ADR 0002 §5 decidiu.
  *
  * A versão mora **dentro do arquivo**, e é isso que faz a história de backup da
  * ADR 0005 funcionar: restaurar um `.sqlite` antigo e abri-lo roda exatamente

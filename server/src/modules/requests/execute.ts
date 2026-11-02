@@ -96,7 +96,7 @@ const TEXTUAL = /^(text\/|application\/(json|xml|javascript|x-www-form-urlencode
 /**
  * Manda a requisição de verdade — o lado efeito do driver.
  *
- * Aqui e não no renderer, e a [ADR 0011](../../../../docs/adrs/0011-requests-modulo-e-execucao.md)
+ * Aqui e não no renderer, e a ADR 0011
  * diz por quê: um browser não deixa definir `Host`, `Origin` nem `Cookie`, a
  * resposta volta opaca por CORS a partir de `file://`, e gRPC não existe num
  * webview. `undici.request` dá o que falta — header arbitrário, redirect **não

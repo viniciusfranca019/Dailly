@@ -54,7 +54,7 @@ export class InvalidSpecError extends Error {
  * O spec, mais o ambiente, viram a requisição literal — sem hop nenhum.
  *
  * É esta função que sustenta a recusa do híbrido na
- * [ADR 0011](../../../docs/adrs/0011-requests-modulo-e-execucao.md): a única
+ * ADR 0011: a única
  * virtude de "o servidor monta o estado e a UI executa" era ver exatamente o
  * que vai ser enviado, e isso é puro, roda no renderer, e não custa viagem.
  *

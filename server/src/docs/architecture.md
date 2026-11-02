@@ -8,7 +8,7 @@ renderer, e o servidor é o outro lado da port
 
 Ele espelha as duas camadas da `ui/`: um **shell** que não conhece módulo
 nenhum pelo nome, e **módulos** que entram por um manifest
-([ADR 0006, Emenda 2](../../../docs/adrs/0006-modularizacao-frontend.md)).
+([ADR 0006, Emenda 2](../../../docs/conventions/architecture.md)).
 
 ## Estrutura
 
@@ -60,7 +60,7 @@ resolveConfig ─► assertManifest ─► collectMigrations ─► openDatabase
   `Authorization: Bearer <token>`. `/health` é isento **pela rota registrada**,
   não pelo prefixo da URL, para que `/healthz` de um módulo não vire bypass.
 - **`/health`** responde `{ status, zone }`. O renderer lê o fuso daqui, porque
-  o fuso é variável *deste processo* ([ADR 0007](../../../docs/adrs/0007-api-local-e-tempo.md)).
+  o fuso é variável *deste processo* ([ADR 0007](../../../docs/conventions/architecture.md)).
 - **Banco** (`database.ts`): WAL para leitor e escritor coexistirem;
   `foreign_keys = ON` porque o SQLite vem com ele desligado e o schema depende
   de `ON DELETE CASCADE`.
@@ -79,7 +79,7 @@ módulo". Cada módulo declara sua fatia, o shell concatena e ordena, e
 Cada migration roda numa transação junto com o bump do `user_version`. Um banco
 **mais novo** que o schema montado é recusado (`DatabaseTooNewError`): abrir
 arriscaria corromper dados de uma versão futura — é a metade barata da
-história de backup da [ADR 0005](../../../docs/adrs/0005-backup-restore.md).
+história de backup da [ADR 0005](../../../docs/conventions/architecture.md).
 
 ## O contrato de módulo
 

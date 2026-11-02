@@ -30,7 +30,7 @@ import type { Dragged } from '../model/tree.js'
  * da mesma verdade.
  *
  * O que ela **não** faz é executar. Isso mora no servidor
- * ([ADR 0011](../../../../../docs/adrs/0011-requests-modulo-e-execucao.md)):
+ * (ADR 0011):
  * um renderer não manda `Host`, `Origin` nem `Cookie`, e gRPC não existe num
  * webview. O que chega de volta é um envelope, e descomprimi-lo é trabalho
  * desta tela — a outra metade daquela decisão.

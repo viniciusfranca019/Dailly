@@ -1,7 +1,7 @@
 /**
  * The single conversion point: instant + zone → calendar day.
  *
- * [ADR 0007](../../../docs/adrs/0007-api-local-e-tempo.md) split two questions
+ * ADR 0007 split two questions
  * that look like one. `Clock` answers *"what instant is it now"*; this package
  * answers *"which calendar day does this instant belong to"*. Mixing them is
  * what spreads a timezone bug through a codebase — every caller that asks for

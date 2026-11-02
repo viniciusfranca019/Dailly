@@ -3,7 +3,7 @@ import { UTC, isSupportedTimeZone, type TimeZone } from '@dailly/periods'
 /**
  * Everything the server needs to boot, resolved once.
  *
- * The zone is the interesting one. [ADR 0007](../../docs/adrs/0007-api-local-e-tempo.md)
+ * The zone is the interesting one. ADR 0007
  * made it an **environment variable of this process**, defaulting to `UTC`,
  * and wrote down the limit of that choice: env is per process, not per session.
  * While the API serves one person it is correct; the day it serves two, the

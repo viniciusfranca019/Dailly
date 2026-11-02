@@ -137,7 +137,7 @@ export function registerRequestRoutes(
    * Executar: a rota mais sensível desta API.
    *
    * Ela é egresso arbitrário para a internet a partir da máquina do usuário, e
-   * a [ADR 0011](../../../../docs/adrs/0011-requests-modulo-e-execucao.md)
+   * a ADR 0011
    * escreveu que ela fica **dentro** do hook do token, nunca na isenção do
    * `/health`. O hook é do shell e o caminho não começa com `/health`, então a
    * garantia é estrutural — e o teste a prende, porque uma garantia que só

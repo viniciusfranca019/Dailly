@@ -96,7 +96,7 @@ export type ServerModule<TOwn = void> = [TOwn] extends [void]
       /**
        * A dependência que é **só deste módulo**, construída por ele.
    *
-   * Esta é a abstração que a [ADR 0006, Emenda 2](../../../docs/adrs/0006-modularizacao-frontend.md)
+   * Esta é a abstração que a ADR 0006, Emenda 2
    * adiou com gatilho nomeado, e o gatilho é o módulo Requests. Sem ela, cada
    * módulo novo acrescentaria um campo ao `ServerModuleDeps` — o tell da Lei 4
    * — e o entries passaria a enxergar o store de requests sem precisar dele.
