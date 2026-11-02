@@ -131,3 +131,25 @@ describe('C4: gravar, listar e revelar', () => {
     db.close()
   })
 })
+
+describe('gate (nit): o nome do segredo tem que poder ser usado como {{nome}}', () => {
+  it('recusa nome vazio, com espaço ou com chaves, e ambiente fora do padrão', async () => {
+    const app = appWith()
+    await created(app)
+    for (const url of ['/secrets/default/', '/secrets/default/com%20espaco', '/secrets/default/a%7Db', '/secrets/a%3Ab/c']) {
+      const response = await call(app, 'PUT', url, { value: 'x' })
+      expect([400, 404], url).toContain(response.statusCode)
+    }
+    expect((await call(app, 'GET', '/secrets')).json()).toEqual([])
+  })
+})
+
+describe('gate 4 (major): C3 pelas rotas', () => {
+  it('sem DAILLY_SECRET_KEY, destrancar com senha recusa dizendo o motivo', async () => {
+    const response = await call(appWith(openDatabase(':memory:'), null), 'POST', '/vault/unlock', {
+      password: 'uma senha longa',
+    })
+    expect(response.statusCode).toBe(412)
+    expect(response.json().error).toMatch(/DAILLY_SECRET_KEY/)
+  })
+})

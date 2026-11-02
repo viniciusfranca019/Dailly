@@ -32,7 +32,7 @@ afterEach(async () => {
   await target.close()
 })
 
-const appWithVault = async () => {
+const appWithVault = async (url = () => `${targetUrl}/eco`) => {
   const app = buildApp({
     entries: inMemoryEntryRepository(),
     zone: UTC,
@@ -51,7 +51,7 @@ const appWithVault = async () => {
       protocol: 'http',
       spec: {
         method: 'GET',
-        url: `${targetUrl}/eco`,
+        url: url(),
         headers: [{ name: 'Authorization', value: 'Bearer {{stripe_key}}' }],
         body: null,
         query: [],
@@ -113,5 +113,76 @@ describe('C5: a execução usa o cofre', () => {
     expect(response.statusCode).toBe(400)
     expect(response.json().missing).toEqual(['stripe_key'])
     expect(hits).toBe(0)
+  })
+})
+
+describe('gate: a execução e o cofre', () => {
+  it('2 (major): um alvo fora do ar não devolve o valor do cofre na mensagem', async () => {
+    const app = await appWithVault(() => 'http://127.0.0.1:1/x?key={{stripe_key}}')
+    const response = await execute(app)
+    expect(response.statusCode).toBe(502)
+    expect(response.body).not.toContain('sk_live_123')
+    expect(response.body).toContain('{{stripe_key}}')
+  })
+
+  it('3 (major): uma linha do cofre alterada é 422 nomeado, não 500', async () => {
+    const db = openDatabase(':memory:')
+    const app = buildApp({
+      entries: inMemoryEntryRepository(),
+      zone: UTC,
+      db,
+      secretKey: randomBytes(32).toString('base64'),
+      kdf: { N: 2 ** 10, r: 8, p: 1 },
+    })
+    await app.inject({ method: 'POST', url: '/vault', payload: { password: 'uma senha longa' } })
+    await app.inject({ method: 'PUT', url: '/secrets/default/stripe_key', payload: { value: 'sk_live_123' } })
+    await app.inject({
+      method: 'POST',
+      url: '/requests',
+      payload: {
+        id: 'r-1', name: 's', protocol: 'http', folderId: null, position: 0,
+        spec: { method: 'GET', url: `${targetUrl}/eco?k={{stripe_key}}`, headers: [], body: null, query: [], auth: null },
+      },
+    })
+    db.prepare('UPDATE secrets SET nonce = randomblob(12)').run()
+
+    const response = await execute(app)
+
+    expect(response.statusCode).toBe(422)
+    expect(response.json().error).toMatch(/stripe_key/)
+    expect(hits).toBe(0)
+  })
+
+  it('4 (major): sem DAILLY_SECRET_KEY, uma request sem segredo executa normalmente', async () => {
+    const app = buildApp({ entries: inMemoryEntryRepository(), zone: UTC, db: openDatabase(':memory:') })
+    await app.inject({
+      method: 'POST',
+      url: '/requests',
+      payload: {
+        id: 'r-1', name: 's', protocol: 'http', folderId: null, position: 0,
+        spec: { method: 'GET', url: `${targetUrl}/eco`, headers: [], body: null, query: [], auth: null },
+      },
+    })
+    expect((await execute(app)).statusCode).toBe(200)
+  })
+
+  it('nit: sem DAILLY_SECRET_KEY, a recusa diz o que falta em vez de pedir a senha', async () => {
+    const db = openDatabase(':memory:')
+    const key = randomBytes(32).toString('base64')
+    const withKey = buildApp({ entries: inMemoryEntryRepository(), zone: UTC, db, secretKey: key, kdf: { N: 2 ** 10, r: 8, p: 1 } })
+    await withKey.inject({ method: 'POST', url: '/vault', payload: { password: 'uma senha longa' } })
+    await withKey.inject({ method: 'PUT', url: '/secrets/default/stripe_key', payload: { value: 'sk_live_123' } })
+    await withKey.inject({
+      method: 'POST',
+      url: '/requests',
+      payload: {
+        id: 'r-1', name: 's', protocol: 'http', folderId: null, position: 0,
+        spec: { method: 'GET', url: `${targetUrl}/eco?k={{stripe_key}}`, headers: [], body: null, query: [], auth: null },
+      },
+    })
+    const noKey = buildApp({ entries: inMemoryEntryRepository(), zone: UTC, db })
+    const response = await execute(noKey)
+    expect(response.statusCode).toBe(423)
+    expect(response.json().error).toMatch(/DAILLY_SECRET_KEY/)
   })
 })

@@ -177,3 +177,20 @@ describe('a listagem e o apagar não precisam do cofre aberto', () => {
     expect(() => restart(state).set('default', 'x', 'y')).toThrow(VaultLockedError)
   })
 })
+
+describe('gate 1 (blocker): o AAD não colide entre ambiente e nome', () => {
+  it('(a, "b:c") e ("a:b", c) não trocam valores', () => {
+    const { db, vault } = fresh()
+    vault.create('uma senha longa')
+    vault.set('a', 'b:c', 'SEGREDO_1')
+    vault.set('a:b', 'c', 'SEGREDO_2')
+
+    db.prepare(
+      `UPDATE secrets SET (ciphertext, nonce, tag) =
+         (SELECT ciphertext, nonce, tag FROM secrets WHERE environment = 'a' AND name = 'b:c')
+       WHERE environment = 'a:b' AND name = 'c'`,
+    ).run()
+
+    expect(() => vault.get('a:b', 'c')).toThrow(CorruptSecretError)
+  })
+})

@@ -10,6 +10,14 @@ import {
   type Vault,
 } from '../../shell/module.js'
 
+/** O ambiente: um rótulo simples, como `default` ou `staging`. */
+const ENVIRONMENT = /^[A-Za-z0-9_.-]{1,64}$/
+/**
+ * O nome: tem que poder ser escrito como `{{nome}}`, então sem espaço e sem
+ * chave — a mesma regra do `PLACEHOLDER_SOURCE` do pacote.
+ */
+const NAME = /^[^{}\s/]{1,128}$/
+
 /** O mínimo para uma senha nova. A força vem do scrypt + `.env`; isto só evita o acidente. */
 const MIN_PASSWORD = 8
 
@@ -97,6 +105,12 @@ export function registerVaultRoutes(app: FastifyInstance, vault: Vault): void {
 
   app.put('/secrets/:environment/:name', async (request, reply) => {
     const { environment, name } = request.params as { environment: string; name: string }
+    if (!ENVIRONMENT.test(environment)) {
+      return reply.code(400).send({ error: 'o ambiente aceita letras, números, `_`, `.` e `-`' })
+    }
+    if (!NAME.test(name)) {
+      return reply.code(400).send({ error: 'o nome tem que poder ser usado como {{nome}}: sem espaço, sem chaves' })
+    }
     const value = text(request.body, 'value')
     if (value === undefined) return reply.code(400).send({ error: '`value` deve ser texto' })
     return answer(reply, () => vault.set(environment, name, value))

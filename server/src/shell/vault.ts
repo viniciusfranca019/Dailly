@@ -193,7 +193,13 @@ const decodeRecovery = (text: string): Buffer | null => {
 const SLOT_SESSION = 'sessao'
 const SLOT_RECOVERY = 'recuperacao'
 const DEK_AAD = 'dailly/vault/dek/v1'
-const secretAad = (environment: string, name: string) => `dailly/secret/v1:${environment}:${name}`
+/**
+ * JSON, e não `ambiente:nome`: com um separador cru, `(a, "b:c")` e `("a:b", c)`
+ * davam o mesmo AAD, e um texto cifrado copiado entre as duas linhas decifrava
+ * como o valor da outra.
+ */
+const secretAad = (environment: string, name: string) =>
+  `dailly/secret/v1:${JSON.stringify([environment, name])}`
 
 /** A chave do `.env`, já validada; `null` quando falta, e o motivo para a mensagem. */
 const parsePepper = (secretKey: string | undefined): { pepper: Buffer } | { problem: string } => {
