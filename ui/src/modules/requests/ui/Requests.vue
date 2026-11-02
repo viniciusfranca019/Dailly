@@ -97,9 +97,10 @@ const lockedNames = ref<readonly string[] | null>(null)
 const pendingCredentials = ref<{
   readonly result: Extract<Imported, { kind: 'imported' }>
   readonly previous: string
-  /** A request e o nome no instante da colagem — o que um import aplicado ali teria mantido. */
-  readonly selected: SavedRequest | null
-  readonly name: string
+  /** O dono do editor antes da colagem: um save dele que terminar agora é da request de antes. */
+  readonly owner: number
+  /** O que esse save gravou, se terminou com o form aberto. Só o cancelar usa. */
+  landed: SavedRequest | null
 } | null>(null)
 
 const reason = (cause: unknown, fallback: string) =>
@@ -277,12 +278,13 @@ function importInto(raw: string, previous: string): void {
     // ali executaria — e executar grava — o rascunho com o curl ainda na
     // barra de URL, a chave em claro (gate 1, blocker).
     //
-    // O editor **não** muda de dono aqui: se a pessoa cancelar, um save em voo
-    // da request de antes tem que terminar de apontar o editor para ela, senão
-    // o próximo Salvar a duplica (gate 4). Quem confirma volta ao retrato
-    // deste instante, que é o que o colar sem credencial faz (gate 3).
+    // O editor muda de dono aqui, como no colar sem credencial: um save em voo
+    // não batiza nem seleciona a request importada (gate 3). O que esse save
+    // gravou fica anotado no form, para o cancelar devolver (gate 4).
+    const owner = editor
+    editor += 1
     invalidate()
-    pendingCredentials.value = { result, previous, selected: selected.value, name: draft.value?.name ?? '' }
+    pendingCredentials.value = { result, previous, owner, landed: null }
     return
   }
   applyImport(result.draft, result.ignored)
@@ -293,10 +295,6 @@ function credentialsStored(choices: CredentialChoice[]): void {
   const pending = pendingCredentials.value
   if (pending === null) return
   pendingCredentials.value = null
-  // Um save em voo pode ter apontado o editor para a request de antes enquanto
-  // o form estava aberto. Confirmar é colar naquele instante: volta ao retrato.
-  selected.value = pending.selected
-  if (draft.value !== null) draft.value.name = pending.name
   applyImport(pending.result.hidden(choices), pending.result.ignored)
 }
 
@@ -304,7 +302,16 @@ function credentialsStored(choices: CredentialChoice[]): void {
 function credentialsCancelled(): void {
   const pending = pendingCredentials.value
   pendingCredentials.value = null
-  if (pending !== null && draft.value !== null) draft.value.url = pending.previous
+  if (pending === null || draft.value === null) return
+  draft.value.url = pending.previous
+  // O save da request de antes terminou com o form aberto: o editor volta a
+  // apontar para ela, senão o próximo Salvar a duplicaria (gate 4). Lida da
+  // lista, que já foi relida, para um renomear feito depois valer.
+  if (pending.landed !== null && selected.value?.id !== pending.landed.id) {
+    const fresh = requests.value.find((request) => request.id === pending.landed!.id) ?? pending.landed
+    selected.value = fresh
+    draft.value.name = fresh.name
+  }
 }
 
 function applyImport(imported: Draft, ignoredFlags: readonly string[]): void {
@@ -387,6 +394,10 @@ async function persist(): Promise<SavedRequest | null> {
        * do que o `rowId` existe para garantir.
        */
       if (draft.value !== null) draft.value.name = stored.name
+    } else if (pendingCredentials.value?.owner === ticket) {
+      // A request de antes da colagem foi gravada com o form aberto: fica
+      // anotado para o cancelar devolver o editor a ela (gate 4).
+      pendingCredentials.value.landed = stored
     }
     await load()
     return stored
@@ -608,8 +619,11 @@ async function execute(): Promise<void> {
    * em vez de por tecla, e o preço é o mesmo que o Insomnia cobra — todo
    * experimento persiste.
    */
+  const owner = editor
   const stored = await persist()
-  if (stored === null) return
+  // Colaram outro curl ou trocaram de request enquanto gravava: a execução
+  // era daquela tela, não desta (gate 5). Gravar valeu; executar não.
+  if (stored === null || owner !== editor) return
 
   const id = stored.id
 

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { LockedSecretsError } from '@shared'
 import type { HttpSpec } from '@dailly/requests-core/http'
 import { testRequestsPort, testVaultPort } from '@shared/testing.js'
-import { at, allAt, click, deps, fill, held, mount, novaRequest, request, requestRow, settle, text } from './test-harness.js'
+import { at, allAt, click, deps, fill, held, menuOf, mount, novaRequest, request, requestRow, settle, text } from './test-harness.js'
 
 /**
  * Passo 10: colar um curl com credencial (ADR 0013). A chave sai do curl para
@@ -257,5 +257,52 @@ describe('gate 4 do passo 10 (major)', () => {
     await click(at(host, 'save'))
 
     expect(await port.requests()).toHaveLength(1)
+  })
+})
+
+describe('gate 5 do passo 10', () => {
+  it('(major) renomear na árvore com o form aberto sobrevive ao confirmar', async () => {
+    const port = testRequestsPort({ requests: [request('r1', 'a')] })
+    const { host } = mount(deps(port, testVaultPort({ state: 'aberto' })))
+    await settle()
+    await click(requestRow(host, 'r1'))
+    await fill(at(host, 'url'), CURL_KEY)
+
+    await click(menuOf(host, 'r1'))
+    await click(at(host, 'menu-rename'))
+    await fill(at(host, 'rename'), 'b')
+    at(host, 'rename')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    await settle()
+    await click(at(host, 'credentials-confirm'))
+
+    expect(at<HTMLInputElement>(host, 'name')?.value).toBe('b')
+  })
+
+  it('(major) uma execução que estava gravando quando o curl foi colado não traz o pedido de senha', async () => {
+    const vault = testVaultPort({ state: 'trancado' })
+    const saved = request('r1', 'usa token')
+    const port = testRequestsPort({
+      requests: [saved],
+      execute: async () => {
+        throw new LockedSecretsError(['token'], 'o cofre está trancado')
+      },
+    })
+    const gate = held()
+    const realSave = port.saveRequest.bind(port)
+    port.saveRequest = async (request) => {
+      await gate.promise
+      return realSave(request)
+    }
+    const { host } = mount(deps(port, vault))
+    await settle()
+    await click(requestRow(host, 'r1'))
+    await click(at(host, 'execute'))
+
+    await fill(at(host, 'url'), CURL_KEY)
+    gate.release()
+    await settle()
+
+    expect(at(host, 'credentials-prompt')).not.toBeNull()
+    expect(at(host, 'vault-locked')).toBeNull()
   })
 })
