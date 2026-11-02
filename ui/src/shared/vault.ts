@@ -5,7 +5,11 @@
  * o valor vive só enquanto está à mostra. Quem cifra, decifra e guarda a chave
  * é o servidor.
  */
-export type VaultState = 'sem-chave' | 'nao-criado' | 'trancado' | 'aberto'
+/**
+ * `sem-chave`: falta a `DAILLY_SECRET_KEY` e não há cofre — nada a abrir.
+ * `so-recuperacao`: falta a chave, mas o cofre existe — só a recuperação abre.
+ */
+export type VaultState = 'sem-chave' | 'so-recuperacao' | 'nao-criado' | 'trancado' | 'aberto'
 
 export interface SecretSummary {
   readonly environment: string

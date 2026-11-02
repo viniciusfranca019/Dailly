@@ -142,6 +142,10 @@ describe('T5: sem DAILLY_SECRET_KEY', () => {
     expect(text(host, 'vault-missing-key')).toMatch(/DAILLY_SECRET_KEY.*openssl rand -base64 32/s)
     expect(at(host, 'vault-unlock-password')).toBeNull()
     expect(at(host, 'vault-create-password')).toBeNull()
+    // Sem cofre criado não existe chave de recuperação: pedir uma seria
+    // oferecer uma porta que não existe (gate 2 do PR B).
+    expect(at(host, 'vault-unlock-recovery')).toBeNull()
+    expect(text(host, 'vault-missing-key')).not.toMatch(/recuperação/)
   })
 })
 
@@ -179,8 +183,8 @@ describe('gate 1 do PR B', () => {
     expect(execute).toHaveBeenCalledTimes(1)
   })
 
-  it('(major) sem DAILLY_SECRET_KEY, a chave de recuperação abre pela tela', async () => {
-    const vault = testVaultPort({ state: 'sem-chave' })
+  it('(major) sem DAILLY_SECRET_KEY e com o cofre criado, a chave de recuperação abre pela tela', async () => {
+    const vault = testVaultPort({ state: 'so-recuperacao', recoveryKey: 'ABCD-EFGH' })
     const { host } = mount(deps(testRequestsPort(), vault))
     await settle()
     await openPanel(host)
@@ -199,5 +203,19 @@ describe('gate 1 do PR B', () => {
     await openPanel(host)
     await click(at(host, 'secret-copy'))
     expect(text(host, 'vault-error')).toMatch(/área de transferência/)
+  })
+})
+
+describe('gate 2 do PR B', () => {
+  it('(nit) uma chave de recuperação errada é recusada e dita', async () => {
+    const vault = testVaultPort({ state: 'trancado', recoveryKey: 'ABCD-EFGH' })
+    const { host } = mount(deps(testRequestsPort(), vault))
+    await settle()
+    await openPanel(host)
+    await click(at(host, 'vault-use-recovery'))
+    await fill(at(host, 'vault-unlock-recovery'), 'ZZZZ-ZZZZ')
+    await click(at(host, 'vault-unlock'))
+    expect(text(host, 'vault-error')).toMatch(/não abre/)
+    expect(await vault.status()).toBe('trancado')
   })
 })

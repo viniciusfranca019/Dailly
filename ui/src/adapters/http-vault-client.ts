@@ -45,6 +45,9 @@ export const httpVaultClient = (deps: { config: ApiConfig; fetch?: typeof global
     async status() {
       const payload = await call('/vault')
       const state = isRecord(payload) ? payload['state'] : undefined
+      // Sem a chave, o servidor diz se o cofre existe: existindo, a
+      // recuperação ainda abre, e é um estado à parte para a tela.
+      if (state === 'sem-chave' && isRecord(payload) && payload['created'] === true) return 'so-recuperacao'
       return STATES.find((known) => known === state) ?? 'trancado'
     },
     async create(password) {

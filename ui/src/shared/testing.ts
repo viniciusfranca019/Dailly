@@ -140,7 +140,12 @@ export function testRequestsPort(
  * rede. A criptografia não está aqui; ela é provada do lado do servidor.
  */
 export function testVaultPort(
-  options: { state?: VaultState; password?: string; secrets?: Record<string, string> } = {},
+  options: {
+    state?: VaultState
+    password?: string
+    recoveryKey?: string
+    secrets?: Record<string, string>
+  } = {},
 ): VaultPort & { readonly saved: ReadonlyMap<string, string> } {
   let state: VaultState = options.state ?? 'aberto'
   let password = options.password ?? 'uma senha longa'
@@ -162,11 +167,19 @@ export function testVaultPort(
       return 'ABCD-EFGH-IJKL-MNOP-QRST-UVWX-YZ23-4567-ABCD-EFGH-IJKL-MNOP-QRST'
     },
     async unlock(attempt) {
-      if (state === 'sem-chave') throw new VaultRefusedError('missing-key', 'falta a DAILLY_SECRET_KEY')
+      if (state === 'sem-chave' || state === 'so-recuperacao') {
+        throw new VaultRefusedError('missing-key', 'falta a DAILLY_SECRET_KEY')
+      }
       if (attempt !== password) throw new VaultRefusedError('wrong-password', 'a senha não abre o cofre')
       state = 'aberto'
     },
-    async unlockWithRecovery() {
+    async unlockWithRecovery(key) {
+      if (state === 'sem-chave' || state === 'nao-criado') {
+        throw new VaultRefusedError('invalid', 'o cofre ainda não foi criado')
+      }
+      if (key.toUpperCase() !== (options.recoveryKey ?? 'ABCD-EFGH').toUpperCase()) {
+        throw new VaultRefusedError('wrong-password', 'a chave de recuperação não abre o cofre')
+      }
       state = 'aberto'
     },
     async lock() {

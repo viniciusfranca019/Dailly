@@ -17,6 +17,12 @@ const answering = (status: number, body?: unknown) =>
   })) as unknown as typeof globalThis.fetch
 
 describe('o adapter do cofre', () => {
+  it('sem chave e com cofre criado é "só recuperação"; sem cofre é "sem chave"', async () => {
+    const read = (body: object) => httpVaultClient({ config, fetch: answering(200, body) }).status()
+    expect(await read({ state: 'sem-chave', missing: 'DAILLY_SECRET_KEY', created: true })).toBe('so-recuperacao')
+    expect(await read({ state: 'sem-chave', missing: 'DAILLY_SECRET_KEY', created: false })).toBe('sem-chave')
+  })
+
   it('lê o estado', async () => {
     expect(await httpVaultClient({ config, fetch: answering(200, { state: 'trancado' }) }).status()).toBe('trancado')
   })

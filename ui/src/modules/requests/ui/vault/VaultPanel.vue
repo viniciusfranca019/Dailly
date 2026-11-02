@@ -24,10 +24,11 @@ const password = ref('')
 const recovery = ref<string | null>(null)
 const useRecovery = ref(false)
 /**
- * Sem a `DAILLY_SECRET_KEY` a senha não abre (ela é metade da chave), e a
- * recuperação é o único caminho — então é o único campo que aparece.
+ * Sem a `DAILLY_SECRET_KEY` a senha não abre (ela é metade da chave). Com o
+ * cofre já criado, a recuperação é o único caminho, e é o único campo que
+ * aparece; sem cofre, não há recuperação nenhuma, e nenhum campo aparece.
  */
-const recovering = computed(() => useRecovery.value || state.value === 'sem-chave')
+const recovering = computed(() => useRecovery.value || state.value === 'so-recuperacao')
 const recoveryInput = ref('')
 const newName = ref('')
 const newValue = ref('')
@@ -157,10 +158,16 @@ onMounted(() => {
 
     <p v-if="state === null" class="text-[#747e8f]">lendo o cofre…</p>
 
-    <p v-if="state === 'sem-chave'" data-testid="vault-missing-key" class="leading-relaxed text-amber-200">
+    <p
+      v-if="state === 'sem-chave' || state === 'so-recuperacao'"
+      data-testid="vault-missing-key"
+      class="leading-relaxed text-amber-200"
+    >
       Falta a <code>DAILLY_SECRET_KEY</code> no <code>.env</code> do dailly. Gere com
-      <code>openssl rand -base64 32</code>, ponha no <code>.env</code> e reinicie a API. Sem ela, o cofre só
-      abre pela chave de recuperação, logo abaixo.
+      <code>openssl rand -base64 32</code>, ponha no <code>.env</code> e reinicie a API.
+      <template v-if="state === 'so-recuperacao'">
+        Até lá, o cofre que já existe só abre pela chave de recuperação, logo abaixo.
+      </template>
     </p>
 
     <template v-if="recovery">
@@ -202,7 +209,7 @@ onMounted(() => {
     </form>
 
     <form
-      v-else-if="state === 'trancado' || state === 'sem-chave'"
+      v-else-if="state === 'trancado' || state === 'so-recuperacao'"
       class="flex flex-col gap-2"
       @submit.prevent="unlock"
     >
@@ -235,7 +242,7 @@ onMounted(() => {
           Abrir
         </button>
         <button
-          v-if="state !== 'sem-chave'"
+          v-if="state !== 'so-recuperacao'"
           type="button"
           data-testid="vault-use-recovery"
           class="text-xs text-[#747e8f] underline"
