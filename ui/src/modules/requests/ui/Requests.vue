@@ -427,8 +427,7 @@ function removeFromTree(target: Item): void {
 
 async function createFolder(input: { name: string; parentId: string | null }): Promise<void> {
   // Sem esta guarda, dois cliques criavam duas pastas com ids diferentes
-  // — nem o servidor deduplica. E como não há rota de apagar pasta neste
-  // corte, a duplicata não teria como sair pela tela.
+  // — nem o servidor deduplica, e a pessoa teria que apagar a duplicata à mão.
   if (savingFolder.value) return
 
   savingFolder.value = true
