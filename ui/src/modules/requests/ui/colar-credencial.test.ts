@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { LockedSecretsError } from '@shared'
 import type { HttpSpec } from '@dailly/requests-core/http'
 import { testRequestsPort, testVaultPort } from '@shared/testing.js'
-import { at, allAt, click, deps, fill, held, menuOf, mount, novaRequest, request, requestRow, settle, text } from './test-harness.js'
+import { at, allAt, click, deps, drag, fill, folder, folderRow, held, menuOf, mount, novaRequest, request, requestRow, settle, text } from './test-harness.js'
 
 /**
  * Passo 10: colar um curl com credencial (ADR 0013). A chave sai do curl para
@@ -304,5 +304,58 @@ describe('gate 5 do passo 10', () => {
 
     expect(at(host, 'credentials-prompt')).not.toBeNull()
     expect(at(host, 'vault-locked')).toBeNull()
+  })
+})
+
+describe('gate 6 do passo 10', () => {
+  const heldSave = () => {
+    const port = testRequestsPort({ folders: [folder('f', 'F')] })
+    const gate = held()
+    const realSave = port.saveRequest.bind(port)
+    let holding = true
+    port.saveRequest = async (request) => {
+      if (holding) await gate.promise
+      return realSave(request)
+    }
+    return { port, release: () => { holding = false; gate.release() } }
+  }
+
+  it('(major) com um save em voo o form não decide: cancelar e confirmar esperam o save', async () => {
+    const { port, release } = heldSave()
+    const { host } = mount(deps(port, testVaultPort({ state: 'aberto' })))
+    await settle()
+    await novaRequest(host)
+    await fill(at(host, 'url'), 'https://a.dev')
+    await click(at(host, 'save'))
+    await fill(at(host, 'url'), CURL_KEY)
+
+    expect(at<HTMLButtonElement>(host, 'credentials-cancel')?.disabled).toBe(true)
+    expect(at<HTMLButtonElement>(host, 'credentials-confirm')?.disabled).toBe(true)
+
+    release()
+    await settle()
+    await click(at(host, 'credentials-cancel'))
+    await click(at(host, 'save'))
+    expect(await port.requests()).toHaveLength(1)
+  })
+
+  it('(major) cancelar devolve o editor à request salva com a pasta atual dela', async () => {
+    const { port, release } = heldSave()
+    const { host } = mount(deps(port, testVaultPort({ state: 'aberto' })))
+    await settle()
+    await novaRequest(host)
+    await fill(at(host, 'url'), 'https://a.dev')
+    await click(at(host, 'save'))
+    await fill(at(host, 'url'), CURL_KEY)
+    release()
+    await settle()
+    const [stored] = await port.requests()
+    await drag(requestRow(host, stored!.id), folderRow(host, 'f'))
+    expect((await port.requests()).map((saved) => saved.folderId)).toEqual(['f'])
+
+    await click(at(host, 'credentials-cancel'))
+    await click(at(host, 'save'))
+
+    expect((await port.requests()).map((saved) => saved.folderId)).toEqual(['f'])
   })
 })

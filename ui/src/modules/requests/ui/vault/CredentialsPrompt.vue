@@ -14,7 +14,12 @@ import { stashCredentials } from '../../model/credentials.js'
  * Não há "salvar em claro": sem `DAILLY_SECRET_KEY` ou sem cofre, a única saída
  * é cancelar. Gravar a chave no SQLite é o que este form existe para impedir.
  */
-const props = defineProps<{ vault: VaultPort; credentials: readonly FoundCredential[] }>()
+/**
+ * `waiting`: a tela ainda está gravando a request de antes da colagem. O form
+ * não decide nada até ela terminar — cancelar no meio deixaria o editor sem
+ * saber que ela existe, e o próximo Salvar a duplicaria (gate 6).
+ */
+const props = defineProps<{ vault: VaultPort; credentials: readonly FoundCredential[]; waiting?: boolean }>()
 const emit = defineEmits<{ confirm: [choices: CredentialChoice[]]; cancel: [] }>()
 
 const ENVIRONMENT = 'default'
@@ -40,7 +45,7 @@ onMounted(async () => {
 })
 
 async function confirm(): Promise<void> {
-  if (busy.value) return
+  if (busy.value || props.waiting) return
   busy.value = true
   error.value = null
   try {
@@ -144,7 +149,7 @@ async function confirm(): Promise<void> {
         v-if="canConfirm"
         type="submit"
         data-testid="credentials-confirm"
-        :disabled="busy"
+        :disabled="busy || waiting"
         class="rounded border border-[#1e2638] px-3 py-1.5 text-xs hover:bg-white/5"
         @click.prevent="confirm"
       >
@@ -153,7 +158,7 @@ async function confirm(): Promise<void> {
       <button
         type="button"
         data-testid="credentials-cancel"
-        :disabled="busy"
+        :disabled="busy || waiting"
         class="rounded border border-[#1e2638] px-3 py-1.5 text-xs hover:bg-white/5"
         @click="emit('cancel')"
       >

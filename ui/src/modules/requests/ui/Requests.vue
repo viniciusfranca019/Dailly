@@ -311,6 +311,7 @@ function credentialsCancelled(): void {
     const fresh = requests.value.find((request) => request.id === pending.landed!.id) ?? pending.landed
     selected.value = fresh
     draft.value.name = fresh.name
+    draft.value.folderId = fresh.folderId
   }
 }
 
@@ -753,6 +754,7 @@ onMounted(load)
           v-if="draft && pendingCredentials"
           :vault="props.deps.vault"
           :credentials="pendingCredentials.result.credentials"
+          :waiting="saving"
           @confirm="credentialsStored"
           @cancel="credentialsCancelled"
         />
