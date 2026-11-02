@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ModuleDeps } from '@shared'
+import type { SharedDeps } from '@shared'
 
 /**
  * Analyse — the screen behind the flag.
@@ -12,7 +12,7 @@ import type { ModuleDeps } from '@shared'
  * rendered by the shell with the same single prop, so the contract is uniform
  * and this file needs no special case in `Shell.vue` the day it grows a body.
  */
-defineProps<{ deps: ModuleDeps }>()
+defineProps<{ deps: SharedDeps }>()
 </script>
 
 <template>

@@ -1,6 +1,8 @@
 import type { Folder, SavedRequest } from '@dailly/requests-core'
-import { type ExecutedResponse, type ModuleDeps, type RequestsPort } from '@shared'
-import { testModuleDeps } from '@shared/testing.js'
+import { sequentialIds } from '@dailly/domain'
+import { type ExecutedResponse, type RequestsPort, type SharedDeps } from '@shared'
+import { testSharedDeps } from '@shared/testing.js'
+import type { RequestsDeps } from '../deps.js'
 import { createApp } from 'vue'
 import Requests from './Requests.vue'
 
@@ -15,7 +17,7 @@ export const settle = async () => {
   for (let turn = 0; turn < 4; turn++) await new Promise((resolve) => setTimeout(resolve, 0))
 }
 
-export const mount = (deps: ModuleDeps) => {
+export const mount = (deps: SharedDeps & RequestsDeps) => {
   const host = document.createElement('div')
   document.body.append(host)
   const app = createApp(Requests, { deps })
@@ -83,7 +85,11 @@ export const executed = (over: Partial<ExecutedResponse> = {}): ExecutedResponse
   ...over,
 })
 
-export const deps = (requests: RequestsPort) => testModuleDeps({ requests })
+export const deps = (requests: RequestsPort) => ({
+  ...testSharedDeps(),
+  requests,
+  ids: sequentialIds('request'),
+})
 
 /**
  * Espera uma condição, em vez de um número fixo de turnos.

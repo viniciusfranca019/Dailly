@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Component } from 'vue'
-import type { ModuleDeps, ModuleDescriptor, VueModule } from '@shared'
+import type { ModuleDescriptor, SharedDeps, VueModule } from '@shared'
+import type { TimeZone } from '@dailly/periods'
 
 /**
  * The frame: sidebar, navigation, zone, and the outlet the current module
@@ -13,7 +14,10 @@ import type { ModuleDeps, ModuleDescriptor, VueModule } from '@shared'
  */
 defineProps<{
   modules: readonly ModuleDescriptor<VueModule>[]
-  deps: ModuleDeps
+  /** Shown in the frame; the frame reads nothing else of the deps. */
+  zone: TimeZone
+  /** The current module's deps: the shared half plus its own. */
+  deps: SharedDeps
   /** Route currently on screen; drives the active mark on the navigation. */
   current: string
   /** The module to render, or `null` before the first one has loaded. */
@@ -76,7 +80,7 @@ const emit = defineEmits<{ navigate: [route: string] }>()
         class="mt-auto border-t border-[#1e2638] px-2 pt-3 text-xs text-[#747e8f]"
         data-testid="zone"
       >
-        fuso: {{ deps.zone }}
+        fuso: {{ zone }}
       </footer>
     </aside>
 

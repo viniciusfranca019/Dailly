@@ -7,3 +7,4 @@
  * que sobra aqui é a tela, que é exatamente o que deveria sobrar.
  */
 export { default as component } from './ui/Requests.vue'
+export type { RequestsDeps } from './deps.js'

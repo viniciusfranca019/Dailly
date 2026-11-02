@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { MODULES } from './modules.js'
 import { mountShell } from './mount.js'
-import { testModuleDeps } from '@shared/testing.js'
+import { testShellDeps } from './testing.js'
 import { assertManifest } from '@shared'
 
 let host: HTMLElement
@@ -67,7 +67,7 @@ describe('the real composition', () => {
   })
 
   it('boots Daily Log with a live whiteboard inside it', async () => {
-    await mountShell(host, { modules: MODULES, deps: testModuleDeps() })
+    await mountShell(host, { modules: MODULES, deps: testShellDeps() })
 
     expect(host.querySelector('[data-testid="daily-log"]')).not.toBeNull()
     // Rendered blocks, not just a container: this is the seam between the
@@ -84,14 +84,14 @@ describe('the real composition', () => {
     // it, so hiding it hides the reason a day looks the way it does.
     await mountShell(host, {
       modules: MODULES,
-      deps: testModuleDeps({ zone: 'America/Sao_Paulo' }),
+      deps: testShellDeps({ zone: 'America/Sao_Paulo' }),
     })
 
     expect(host.querySelector('[data-testid="zone"]')?.textContent).toContain('America/Sao_Paulo')
   })
 
   it('every module in the manifest mounts and unmounts without throwing', async () => {
-    const shell = await mountShell(host, { modules: MODULES, deps: testModuleDeps() })
+    const shell = await mountShell(host, { modules: MODULES, deps: testShellDeps() })
 
     for (const module of MODULES) {
       await shell.go(module.route)

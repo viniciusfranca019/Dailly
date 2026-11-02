@@ -2,7 +2,7 @@
 export { assertManifest, findByRoute, ManifestError } from './module.js'
 export type { ModuleDescriptor } from './module.js'
 export type { VueModule } from './vue-module.js'
-export type { ModuleDeps } from './deps.js'
+export type { SharedDeps } from './deps.js'
 export type {
   ExecutedResponse,
   ExecutionFailure,

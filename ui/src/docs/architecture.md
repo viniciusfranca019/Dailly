@@ -19,12 +19,13 @@ ui/src/
     main.ts                  composition root: ApiConfig, repositório HTTP, use-cases, fuso, clock
     modules.ts               o manifest: quais módulos entram neste build (por flag)
     mount.ts                 mountShell: roteia, carrega módulo sob demanda, trata falha e corrida
+    own-deps.ts              OwnDeps (id → o que é só dele) · ShellDeps · depsFor
     Shell.vue                a moldura: sidebar, navegação, fuso na tela, outlet
   shared/                    ← CONTRATOS sem comportamento, que todo mundo importa
     module.ts                ModuleDescriptor · assertManifest · findByRoute
     vue-module.ts            VueModule: um módulo é um componente
-    deps.ts                  ModuleDeps: o que a raiz entrega a todo módulo
-    requests.ts              RequestsPort e os erros da execução, nas palavras da tela
+    deps.ts                  SharedDeps: o que a raiz entrega a todo módulo (zone, now)
+    requests.ts              RequestsPort e os erros da execução; ExecutedResponse vem de @dailly/requests-core/http
   adapters/                  ← o outro lado das ports, sobre HTTP
     api.ts                   onde está a API: /api, pelo proxy do vite
     http.ts                  a chamada comum: token, content-type, 204, "recusou" vs "ninguém atendeu"
@@ -80,19 +81,25 @@ main.ts
   API_CONFIG                   ─► { baseUrl: "/api" }
   httpEntryRepository(config)  ─► createEntry · queryEntries  (de @dailly/domain)
   GET /health                  ─► zone  (UTC se a API não responder)
-  httpRequestsClient(config)   ─► requests
-  mountShell(host, { modules: MODULES, deps })
-        └─► Shell.vue ─► <component :is="módulo" :deps="deps" />
+  httpRequestsClient(config)   ─► requests     uuidIds ─► ids
+  mountShell(host, { modules: MODULES, deps: { shared: {zone, now}, own: {'daily-log', requests} } })
+        └─► Shell.vue ─► <component :is="módulo" :deps="shared + own[id]" />
 ```
 
-- **`ModuleDeps`** leva use-cases, nunca um repositório
-  ([ADR 0001](../../../docs/adrs/0001-arquitetura-geral.md)), mais `zone` (a
-  tela sempre mostra o fuso em uso — ADR 0007) e `now()` (quem diz "Hoje"
-  precisa ser testável em qualquer dia).
-- **Dívida anotada:** `requests` está no mesmo saco, então o Daily Log recebe
-  uma port que nunca chama. O gatilho da correção está combinado em
-  `shared/deps.ts` — partir o contrato em "de todo módulo" e "deste módulo",
-  como o `provide` fez no servidor.
+- **Duas metades.** `SharedDeps` é o que todo módulo recebe: `zone` (a tela
+  sempre mostra o fuso em uso — ADR 0007) e `now()` (quem diz "Hoje" precisa
+  ser testável em qualquer dia). O que é só de um módulo ele declara no próprio
+  `deps.ts` (`DailyLogDeps`, `RequestsDeps`), exporta pelo `index.ts`, e o
+  `OwnDeps` do shell mapeia id → essa metade. O shell entrega a cada módulo
+  `shared + own[id]` e nada do vizinho — a mesma partição que o `provide` fez
+  no servidor.
+- **Checado em compilação, não em execução.** O `OwnDeps` é `import type`, e o
+  `main.ts` passa pelo `tsc`: esquecer um módulo ou entregar a forma errada não
+  compila, e um módulo desligado por flag não volta ao bundle. Validar em
+  execução (zod) foi descartado: o `own` é feito de funções, e um schema só
+  diria "é função", nunca a assinatura.
+- Use-cases, nunca um repositório
+  ([ADR 0001](../../../docs/adrs/0001-arquitetura-geral.md)).
 - **`mountShell`** carrega cada módulo na primeira visita, guarda a *promise*
   (dois cliques dividem um `load()`), descarta a rejeitada para permitir nova
   tentativa, e resolve a corrida pelo último pedido — não pelo último que
@@ -143,7 +150,8 @@ de um token.
 
 ```
 modules/daily-log/
-  index.ts                 exporta o componente
+  index.ts                 exporta o componente e o tipo DailyLogDeps
+  deps.ts                  DailyLogDeps: createEntry · queryEntries
   ui/
     DailyLog.vue           a tela: escolhe o dia, cria a entrada, recarrega a timeline
     Composer.vue           ilha do whiteboard: monta mountWhiteboard num ref, lê toMarkdown()
@@ -162,13 +170,13 @@ futuro não é aceito. A regra é da tela, não do domain.
 
 ```
 modules/requests/
-  index.ts                 exporta o componente
+  index.ts                 exporta o componente e o tipo RequestsDeps
+  deps.ts                  RequestsDeps: a port e o IdGenerator, vindos da raiz
   model/                   TypeScript puro, sem Vue — testado sem montar tela
     draft.ts               importCurl · draftOf · savedOf (spec ↔ o que a tela edita)
     tree.ts                buildTree · totals · canDrop · endPosition · methodOf
     env.ts                 parseEnv: NOME=valor, uma por linha
     decode.ts              decodeBody: gzip/deflate abrem; br é dito, nunca U+FFFD
-    ids.ts                 id de pasta/request nova (sai quando ModuleDeps for partido)
   ui/
     Requests.vue           orquestra: coleção, draft, execução, resposta
     editor/

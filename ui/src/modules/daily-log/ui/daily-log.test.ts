@@ -2,7 +2,14 @@
 import { describe, expect, it } from 'vitest'
 import { TEXT_ATTR } from '@capabilities/whiteboard/dom'
 import type { Entry } from '@dailly/domain'
-import { testModuleDeps } from '@shared/testing.js'
+import { testEntryDeps, testSharedDeps } from '@shared/testing.js'
+import type { TimeZone } from '@dailly/periods'
+
+/** O comum mais o que é do Daily Log — o que o shell junta para este módulo. */
+const testDailyLogDeps = (options: { seed?: readonly Entry[]; zone?: TimeZone; now?: string } = {}) => ({
+  ...testSharedDeps(options),
+  ...testEntryDeps(options),
+})
 import { createApp } from 'vue'
 import DailyLog from './DailyLog.vue'
 
@@ -30,7 +37,7 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 const NOW = '2026-09-16T12:00:00.000Z'
 
-const mount = (deps = testModuleDeps({ now: NOW })) => {
+const mount = (deps = testDailyLogDeps({ now: NOW })) => {
   const host = document.createElement('div')
   document.body.append(host)
   // The module is a component; the shell is what creates the application.
@@ -84,7 +91,7 @@ describe('the composer', () => {
   })
 
   it('titles the card with today, in the configured zone', async () => {
-    const { host } = mount(testModuleDeps({ now: '2026-09-17T02:00:00.000Z', zone: 'America/Sao_Paulo' }))
+    const { host } = mount(testDailyLogDeps({ now: '2026-09-17T02:00:00.000Z', zone: 'America/Sao_Paulo' }))
     await settle()
 
     // 02:00Z on the 17th is still the 16th in São Paulo — the card must say the
@@ -122,7 +129,7 @@ describe('the composer', () => {
   })
 
   it('Ctrl+S registers what is written', async () => {
-    const deps = testModuleDeps({ now: NOW })
+    const deps = testDailyLogDeps({ now: NOW })
     const { host } = mount(deps)
     await settle()
     type(host, '# salvo pelo atalho')
@@ -136,7 +143,7 @@ describe('the composer', () => {
   })
 
   it('Cmd+S does the same, because on macOS that is the key', async () => {
-    const deps = testModuleDeps({ now: NOW })
+    const deps = testDailyLogDeps({ now: NOW })
     const { host } = mount(deps)
     await settle()
     type(host, '# salvo no mac')
@@ -165,7 +172,7 @@ describe('the composer', () => {
     // The same rule the disabled button follows; an empty body would be
     // refused by `createEntry` anyway, and refusing it here means the person
     // never sees an error for a key they pressed by habit.
-    const deps = testModuleDeps({ now: NOW })
+    const deps = testDailyLogDeps({ now: NOW })
     mount(deps)
     await settle()
 
@@ -178,7 +185,7 @@ describe('the composer', () => {
   it('stops listening once the module is gone', async () => {
     // A window listener outliving its component is how a shortcut starts
     // firing for a screen nobody is looking at.
-    const deps = testModuleDeps({ now: NOW })
+    const deps = testDailyLogDeps({ now: NOW })
     const { host, handle } = mount(deps)
     await settle()
     type(host, '# escrito antes de sair')
@@ -192,7 +199,7 @@ describe('the composer', () => {
   })
 
   it('Cancelar empties the composer without writing anything', async () => {
-    const deps = testModuleDeps({ now: NOW })
+    const deps = testDailyLogDeps({ now: NOW })
     const { host } = mount(deps)
     await settle()
     type(host, 'escrito por engano')
@@ -218,7 +225,7 @@ describe('choosing the day of the entry', () => {
     // 02:00Z on the 17th is still the 16th in São Paulo. A `max` taken from the
     // machine's own clock would let someone log to a day that has not started.
     const { host } = mount(
-      testModuleDeps({ now: '2026-09-17T02:00:00.000Z', zone: 'America/Sao_Paulo' }),
+      testDailyLogDeps({ now: '2026-09-17T02:00:00.000Z', zone: 'America/Sao_Paulo' }),
     )
     await settle()
 
@@ -263,7 +270,7 @@ describe('choosing the day of the entry', () => {
   })
 
   it('keeps the exact moment of writing when the day is today', async () => {
-    const { host } = mount(testModuleDeps({ now: '2026-09-16T14:32:00.000Z' }))
+    const { host } = mount(testDailyLogDeps({ now: '2026-09-16T14:32:00.000Z' }))
     await settle()
     type(host, '# aconteceu agora')
     await settle()
@@ -309,7 +316,7 @@ describe('choosing the day of the entry', () => {
   it('keeps the chosen day when registering fails', async () => {
     // They are about to try again; throwing the choice away would make them
     // pick it twice.
-    const deps = testModuleDeps({ now: NOW })
+    const deps = testDailyLogDeps({ now: NOW })
     const { host } = mount({ ...deps, createEntry: () => Promise.reject(new Error('sem API')) })
     await settle()
     pick(host, '2026-09-10')
@@ -334,7 +341,7 @@ describe('the timeline', () => {
 
   it('groups entries by day, newest first, and names today', async () => {
     const { host } = mount(
-      testModuleDeps({
+      testDailyLogDeps({
         now: NOW,
         seed: [
           entry('a', '2026-09-16T10:00:00.000Z', '# um dia de trabalho'),
@@ -354,7 +361,7 @@ describe('the timeline', () => {
 
   it('shows the time each entry happened, in the configured zone', async () => {
     const { host } = mount(
-      testModuleDeps({
+      testDailyLogDeps({
         now: NOW,
         zone: 'America/Sao_Paulo',
         seed: [entry('a', '2026-09-17T01:00:00.000Z', '# tarde da noite')],
@@ -384,7 +391,7 @@ describe('the timeline', () => {
 
   it('narrows the list as you search, and says when nothing matches', async () => {
     const { host } = mount(
-      testModuleDeps({
+      testDailyLogDeps({
         now: NOW,
         seed: [
           entry('a', '2026-09-16T10:00:00.000Z', '# deploy de testes'),
@@ -414,7 +421,7 @@ describe('the timeline', () => {
     // Fase 2 owns labels. Seeding fake ones would make a screenshot that
     // promises something the product cannot do.
     const { host } = mount(
-      testModuleDeps({ now: NOW, seed: [entry('a', '2026-09-16T10:00:00.000Z', '# sem tags')] }),
+      testDailyLogDeps({ now: NOW, seed: [entry('a', '2026-09-16T10:00:00.000Z', '# sem tags')] }),
     )
     await settle()
 
@@ -422,7 +429,7 @@ describe('the timeline', () => {
   })
 
   it('shows the error instead of failing silently when registering is refused', async () => {
-    const deps = testModuleDeps({ now: NOW })
+    const deps = testDailyLogDeps({ now: NOW })
     const { host } = mount({
       ...deps,
       createEntry: () => Promise.reject(new Error('a API local não respondeu')),

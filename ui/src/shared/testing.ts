@@ -9,7 +9,7 @@ import {
 import type { Folder, SavedRequest } from '@dailly/requests-core'
 import { inMemoryRequestStore } from '@dailly/requests-core/testing'
 import { UTC, type TimeZone } from '@dailly/periods'
-import { ExecutionFailedError, type ModuleDeps, type RequestsPort } from '@shared'
+import { ExecutionFailedError, type RequestsPort, type SharedDeps } from '@shared'
 
 /**
  * The dependencies a shell test runs on: the **real** use-cases over the
@@ -39,22 +39,21 @@ const advancingClock = (from = '2026-09-16T12:00:00.000Z'): Clock => {
   return { now: () => new Date(Date.parse(from) + readings++ * 60_000).toISOString() }
 }
 
-export function testModuleDeps(
-  options: {
-    seed?: readonly Entry[]
-    zone?: TimeZone
-    now?: string
-    requests?: RequestsPort
-  } = {},
-): ModuleDeps {
+/** A metade comum: zona e um `now` fixo, como a raiz entrega. */
+export function testSharedDeps(options: { zone?: TimeZone; now?: string } = {}): SharedDeps {
+  return {
+    now: () => options.now ?? '2026-09-16T12:00:00.000Z',
+    zone: options.zone ?? UTC,
+  }
+}
+
+/** Os use-cases de Entry — reais — sobre o store em memória. */
+export function testEntryDeps(options: { seed?: readonly Entry[]; now?: string } = {}) {
   const entries = inMemoryEntryRepository(options.seed ?? [])
   const clock = advancingClock(options.now)
   return {
     createEntry: createEntry({ entries, clock, ids: sequentialIds() }),
-    now: () => options.now ?? '2026-09-16T12:00:00.000Z',
     queryEntries: queryEntries({ entries }),
-    zone: options.zone ?? UTC,
-    requests: options.requests ?? testRequestsPort(),
   }
 }
 

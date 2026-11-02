@@ -1,11 +1,6 @@
-import {
-  assertManifest,
-  findByRoute,
-  type ModuleDeps,
-  type ModuleDescriptor,
-  type VueModule,
-} from '@shared'
+import { assertManifest, findByRoute, type ModuleDescriptor, type VueModule } from '@shared'
 import { createApp, h, nextTick, ref, shallowRef, type App, type Component } from 'vue'
+import { depsFor, type ShellDeps } from './own-deps.js'
 import Shell from './Shell.vue'
 
 export interface ShellOptions {
@@ -14,8 +9,11 @@ export interface ShellOptions {
    * Built by the composition root and passed straight through. The shell does
    * not read them — it is a router, not a consumer — which is why a test can
    * hand it fakes without the shell learning anything about the domain.
+   *
+   * Two halves: what every module gets, and what each one gets alone. The
+   * shell only joins them per module, so a module never sees a neighbour's.
    */
-  readonly deps: ModuleDeps
+  readonly deps: ShellDeps
   /**
    * The seam for everything that belongs to the application rather than to a
    * screen: `app.use(pinia)`, `app.use(someComponentLibrary)`, `app.provide`.
@@ -55,6 +53,7 @@ export interface ShellHandle {
 export async function mountShell(host: HTMLElement, options: ShellOptions): Promise<ShellHandle> {
   const { modules, deps, configure } = options
   assertManifest(modules)
+  const moduleDeps = depsFor(deps)
 
   const current = ref('')
   /**
@@ -190,7 +189,8 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
     render: () =>
       h(Shell, {
         modules,
-        deps,
+        zone: deps.shared.zone,
+        deps: moduleDeps(findByRoute(modules, current.value)?.id ?? ''),
         current: current.value,
         component: component.value,
         failed: failed.value,

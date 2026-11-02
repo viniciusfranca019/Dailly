@@ -1,4 +1,5 @@
 import type { Folder, SavedRequest } from '@dailly/requests-core'
+import type { ExecutedResponse } from '@dailly/requests-core/http'
 
 /**
  * A port do módulo Requests, escrita nas palavras de quem a consome.
@@ -31,38 +32,7 @@ export interface RequestsPort {
   execute(id: string, env: Readonly<Record<string, string>>): Promise<ExecutedResponse>
 }
 
-export interface ResponseHeader {
-  readonly name: string
-  readonly value: string
-}
-
-/**
- * O envelope que `POST /requests/:id/execute` devolve.
- *
- * Declarado aqui e **não** importado do servidor porque a `ui/` não importa o
- * `server/` — são dois processos, e o que os une é a fita, não um `import`.
- * O preço é o tipo existir duas vezes; a mitigação é que o adapter o *valida*
- * na borda em vez de castar, então uma divergência entre os dois lados aparece
- * como recusa nomeada e não como `undefined` no meio da tela.
- *
- * Movê-lo para `@dailly/requests-core/http` seria o segundo chamador que a
- * Lei 2 cobra, e é o lugar certo para ele. Fica anotado em vez de feito: é
- * refactor do B2a dentro de um PR de tela, e misturar os dois faz o revisor
- * revisar a coisa errada.
- */
-export interface ExecutedResponse {
-  readonly status: number
-  readonly headers: readonly ResponseHeader[]
-  readonly body: string
-  /** `base64` quando o corpo não é texto — ou quando veio comprimido. */
-  readonly encoding: 'utf-8' | 'base64'
-  readonly truncated: boolean
-  readonly timedOut: boolean
-  /** Bytes recebidos. Quando `truncated`, é o que chegou, não o que existia. */
-  readonly bytes: number
-  readonly contentLength: number | null
-  readonly durationMs: number
-}
+export type { ExecutedResponse, ResponseHeader } from '@dailly/requests-core/http'
 
 /**
  * Falta variável — e nada saiu para a rede.

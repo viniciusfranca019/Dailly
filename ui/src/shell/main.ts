@@ -38,11 +38,14 @@ async function boot(): Promise<void> {
   await mountShell(host, {
     modules: MODULES,
     deps: {
-      createEntry: createEntry({ entries, clock: systemClock, ids: uuidIds }),
-      queryEntries: queryEntries({ entries }),
-      zone,
-      now: systemClock.now,
-      requests: httpRequestsClient({ config }),
+      shared: { zone, now: systemClock.now },
+      own: {
+        'daily-log': {
+          createEntry: createEntry({ entries, clock: systemClock, ids: uuidIds }),
+          queryEntries: queryEntries({ entries }),
+        },
+        requests: { requests: httpRequestsClient({ config }), ids: uuidIds },
+      },
     },
   })
 }

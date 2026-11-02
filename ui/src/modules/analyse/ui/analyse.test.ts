@@ -2,12 +2,12 @@
 import { describe, expect, it } from 'vitest'
 import { createApp } from 'vue'
 import { component as Analyse } from '@modules/analyse'
-import { testModuleDeps } from '@shared/testing.js'
+import { testSharedDeps } from '@shared/testing.js'
 
 const mount = () => {
   const host = document.createElement('div')
   document.body.append(host)
-  const app = createApp(Analyse, { deps: testModuleDeps() })
+  const app = createApp(Analyse, { deps: testSharedDeps() })
   app.mount(host)
   return { host, destroy: () => app.unmount() }
 }
