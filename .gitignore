@@ -19,3 +19,8 @@ WIP/
 
 # a fixture do C1 é um banco de verdade, versionado de propósito
 !server/src/__fixtures__/*.sqlite
+
+# Segredos locais: a chave do cofre (ADR 0013) mora aqui e nunca no git.
+.env
+.env.*
+!.env.example

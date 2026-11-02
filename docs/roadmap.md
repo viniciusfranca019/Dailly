@@ -34,9 +34,9 @@ empacotamento, em stand-by por decisão do autor.
 ### Fase 3 — Settings e BYOK
 
 - **Entrega:** o usuário escolhe um provider de IA, salva sua chave e o app confirma que ela funciona.
-- **Unidades:** port `Summarizer`; registry de providers; `AnthropicSummarizer` e `OpenAiSummarizer`; UI de Settings com entrada e validação de chave; persistência da chave no keychain do OS.
+- **Unidades:** port `Summarizer`; registry de providers; `AnthropicSummarizer` e `OpenAiSummarizer`; UI de Settings com entrada e validação de chave; persistência da chave no cofre da [ADR 0013](adrs/0013-cofre-de-segredos.md) (port `SecretStore`).
 - **Depende de:** Fase 1 (composition root e shell de UI). Não depende da Fase 2, então pode ser desenvolvida em paralelo com ela.
-- **Pronto quando:** a chave salva sobrevive ao reinício do app, nunca aparece no SQLite, e a validação distingue chave válida de inválida.
+- **Pronto quando:** a chave salva sobrevive ao reinício do app, nunca aparece em texto puro, no SQLite nem em log ([ADR 0013](adrs/0013-cofre-de-segredos.md)), e a validação distingue chave válida de inválida.
 
 ### Fase 4 — Núcleo do Analyse
 

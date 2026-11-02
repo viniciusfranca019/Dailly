@@ -274,7 +274,7 @@ Cenário: Configurar um provider de IA com a própria chave
   Quando escolho o provider "Anthropic" e o modelo desejado
   E informo minha chave de API
   E salvo
-  Então a chave é guardada com segurança (keychain do SO)
+  Então a chave sobrevive ao reinício e nunca é gravada em texto puro (ADR 0013)
   E esse provider/modelo passa a ser o ativo para os Processors
 
 Cenário: Validar a chave informada

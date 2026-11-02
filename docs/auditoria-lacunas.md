@@ -10,6 +10,10 @@
 > pela [ADR 0007](adrs/0007-api-local-e-tempo.md). A §2.2 (`SecretStore`)
 > muda de forma com a [ADR 0008](adrs/0008-electron-como-shell.md): não há
 > plugin de keychain do Tauri, então o mecanismo é outro — decisão da Fase 3.
+>
+> **Atualização 2026-11-02:** a §2.2 foi fechada pela
+> [ADR 0013](adrs/0013-cofre-de-segredos.md): port `SecretStore`, com o cofre
+> cifrado no SQLite como primeiro adapter.
 > O restante segue aberto.
 
 ## Veredito
