@@ -273,6 +273,10 @@ function importInto(raw: string, previous: string): void {
     // O pedido de senha de uma execução anterior sai junto: destrancar por
     // ali executaria — e executar grava — o rascunho com o curl ainda na
     // barra de URL, a chave em claro (gate 1, blocker).
+    //
+    // E o editor muda de dono já aqui, como no colar sem credencial: um save
+    // em voo batizaria a request importada com o nome da anterior (gate 3).
+    editor += 1
     invalidate()
     pendingCredentials.value = { result, previous }
     return

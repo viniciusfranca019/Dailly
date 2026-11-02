@@ -208,3 +208,27 @@ describe('gate 2 do passo 10 (major)', () => {
     expect(at(host, 'credentials-prompt')).toBeNull()
   })
 })
+
+describe('gate 3 do passo 10 (major)', () => {
+  it('um save em voo quando o curl é colado não batiza nem seleciona a request importada', async () => {
+    const port = testRequestsPort()
+    const gate = held()
+    const realSave = port.saveRequest.bind(port)
+    port.saveRequest = async (request) => {
+      await gate.promise
+      return realSave(request)
+    }
+    const { host } = mount(deps(port, testVaultPort({ state: 'aberto' })))
+    await settle()
+    await novaRequest(host)
+    await fill(at(host, 'url'), 'https://a.dev')
+    await click(at(host, 'save'))
+
+    await fill(at(host, 'url'), CURL_KEY)
+    gate.release()
+    await settle()
+    await click(at(host, 'credentials-confirm'))
+
+    expect(at<HTMLInputElement>(host, 'name')?.value).toBe('')
+  })
+})
