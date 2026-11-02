@@ -139,7 +139,12 @@ export function fromPostman(
    * mesmo valor reaproveita o nome, que é o que o autor quer (uma chave, um
    * cadastro).
    */
-  const named = new Map<string, string>()
+  const named = new Map<string, string | null>()
+  // Nomes que a coleção já declara ou usa ficam reservados (`null` não é igual
+  // a valor nenhum): um nome gerado que coincidisse com eles faria duas
+  // credenciais dividirem um cadastro no cofre.
+  for (const variable of list(input['variable'])) named.set(str(variable['key']), null)
+  for (const name of placeholdersOf(input)) named.set(name, null)
 
   /** Uma credencial escrita direto vira `{{nome}}`, e fica anotada. */
   const hide = (value: string, trail: string[], field: string, suffix: string): string => {

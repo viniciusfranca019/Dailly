@@ -269,3 +269,21 @@ describe('gate 1: auth herdado, placeholder único, nomes sem colisão', () => {
     expect(JSON.stringify(result.requests)).not.toMatch(/sid=abc|Basic xyz/)
   })
 })
+
+describe('gate 2 (major): o nome gerado não reaproveita uma variável da coleção', () => {
+  it('pula nomes declarados ou já usados', () => {
+    const result = fromPostman(
+      collection(
+        [
+          request('a', { header: [{ key: 'X-Access-Token', value: '{{login_token}}' }] }),
+          request('Login', { header: [{ key: 'Token', value: 'abc123' }] }),
+        ],
+        { variable: [{ key: 'login_token', value: 'dev' }] },
+      ),
+      { root: 'Apidog', nextId: sequential() },
+    )
+    const login = result.requests.find((r) => r.name === 'Login')!.spec as HttpSpec
+    expect(login.headers[0]!.value).toBe('{{login_token_2}}')
+    expect(result.variables).toEqual(['baseUrl', 'login_token', 'login_token_2'])
+  })
+})
