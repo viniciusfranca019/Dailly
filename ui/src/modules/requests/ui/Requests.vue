@@ -151,6 +151,9 @@ function invalidate(): void {
   generation += 1
   running.value = false
   clearResponse()
+  // O pedido de senha era daquela request: abrir o cofre agora executaria a
+  // outra, que ninguém mandou executar.
+  lockedNames.value = null
 }
 
 /**

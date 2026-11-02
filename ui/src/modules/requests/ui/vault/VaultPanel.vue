@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { VaultRefusedError, type SecretSummary, type VaultPort, type VaultState } from '@shared'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
 /**
  * O cofre na tela (ADR 0013): criar, destrancar, listar mascarado, revelar sob
@@ -23,6 +23,11 @@ const busy = ref(false)
 const password = ref('')
 const recovery = ref<string | null>(null)
 const useRecovery = ref(false)
+/**
+ * Sem a `DAILLY_SECRET_KEY` a senha não abre (ela é metade da chave), e a
+ * recuperação é o único caminho — então é o único campo que aparece.
+ */
+const recovering = computed(() => useRecovery.value || state.value === 'sem-chave')
 const recoveryInput = ref('')
 const newName = ref('')
 const newValue = ref('')
@@ -69,7 +74,7 @@ async function create(): Promise<void> {
 async function unlock(): Promise<void> {
   const ok = await act(
     () =>
-      useRecovery.value
+      recovering.value
         ? props.vault.unlockWithRecovery(recoveryInput.value)
         : props.vault.unlock(password.value),
     'não consegui abrir o cofre',
@@ -100,7 +105,11 @@ async function toggle(name: string): Promise<void> {
 async function copy(name: string): Promise<void> {
   await act(async () => {
     const value = revealed.value[name] ?? (await props.vault.reveal(ENVIRONMENT, name))
-    await globalThis.navigator.clipboard.writeText(value)
+    const clipboard = globalThis.navigator.clipboard as Clipboard | undefined
+    if (!clipboard) {
+      throw new Error('este navegador não deu acesso à área de transferência; use "revelar" e copie à mão')
+    }
+    await clipboard.writeText(value)
   }, `não consegui copiar «${name}»`)
 }
 
@@ -148,13 +157,13 @@ onMounted(() => {
 
     <p v-if="state === null" class="text-[#747e8f]">lendo o cofre…</p>
 
-    <p v-else-if="state === 'sem-chave'" data-testid="vault-missing-key" class="leading-relaxed text-amber-200">
+    <p v-if="state === 'sem-chave'" data-testid="vault-missing-key" class="leading-relaxed text-amber-200">
       Falta a <code>DAILLY_SECRET_KEY</code> no <code>.env</code> do dailly. Gere com
       <code>openssl rand -base64 32</code>, ponha no <code>.env</code> e reinicie a API. Sem ela, o cofre só
-      abre pela chave de recuperação.
+      abre pela chave de recuperação, logo abaixo.
     </p>
 
-    <template v-else-if="recovery">
+    <template v-if="recovery">
       <div data-testid="vault-recovery" class="flex flex-col gap-2">
         <p class="text-amber-200">
           Esta é a chave de recuperação, e ela não aparece de novo. Guarde no seu gerenciador de senhas: ela abre o
@@ -177,6 +186,7 @@ onMounted(() => {
       <input
         v-model="password"
         data-testid="vault-create-password"
+        aria-label="Senha nova do cofre"
         type="password"
         autocomplete="new-password"
         class="rounded border border-[#1e2638] bg-black/30 px-2 py-1.5"
@@ -191,11 +201,16 @@ onMounted(() => {
       </button>
     </form>
 
-    <form v-else-if="state === 'trancado'" class="flex flex-col gap-2" @submit.prevent="unlock">
+    <form
+      v-else-if="state === 'trancado' || state === 'sem-chave'"
+      class="flex flex-col gap-2"
+      @submit.prevent="unlock"
+    >
       <input
-        v-if="!useRecovery"
+        v-if="!recovering"
         v-model="password"
         data-testid="vault-unlock-password"
+        aria-label="Senha do cofre"
         type="password"
         autocomplete="current-password"
         placeholder="senha do cofre"
@@ -205,6 +220,7 @@ onMounted(() => {
         v-else
         v-model="recoveryInput"
         data-testid="vault-unlock-recovery"
+        aria-label="Chave de recuperação"
         type="password"
         placeholder="chave de recuperação"
         class="rounded border border-[#1e2638] bg-black/30 px-2 py-1.5 font-mono"
@@ -219,6 +235,7 @@ onMounted(() => {
           Abrir
         </button>
         <button
+          v-if="state !== 'sem-chave'"
           type="button"
           data-testid="vault-use-recovery"
           class="text-xs text-[#747e8f] underline"
@@ -275,12 +292,14 @@ onMounted(() => {
         <input
           v-model="newName"
           data-testid="secret-new-name"
+          aria-label="Nome do segredo novo"
           placeholder="nome (como em {{nome}})"
           class="w-40 rounded border border-[#1e2638] bg-black/30 px-2 py-1 font-mono text-xs"
         />
         <input
           v-model="newValue"
           data-testid="secret-new-value"
+          aria-label="Valor do segredo novo"
           type="password"
           autocomplete="off"
           placeholder="valor"

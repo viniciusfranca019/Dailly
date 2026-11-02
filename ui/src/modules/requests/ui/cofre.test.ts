@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { LockedSecretsError, type RequestsPort } from '@shared'
 import { testRequestsPort, testVaultPort } from '@shared/testing.js'
-import { at, allAt, click, deps, executed, fill, mount, request, settle, text } from './test-harness.js'
+import { at, allAt, click, deps, executed, fill, mount, request, requestRow, settle, text } from './test-harness.js'
 
 /**
  * A tela do cofre (ADR 0013, PR B). O fake do cofre é escrito à mão: guarda a
@@ -142,5 +142,62 @@ describe('T5: sem DAILLY_SECRET_KEY', () => {
     expect(text(host, 'vault-missing-key')).toMatch(/DAILLY_SECRET_KEY.*openssl rand -base64 32/s)
     expect(at(host, 'vault-unlock-password')).toBeNull()
     expect(at(host, 'vault-create-password')).toBeNull()
+  })
+})
+
+describe('gate 1 do PR B', () => {
+  it('(blocker) todo campo do cofre tem nome acessível', async () => {
+    for (const state of ['nao-criado', 'trancado', 'aberto'] as const) {
+      const { host, destroy } = mount(deps(testRequestsPort(), testVaultPort({ state })))
+      await settle()
+      await openPanel(host)
+      if (state === 'trancado') await click(at(host, 'vault-use-recovery'))
+      const inputs = [...host.querySelectorAll<HTMLInputElement>('[data-testid="vault-panel"] input')]
+      expect(inputs.length, state).toBeGreaterThan(0)
+      for (const input of inputs) expect(input.getAttribute('aria-label'), `${state}: ${input.dataset['testid']}`).toBeTruthy()
+      destroy()
+    }
+  })
+
+  it('(major) trocar de request tira o pedido de senha, e abrir não executa a outra', async () => {
+    const vault = testVaultPort({ state: 'trancado', password: 'uma senha longa' })
+    const execute = vi.fn<RequestsPort['execute']>(async (id) => {
+      if (id === 'r1' && (await vault.status()) !== 'aberto') throw new LockedSecretsError(['stripe_key'], 'trancado')
+      return executed()
+    })
+    const { host } = mount(
+      deps(testRequestsPort({ requests: [request('r1', 'stripe'), request('r2', 'outra')], execute }), vault),
+    )
+    await settle()
+    await click(requestRow(host, 'r1'))
+    await click(at(host, 'execute'))
+    expect(at(host, 'vault-locked')).not.toBeNull()
+
+    await click(requestRow(host, 'r2'))
+
+    expect(at(host, 'vault-locked')).toBeNull()
+    expect(execute).toHaveBeenCalledTimes(1)
+  })
+
+  it('(major) sem DAILLY_SECRET_KEY, a chave de recuperação abre pela tela', async () => {
+    const vault = testVaultPort({ state: 'sem-chave' })
+    const { host } = mount(deps(testRequestsPort(), vault))
+    await settle()
+    await openPanel(host)
+
+    await fill(at(host, 'vault-unlock-recovery'), 'ABCD-EFGH')
+    await click(at(host, 'vault-unlock'))
+
+    expect(await vault.status()).toBe('aberto')
+    expect(at(host, 'vault-unlock-password')).toBeNull()
+  })
+
+  it('(nit) sem área de transferência, copiar diz isso em português', async () => {
+    Object.defineProperty(globalThis.navigator, 'clipboard', { value: undefined, configurable: true })
+    const { host } = mount(deps(testRequestsPort(), testVaultPort({ state: 'aberto', secrets: { k: 'v' } })))
+    await settle()
+    await openPanel(host)
+    await click(at(host, 'secret-copy'))
+    expect(text(host, 'vault-error')).toMatch(/área de transferência/)
   })
 })
