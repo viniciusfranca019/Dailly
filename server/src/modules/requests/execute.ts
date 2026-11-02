@@ -1,4 +1,4 @@
-import type { HttpWire } from '@dailly/requests-core/http'
+import type { ExecutedResponse, HttpWire } from '@dailly/requests-core/http'
 import { type Dispatcher, errors, request as undiciRequest } from 'undici'
 
 /**
@@ -19,35 +19,6 @@ export const RESPONSE_CAP_BYTES = 5 * 1024 * 1024
  * parede que o comentário anterior prometia e o código não cumpria.
  */
 const TIMEOUT_MS = 30_000
-
-export interface ExecutedResponse {
-  readonly status: number
-  readonly headers: readonly { name: string; value: string }[]
-  readonly body: string
-  /** `base64` quando o corpo não é texto — a marca é o que evita corpo corrompido. */
-  readonly encoding: 'utf-8' | 'base64'
-  readonly truncated: boolean
-  /**
-   * O prazo estourou **durante o corpo**, e o que veio antes está aqui.
-   *
-   * Devolver o parcial com a marca é mais útil que descartá-lo, e é o mesmo
-   * vocabulário que o `truncated` já usa: paramos cedo, e está dito por quê.
-   * No aperto de mão nada disso existe — lá não há parcial a devolver, e a
-   * recusa é erro.
-   */
-  readonly timedOut: boolean
-  /**
-   * Bytes efetivamente recebidos.
-   *
-   * Quando `truncated`, a leitura é **interrompida** no teto — então este
-   * número é o que chegou, não o que existia. Antes ele era o total verdadeiro,
-   * e o preço disso era baixar 2 GB para calcular um número.
-   */
-  readonly bytes: number
-  /** O tamanho que o alvo declarou, quando declarou — é ele que diz o que se perdeu. */
-  readonly contentLength: number | null
-  readonly durationMs: number
-}
 
 /**
  * O undici recusou os argumentos — antes de abrir socket nenhum.

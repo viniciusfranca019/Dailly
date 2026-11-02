@@ -86,3 +86,24 @@ describe('the arrow between projects only points into packages/', () => {
     expect(violations('server', reaches('ui', '@dailly/ui'))).toEqual([])
   })
 })
+
+/**
+ * O envelope de `POST /requests/:id/execute` é o contrato da fita entre o
+ * `server/` e a `ui/` — e um contrato declarado duas vezes é duas verdades.
+ * Ele mora no pacote que os dois já importam, e esta regra é o que impede a
+ * segunda cópia de voltar quando alguém precisar "só de um campo a mais".
+ */
+describe('the execution envelope has one declaration, in packages/', () => {
+  const declarations = (name: string) =>
+    ['packages', 'server', 'ui'].flatMap((project) =>
+      filesUnder(project)
+        .filter((file) =>
+          new RegExp(`interface\\s+${name}\\b|type\\s+${name}\\s*=`).test(stripComments(file.code)),
+        )
+        .map((file) => file.path),
+    )
+
+  it.each(['ExecutedResponse', 'ResponseHeader'])('%s', (name) => {
+    expect(declarations(name)).toEqual(['packages/requests-core/src/http/executed.ts'])
+  })
+})
