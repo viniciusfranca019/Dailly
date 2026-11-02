@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { LockedSecretsError } from '@shared'
+import type { HttpSpec } from '@dailly/requests-core/http'
 import { testRequestsPort, testVaultPort } from '@shared/testing.js'
 import { at, allAt, click, deps, fill, mount, novaRequest, request, requestRow, settle, text } from './test-harness.js'
 
@@ -156,5 +158,31 @@ describe('trocar de request com o form aberto', () => {
 
     expect(at(host, 'credentials-prompt')).toBeNull()
     expect(at<HTMLInputElement>(host, 'url')?.value).toBe('https://x.dev/a')
+  })
+})
+
+describe('gate 1 do passo 10', () => {
+  it('(blocker) com o pedido de senha da execução na tela, colar um curl com chave tira o pedido, e nada é salvo', async () => {
+    const vault = testVaultPort({ state: 'trancado', password: 'uma senha longa' })
+    const saved = request('r1', 'usa token')
+    const port = testRequestsPort({
+      requests: [{ ...saved, spec: { ...(saved.spec as HttpSpec), headers: [{ name: 'Authorization', value: 'Bearer {{token}}' }] } }],
+      execute: async () => {
+        throw new LockedSecretsError(['token'], 'o cofre está trancado')
+      },
+    })
+    const save = vi.spyOn(port, 'saveRequest')
+    const { host } = mount(deps(port, vault))
+    await settle()
+    await click(requestRow(host, 'r1'))
+    await click(at(host, 'execute'))
+    expect(at(host, 'vault-locked')).not.toBeNull()
+    save.mockClear()
+
+    await fill(at(host, 'url'), CURL_KEY)
+
+    expect(at(host, 'credentials-prompt')).not.toBeNull()
+    expect(at(host, 'vault-locked')).toBeNull()
+    expect(save).not.toHaveBeenCalled()
   })
 })

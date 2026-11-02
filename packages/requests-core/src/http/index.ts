@@ -1,4 +1,5 @@
-import { type Env, type Interpolated, interpolate, interpolateJsonText } from '../interpolate.js'
+import { type Env, type Interpolated, interpolate } from '../interpolate.js'
+import { interpolateJsonText } from './json-body.js'
 import type { Invalid, ProtocolDriver } from '../protocol.js'
 import { toBase64 } from './base64.js'
 import { fromRaw } from './from-raw.js'

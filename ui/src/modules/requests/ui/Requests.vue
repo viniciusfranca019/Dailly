@@ -270,6 +270,10 @@ function importInto(raw: string, previous: string): void {
   // para o cofre (C1). Sem credencial, o caminho é o de sempre (C6).
   if (result.credentials.length > 0) {
     ignored.value = []
+    // O pedido de senha de uma execução anterior sai junto: destrancar por
+    // ali executaria — e executar grava — o rascunho com o curl ainda na
+    // barra de URL, a chave em claro (gate 1, blocker).
+    invalidate()
     pendingCredentials.value = { result, previous }
     return
   }
@@ -337,7 +341,9 @@ const busy = () => saving.value || deleting.value || changingTree.value
  * outro "a cada tentativa".
  */
 async function persist(): Promise<SavedRequest | null> {
-  if (draft.value === null) return null
+  // Com o form das credenciais aberto a barra de URL tem o curl colado, com a
+  // chave: nenhum caminho grava isso, nem um que este form não previu.
+  if (draft.value === null || pendingCredentials.value !== null) return null
 
   const request = savedOf(draft.value, {
     id: selected.value?.id ?? props.deps.ids.next(),

@@ -80,7 +80,7 @@ async function confirm(): Promise<void> {
       vão para o cofre, e a request fica com <code v-pre>{{nome}}</code>.
     </h2>
 
-    <p v-if="state === null" class="text-[#747e8f]">lendo o cofre…</p>
+    <p v-if="state === null && !error" class="text-[#747e8f]">lendo o cofre…</p>
 
     <p v-else-if="blocked" class="leading-relaxed text-amber-200">
       Falta a <code>DAILLY_SECRET_KEY</code> no <code>.env</code> do dailly, e sem ela o cofre não grava. Gere com
