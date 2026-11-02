@@ -9,7 +9,14 @@ import {
 import type { Folder, SavedRequest } from '@dailly/requests-core'
 import { inMemoryRequestStore } from '@dailly/requests-core/testing'
 import { UTC, type TimeZone } from '@dailly/periods'
-import { ExecutionFailedError, type RequestsPort, type SharedDeps } from '@shared'
+import {
+  ExecutionFailedError,
+  VaultRefusedError,
+  type RequestsPort,
+  type SharedDeps,
+  type VaultPort,
+  type VaultState,
+} from '@shared'
 
 /**
  * The dependencies a shell test runs on: the **real** use-cases over the
@@ -122,5 +129,62 @@ export function testRequestsPort(
           'este teste não disse o que a execução devolve',
         )
       }),
+  }
+}
+
+/**
+ * O cofre dos testes, escrito à mão: estado, senha e valores em memória.
+ *
+ * Ele recusa como o servidor recusa — trancado, senha errada, sem chave — e é
+ * por isso que um teste da tela consegue provar o caminho da senha errada sem
+ * rede. A criptografia não está aqui; ela é provada do lado do servidor.
+ */
+export function testVaultPort(
+  options: { state?: VaultState; password?: string; secrets?: Record<string, string> } = {},
+): VaultPort & { readonly saved: ReadonlyMap<string, string> } {
+  let state: VaultState = options.state ?? 'aberto'
+  let password = options.password ?? 'uma senha longa'
+  const secrets = new Map(Object.entries(options.secrets ?? {}))
+  const open = () => {
+    if (state !== 'aberto') throw new VaultRefusedError('locked', 'o cofre está trancado: abra-o com a senha')
+  }
+  return {
+    saved: secrets,
+    async status() {
+      return state
+    },
+    async create(next) {
+      if (state === 'sem-chave') throw new VaultRefusedError('missing-key', 'falta a DAILLY_SECRET_KEY')
+      if (state !== 'nao-criado') throw new VaultRefusedError('exists', 'o cofre já existe')
+      if (next.length < 8) throw new VaultRefusedError('invalid', 'a senha precisa ter pelo menos 8 caracteres')
+      password = next
+      state = 'aberto'
+      return 'ABCD-EFGH-IJKL-MNOP-QRST-UVWX-YZ23-4567-ABCD-EFGH-IJKL-MNOP-QRST'
+    },
+    async unlock(attempt) {
+      if (state === 'sem-chave') throw new VaultRefusedError('missing-key', 'falta a DAILLY_SECRET_KEY')
+      if (attempt !== password) throw new VaultRefusedError('wrong-password', 'a senha não abre o cofre')
+      state = 'aberto'
+    },
+    async unlockWithRecovery() {
+      state = 'aberto'
+    },
+    async lock() {
+      if (state === 'aberto') state = 'trancado'
+    },
+    async list() {
+      return [...secrets.keys()].sort().map((name) => ({ environment: 'default', name }))
+    },
+    async reveal(_environment, name) {
+      open()
+      return secrets.get(name) ?? ''
+    },
+    async save(_environment, name, value) {
+      open()
+      secrets.set(name, value)
+    },
+    async remove(_environment, name) {
+      secrets.delete(name)
+    },
   }
 }

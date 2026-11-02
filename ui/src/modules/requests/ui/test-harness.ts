@@ -1,7 +1,7 @@
 import type { Folder, SavedRequest } from '@dailly/requests-core'
 import { sequentialIds } from '@dailly/domain'
-import { type ExecutedResponse, type RequestsPort, type SharedDeps } from '@shared'
-import { testSharedDeps } from '@shared/testing.js'
+import { type ExecutedResponse, type RequestsPort, type SharedDeps, type VaultPort } from '@shared'
+import { testSharedDeps, testVaultPort } from '@shared/testing.js'
 import type { RequestsDeps } from '../deps.js'
 import { createApp } from 'vue'
 import Requests from './Requests.vue'
@@ -85,10 +85,11 @@ export const executed = (over: Partial<ExecutedResponse> = {}): ExecutedResponse
   ...over,
 })
 
-export const deps = (requests: RequestsPort) => ({
+export const deps = (requests: RequestsPort, vault: VaultPort = testVaultPort()) => ({
   ...testSharedDeps(),
   requests,
   ids: sequentialIds('request'),
+  vault,
 })
 
 /**

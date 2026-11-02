@@ -2,12 +2,14 @@
 import { type Folder, type SavedRequest, descendantsOf } from '@dailly/requests-core'
 import {
   ExecutionFailedError,
+  LockedSecretsError,
   MissingVariablesError,
   type ExecutedResponse,
   type SharedDeps,
 } from '@shared'
 import { computed, onMounted, ref } from 'vue'
 import Collections from './collection/Collections.vue'
+import VaultPanel from './vault/VaultPanel.vue'
 import RequestEditor from './editor/RequestEditor.vue'
 import ResponseView from './response/ResponseView.vue'
 import { decodeBody, type DecodedBody } from '../model/decode.js'
@@ -76,6 +78,13 @@ const running = ref(false)
 const response = ref<ExecutedResponse | null>(null)
 const decoded = ref<DecodedBody | null>(null)
 const executionError = ref<string | null>(null)
+/** O painel do cofre aberto pelo botão. */
+const showVault = ref(false)
+/**
+ * As variáveis que a última execução precisou e que só o cofre tem, trancado.
+ * Enquanto houver, a tela pede a senha ali mesmo e repete a execução ao abrir.
+ */
+const lockedNames = ref<readonly string[] | null>(null)
 
 const reason = (cause: unknown, fallback: string) =>
   cause instanceof Error ? cause.message : fallback
@@ -512,6 +521,12 @@ function describeFailure(cause: unknown): string {
   return reason(cause, 'não consegui executar')
 }
 
+/** O cofre abriu pelo pedido da execução: some o pedido e a execução repete. */
+function unlockedForExecution(): void {
+  lockedNames.value = null
+  void execute()
+}
+
 async function execute(): Promise<void> {
   // A guarda é contra o clique duplo: duas execuções em voo mostram a que
   // terminar por último, que não é a última que a pessoa pediu — e num POST a
@@ -535,6 +550,7 @@ async function execute(): Promise<void> {
   const id = stored.id
 
   clearResponse()
+  lockedNames.value = null
   const ticket = (generation += 1)
   running.value = true
   try {
@@ -547,6 +563,10 @@ async function execute(): Promise<void> {
     decoded.value = body
   } catch (cause) {
     if (ticket !== generation) return
+    if (cause instanceof LockedSecretsError) {
+      lockedNames.value = cause.names
+      return
+    }
     executionError.value = describeFailure(cause)
   } finally {
     if (ticket === generation) running.value = false
@@ -599,6 +619,17 @@ onMounted(load)
           inofensivo; `-k` desliga verificação de certificado e **não** foi
           aplicado — quem colou precisa saber qual dos dois é o caso.
         -->
+        <button
+          type="button"
+          data-testid="vault-toggle"
+          :aria-expanded="showVault"
+          class="self-end rounded border border-[#1e2638] px-2 py-1 text-xs text-[#747e8f] hover:bg-white/5"
+          @click="showVault = !showVault"
+        >
+          Cofre
+        </button>
+        <VaultPanel v-if="showVault && !lockedNames" :vault="props.deps.vault" />
+
         <p
           v-if="ignored.length > 0"
           data-testid="ignored"
@@ -676,6 +707,19 @@ onMounted(load)
         >
           {{ executionError }}
         </p>
+
+        <div
+          v-if="lockedNames"
+          role="alert"
+          data-testid="vault-locked"
+          class="flex flex-col gap-2 rounded-md border border-amber-500/20 bg-amber-500/5 p-3"
+        >
+          <p class="text-sm text-amber-200">
+            O cofre está trancado, e esta request precisa de {{ lockedNames.join(', ') }}. Abra o cofre para
+            executar.
+          </p>
+          <VaultPanel :vault="props.deps.vault" @unlocked="unlockedForExecution" />
+        </div>
 
         <ResponseView v-if="response && decoded" :response="response" :decoded="decoded" />
       </div>
