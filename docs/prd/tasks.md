@@ -37,7 +37,7 @@ Refinado: não
 
 ```
 J1: Capturar uma tarefa
-  J1.1 Pessoa abre Tasks                          → vê as tarefas na última visualização usada (board na primeira vez), uma coluna por status
+  J1.1 Pessoa abre Tasks                          → vê as tarefas agrupadas por status, na última visualização usada
   J1.2 Pessoa digita um título no "+" de uma coluna e confirma → a tarefa aparece no topo daquela coluna com a chave T-<n>
   Desvios:
   J1.2a Título vazio                              → recusa com "o título é obrigatório", nada é gravado
@@ -106,16 +106,16 @@ Quando mudar o núcleo da Entry além do que P1 decidir → paro e pergunto ao D
 Proposta, a confirmar no `/refine-prd`.
 
 ```
-F1: Capturar e listar      — cobre J1.1, J1.1a, J1.2, J1.2a, J1.2b, J3.1, J3.1a, RN1, RN2, RN5, RN6 — depende de —      → a criar
-F2: Board e a troca        — cobre J2.1, J2.1a, J2.2, J2.3, J3.2, RN3, RN4, RN7                 — depende de F1     → a criar
+F1: Capturar e listar      — cobre J1.1, J1.1a, J1.2, J1.2a, J1.2b, RN1, RN2, RN5, RN6                — depende de —      → a criar
+F2: Board e a troca        — cobre J2.1, J2.1a, J2.2, J2.3, J3.1, J3.1a, J3.2, RN3, RN4, RN7    — depende de F1     → a criar
 F3: Painel da tarefa       — cobre J4.1, J4.1a, J4.2, J4.2a, J4.3, J4.3a                        — depende de F1     → a criar
-F4: Labels nas tarefas     — cobre (a escrever quando a Fase 2 fixar o que é uma label)         — depende de F1 e da Fase 2 → a criar
 ```
 
-F1 entrega a lista antes do board de propósito: é a mesma consulta (RN4), e com ela o
-núcleo da Entry, a faceta e a chave chegam num PR que ainda não tem drag-and-drop. F2 e
-F3 correm em paralelo depois de F1. F4 está aqui só para a dependência da Fase 2 ficar
-escrita.
+F1 entrega a lista antes do board de propósito: board e lista são a mesma consulta (RN4),
+e com ela o núcleo da Entry, a faceta e a chave chegam num PR que ainda não tem
+drag-and-drop; a troca entre as duas e o board como padrão chegam em F2. F2 e F3 correm
+em paralelo depois de F1. Labels nas tarefas não são fatia ainda: viram uma jornada
+quando a Fase 2 do Daily Log fixar o que é uma label, e a fatia delas depende dela.
 
 ## Refinamento
 
@@ -159,7 +159,7 @@ P7: Onde fica lembrada a visualização (board ou lista)?
   — recomendo A, porque é preferência de quem olha, uma pessoa num navegador, e B nasce de verdade quando existir a visualização salva (Fora de escopo)
 
 P8: Em que ordem com a Fase 2 do Daily Log (labels, propriedades, filtros)?
-  A) Tasks F1 a F3 primeiro, a Fase 2 depois, e F4 por último
+  A) Tasks F1 a F3 primeiro, a Fase 2 depois, e labels nas tarefas por último
   B) Fase 2 primeiro, e Tasks já nasce com labels
   — recomendo A, porque F1 a F3 não leem label nem propriedade, e a Fase 2 fica mais bem desenhada com dois consumidores (log e tarefa) na mesa do que com um
 
