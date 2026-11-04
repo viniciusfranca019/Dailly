@@ -4,7 +4,7 @@ title: OKF neste bundle
 description: Tipos, campos de frontmatter e regras de escrita dos docs do dailly.
 tags: [docs, okf]
 status: stable
-generated: { by: regulus/claude-opus-5-5, at: 2026-11-02T20:10:00-03:00 }
+generated: { by: regulus/claude-opus-5-5, at: 2026-11-04T19:20:00-03:00 }
 sources:
   - id: okf-spec
     resource: https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md
@@ -41,6 +41,7 @@ lê a tabela de tipos daqui e recusa um conceito cujo `type` não esteja nela.
 |--------------|-------------------------------------------------------------|----------------|
 | `Convention` | Regra que guia uma decisão no código: arquitetura, módulos, versão | `conventions/` |
 | `Feature`    | O que uma feature entregue faz, como a pessoa a vê, e onde mora | `features/`    |
+| `PRD`        | O que uma feature ainda por fazer entrega, no contrato de PRD do Regulus (jornadas, regras, fatias), antes dos cards | `prd/`         |
 
 Não há tipo `ADR`: uma decisão de arquitetura entra como seção de
 [Arquitetura](/conventions/architecture.md), com o porquê e o que foi descartado.
@@ -75,6 +76,9 @@ exemplo `regulus/claude-opus-5-5`), `process:<id>` para jobs.
 
 - Uma feature nova, ou uma mudança no que ela faz, atualiza a página dela em
   `features/` no mesmo PR, e o `CHANGELOG.md` diz o que mudou.
+- Um PRD nasce `status: draft` e fica assim até o `/refine-prd` o deixar `Refinado: sim`;
+  quando a última fatia é entregue, a página da feature passa a ser a fonte, e o PRD vira
+  `status: deprecated` apontando para ela.
 - Uma decisão de arquitetura nova entra como seção em
   [Arquitetura](/conventions/architecture.md) no mesmo PR que a aplica.
 

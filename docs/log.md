@@ -1,5 +1,8 @@
 # Directory Update Log
 
+## 2026-11-04
+* **Creation**: o tipo `PRD` e a pasta [PRDs](/prd/index.md), com o primeiro rascunho: [Tasks](/prd/tasks.md), o board kanban ou lista em que cada tarefa é uma Entry.
+
 ## 2026-11-02
 * **Creation**: o bundle OKF substitui o `docs/` antigo. As treze ADRs viraram as decisões de [Arquitetura](/conventions/architecture.md), cada uma achável pelo número antigo; `mvp.md`, `roadmap.md`, `auditoria-lacunas.md` e `adaptacao-dailly.md` saíram (o git os guarda), e as fases por vir foram para o `TODO.md`.
 * **Creation**: [Módulos](/conventions/modules.md), [Versão](/conventions/versioning.md), [OKF neste bundle](/conventions/okf.md) e uma página por feature em [Features](/features/index.md).
