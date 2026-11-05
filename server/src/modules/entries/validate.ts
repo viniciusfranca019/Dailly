@@ -1,4 +1,4 @@
-import type { Entry } from '@dailly/domain'
+import type { Entry, EntryPatch } from '@dailly/domain'
 
 /**
  * What the API checks before letting something into the store.
@@ -93,4 +93,42 @@ export function validateRange(query: { from?: unknown; to?: unknown }): Invalid[
     }
   }
   return errors
+}
+
+/** What a correction may change (PRD Fase 2, RN5); anything else is refused. */
+const PATCHABLE = new Set(['body', 'occurredAt', 'updatedAt'])
+
+/**
+ * Validate a correction. `updatedAt` is required because the renderer's
+ * `updateEntry` stamps it, and a patch without it would leave the entry
+ * claiming it never changed.
+ */
+export function validatePatch(payload: unknown): { patch: EntryPatch } | { errors: Invalid[] } {
+  if (!isRecord(payload)) {
+    return { errors: [{ field: '', message: 'o corpo da requisição deve ser um objeto JSON' }] }
+  }
+
+  const errors: Invalid[] = Object.keys(payload)
+    .filter((field) => !PATCHABLE.has(field))
+    .map((field) => ({ field, message: 'não se altera numa correção' }))
+  const { body, occurredAt, updatedAt } = payload
+
+  if (body !== undefined && (typeof body !== 'string' || body.trim() === '')) {
+    errors.push({ field: 'body', message: 'é obrigatório' })
+  }
+  if (occurredAt !== undefined && (typeof occurredAt !== 'string' || !INSTANT.test(occurredAt))) {
+    errors.push({ field: 'occurredAt', message: 'deve ser um instante ISO-8601 em UTC, como 2026-07-24T10:00:00.000Z' })
+  }
+  if (typeof updatedAt !== 'string' || !INSTANT.test(updatedAt)) {
+    errors.push({ field: 'updatedAt', message: 'deve ser um instante ISO-8601 em UTC, como 2026-07-24T10:00:00.000Z' })
+  }
+
+  if (errors.length > 0) return { errors }
+  return {
+    patch: {
+      updatedAt: updatedAt as string,
+      ...(body !== undefined ? { body: body as string } : {}),
+      ...(occurredAt !== undefined ? { occurredAt: occurredAt as string } : {}),
+    },
+  }
 }

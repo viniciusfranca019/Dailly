@@ -1,5 +1,5 @@
 import { entryRepositoryContract } from '@dailly/domain/testing'
-import { NotImplementedError } from '@dailly/domain'
+import { EntryNotFoundError, NotImplementedError } from '@dailly/domain'
 import { UTC } from '@dailly/periods'
 import { describe, expect, it } from 'vitest'
 import Database from 'better-sqlite3'
@@ -72,10 +72,22 @@ describe('sqliteEntryRepository beyond the contract', () => {
     await expect(entries.list({ labelIds: ['ideia'] })).rejects.toThrow(NotImplementedError)
   })
 
-  it('says out loud that update, delete and getById are Fase 2', async () => {
-    const entries = make()
-    await expect(entries.update('a', {})).rejects.toThrow(NotImplementedError)
-    await expect(entries.delete('a')).rejects.toThrow(NotImplementedError)
-    await expect(entries.getById('a')).rejects.toThrow(NotImplementedError)
+  it('C9: reads, updates and deletes only day logs, never the Entry of a task (RN6)', async () => {
+    // update, delete and getById were Fase 2 and said so; card #33 made them
+    // real, and what they must not do now is reach a task, whose Entry is
+    // edited by the Tasks module and whose deletion would cascade to the task.
+    const db = migrated()
+    db.prepare(
+      `INSERT INTO entries (id, body, occurred_at, created_at, updated_at, kind)
+       VALUES ('task-entry', 'Comprar café', '2026-07-24T10:00:00.000Z', '2026-07-24T10:00:00.000Z', '2026-07-24T10:00:00.000Z', 'task')`,
+    ).run()
+    const entries = sqliteEntryRepository({ db, zone: UTC })
+
+    expect(await entries.getById('task-entry')).toBeNull()
+    await expect(entries.update('task-entry', { body: 'x', updatedAt: '2026-07-24T11:00:00.000Z' })).rejects.toThrow(
+      EntryNotFoundError,
+    )
+    await expect(entries.delete('task-entry')).rejects.toThrow(EntryNotFoundError)
+    expect(db.prepare(`SELECT body FROM entries WHERE id = 'task-entry'`).get()).toEqual({ body: 'Comprar café' })
   })
 })
