@@ -51,5 +51,4 @@ são do F1.
 
 # Limites
 
-- Mover só com o mouse: o caminho pelo teclado é o campo de status do painel (F3, #22).
-- Sem painel, edição ou apagar na tela; isso é o F3.
+- Mover arrastando é só com o mouse; pelo teclado, é o campo de status do [painel](/features/tasks-painel.md).

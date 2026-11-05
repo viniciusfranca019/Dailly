@@ -18,6 +18,7 @@ importam e onde mora no código. O Analyse ainda é só uma tela-esqueleto atrá
 ## Tasks
 * [Tasks, capturar e listar](/features/tasks-capturar-e-listar.md) - a lista por status, a captura por título e a chave T-<n> que não se reaproveita
 * [Tasks, board e a troca board/lista](/features/tasks-board.md) - o kanban com arrastar, o carimbo de conclusão e a visualização lembrada
+* [Tasks, painel da tarefa](/features/tasks-painel.md) - editar título, status, prioridade e corpo, e apagar com confirmação
 
 ## O app
 * [App local](/features/app-local.md) - só web, só nesta máquina: os dois bancos, as portas e a guarda da API
