@@ -1,5 +1,5 @@
 import type { Entry, EntryFilter, EntryRepository } from '@dailly/domain'
-import { NotImplementedError } from '@dailly/domain'
+import { EntryNotFoundError, NotImplementedError } from '@dailly/domain'
 import type { ApiConfig } from './api.js'
 import { ApiError } from './errors.js'
 import { httpClient } from './http.js'
@@ -42,6 +42,9 @@ export const httpEntryRepository = ({
       if (error instanceof ApiError && error.status === 501) {
         throw new NotImplementedError(error.message)
       }
+      // One entry that is not there (card #33): never written, deleted in
+      // another tab, or the Entry of a task, which /entries does not serve.
+      if (error instanceof ApiError && error.status === 404) throw new EntryNotFoundError()
       throw error
     }
   }
@@ -68,14 +71,25 @@ export const httpEntryRepository = ({
       return (await request(`/entries${suffix}`)) as Entry[]
     },
 
-    async update() {
-      throw new NotImplementedError('update')
+    async update(id, patch) {
+      return (await request(`/entries/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify(patch),
+      })) as Entry
     },
-    async delete() {
-      throw new NotImplementedError('delete')
+
+    async delete(id) {
+      await request(`/entries/${encodeURIComponent(id)}`, { method: 'DELETE' })
     },
-    async getById() {
-      throw new NotImplementedError('getById')
+
+    async getById(id) {
+      try {
+        return (await request(`/entries/${encodeURIComponent(id)}`)) as Entry
+      } catch (error) {
+        // Asking whether it exists is not a failure (the port's promise).
+        if (error instanceof EntryNotFoundError) return null
+        throw error
+      }
     },
   }
 }

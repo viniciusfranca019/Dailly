@@ -451,7 +451,7 @@ describe('C1/C2: cada módulo recebe o comum e só o seu', () => {
     await mountShell(host, { modules: [descriptor], deps })
 
     const seen = log.seen[0] as unknown as Record<string, unknown>
-    expect(Object.keys(seen).sort()).toEqual(['createEntry', 'now', 'queryEntries', 'zone'])
+    expect(Object.keys(seen).sort()).toEqual(['createEntry', 'deleteEntry', 'now', 'queryEntries', 'updateEntry', 'zone'])
     expect(seen['zone']).toBe('America/Sao_Paulo')
     expect(seen['createEntry']).toBe(deps.own['daily-log'].createEntry)
   })

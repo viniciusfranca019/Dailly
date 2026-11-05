@@ -4,7 +4,10 @@ import { timeOf, type TimeZone } from '@dailly/periods'
 import { computed } from 'vue'
 import { titleOf } from '../model/timeline.js'
 
-const props = defineProps<{ entry: Entry; zone: TimeZone }>()
+const props = defineProps<{ entry: Entry; zone: TimeZone; editing?: boolean }>()
+
+/** Clicking the card opens the entry in the editor to correct it (card #33). */
+const emit = defineEmits<{ open: [entry: Entry] }>()
 
 const time = computed(() => timeOf(props.entry.occurredAt, props.zone))
 </script>
@@ -24,7 +27,19 @@ const time = computed(() => timeOf(props.entry.occurredAt, props.zone))
 
     <p class="text-xs text-[#747e8f]" data-testid="entry-time">{{ time }}</p>
 
-    <div class="mt-1 rounded-lg border border-[#1e2638] bg-[#121724] px-3 py-2">
+    <!--
+      A button, so the keyboard opens an entry as the mouse does. The whole card
+      is the target: aiming at the title alone would leave most of it dead.
+    -->
+    <button
+      type="button"
+      class="mt-1 block w-full rounded-lg border bg-[#121724] px-3 py-2 text-left transition-colors hover:border-blue-500/40"
+      :class="props.editing ? 'border-blue-500/60' : 'border-[#1e2638]'"
+      :aria-pressed="props.editing ? 'true' : 'false'"
+      title="Abrir para corrigir"
+      data-testid="entry-open"
+      @click="emit('open', props.entry)"
+    >
       <p class="text-sm font-medium text-gray-200" data-testid="entry-title">
         {{ titleOf(props.entry.body) }}
       </p>
@@ -44,6 +59,6 @@ const time = computed(() => timeOf(props.entry.occurredAt, props.zone))
           {{ label }}
         </li>
       </ul>
-    </div>
+    </button>
   </li>
 </template>

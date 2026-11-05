@@ -20,8 +20,22 @@ const props = defineProps<{
   day: CalendarDay
   /** Today, in the configured zone — nothing after it may be picked. */
   maxDay: CalendarDay
+  /**
+   * Correcting an entry that exists (card #33) instead of writing a new one:
+   * the buttons say "Salvar" and "Cancelar edição", "Apagar" appears, and an
+   * empty board may still be saved so the domain can say why it refuses.
+   */
+  editing?: boolean
 }>()
-const emit = defineEmits<{ submit: [body: string]; cancel: []; 'update:day': [day: CalendarDay] }>()
+const emit = defineEmits<{
+  submit: [body: string]
+  cancel: []
+  remove: []
+  'update:day': [day: CalendarDay]
+}>()
+
+/** The inline confirmation before deleting, as in the Tasks panel. */
+const confirming = ref(false)
 
 const picker = ref<HTMLInputElement | null>(null)
 
@@ -135,16 +149,28 @@ function onShortcut(event: KeyboardEvent): void {
   // Always taken from the browser, even when there is nothing to register: in
   // a desktop shell this key opens a "save page" dialog over the app.
   event.preventDefault()
-  if (empty.value || props.saving) return
+  if ((empty.value && !props.editing) || props.saving) return
   submit()
 }
 
 /** Emptying through the document: the model is the source of truth. */
 function clear(): void {
   doc.value?.setMarkdown('')
+  confirming.value = false
 }
 
-defineExpose({ clear })
+/** Put an entry's body on the board, to correct it. */
+function load(markdown: string): void {
+  doc.value?.setMarkdown(markdown)
+  confirming.value = false
+}
+
+function confirmRemove(): void {
+  confirming.value = false
+  emit('remove')
+}
+
+defineExpose({ clear, load })
 
 let unsubscribe: (() => void) | undefined
 
@@ -233,7 +259,7 @@ onBeforeUnmount(() => {
       class="mt-2 inline-flex w-fit items-center gap-1.5 rounded-md border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-300"
       data-testid="backdated"
     >
-      registrando em {{ formatDay(props.day) }}
+      {{ props.editing ? 'registro de' : 'registrando em' }} {{ formatDay(props.day) }}
     </p>
 
     <div class="mt-4 flex items-center gap-1 border-b border-[#1e2638] pb-3">
@@ -270,24 +296,51 @@ onBeforeUnmount(() => {
       @click="focusFromBackdrop"
     ></div>
 
+    <div
+      v-if="confirming"
+      role="alertdialog"
+      aria-label="Apagar este registro?"
+      class="mt-4 flex items-center justify-between gap-2 rounded-md border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-200"
+    >
+      <span>Apagar este registro? Não dá para desfazer.</span>
+      <span class="flex gap-2">
+        <button type="button" class="rounded-md px-3 py-1 text-[#747e8f] hover:text-gray-300" data-testid="keep" @click="confirming = false">
+          Cancelar
+        </button>
+        <button type="button" class="rounded-md bg-red-600 px-3 py-1 font-medium text-white hover:bg-red-500" data-testid="confirm-delete" @click="confirmRemove">
+          Apagar
+        </button>
+      </span>
+    </div>
+
     <footer class="mt-4 flex items-center justify-end gap-2">
+      <button
+        v-if="props.editing"
+        type="button"
+        class="mr-auto rounded-md px-3 py-2 text-sm font-medium text-red-400 transition-colors hover:text-red-300 disabled:opacity-40"
+        :disabled="props.saving || confirming"
+        data-testid="delete"
+        @click="confirming = true"
+      >
+        Apagar
+      </button>
       <button
         type="button"
         class="rounded-md px-4 py-2 text-sm font-medium text-[#747e8f] transition-colors hover:text-gray-300"
         data-testid="cancel"
-        @click="clear"
+        @click="emit('cancel')"
       >
-        Cancelar
+        {{ props.editing ? 'Cancelar edição' : 'Cancelar' }}
       </button>
       <button
         type="button"
         class="rounded-md bg-blue-600 px-5 py-2 text-sm font-medium text-white shadow-lg shadow-blue-500/10 transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
-        :disabled="props.saving || empty"
+        :disabled="props.saving || (empty && !props.editing)"
         title="Ctrl+S"
         data-testid="submit"
         @click="submit"
       >
-        {{ props.saving ? 'registrando…' : 'Registrar' }}
+        {{ props.saving ? (props.editing ? 'salvando…' : 'registrando…') : props.editing ? 'Salvar' : 'Registrar' }}
       </button>
     </footer>
   </section>

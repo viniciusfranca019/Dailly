@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Entry } from '@dailly/domain'
+import { EntryNotFoundError, type Entry } from '@dailly/domain'
 import type { SharedDeps } from '@shared'
 import type { DailyLogDeps } from '../deps.js'
 import { computed, onMounted, ref, useTemplateRef } from 'vue'
@@ -30,7 +30,38 @@ const now = ref(props.deps.now())
 const today = computed(() => dayOf(now.value, props.deps.zone))
 const day = ref<CalendarDay>(today.value)
 
-const title = computed(() => `Registro do Dia — ${formatDay(today.value)}`)
+/**
+ * The entry being corrected, or `null` while writing a new one (card #33).
+ * The same composer does both: it already holds the whiteboard, and a second
+ * editor on screen would be two places to type with one Ctrl+S.
+ */
+const editing = ref<Entry | null>(null)
+
+const title = computed(() =>
+  editing.value ? 'Corrigir registro' : `Registro do Dia — ${formatDay(today.value)}`,
+)
+
+/** Back to a new entry: empty board, today. */
+function startNew(): void {
+  editing.value = null
+  composer.value?.clear()
+  day.value = today.value
+}
+
+function open(entry: Entry): void {
+  error.value = null
+  editing.value = entry
+  day.value = dayOf(entry.occurredAt, props.deps.zone)
+  composer.value?.load(entry.body)
+}
+
+/** A refusal that means the entry is gone: say so, start over, reread (RN7). */
+async function lost(): Promise<void> {
+  startNew()
+  await load()
+  // After the reload, which clears the error it starts with.
+  error.value = new EntryNotFoundError().message
+}
 
 async function load(): Promise<void> {
   loading.value = true
@@ -44,9 +75,51 @@ async function load(): Promise<void> {
   }
 }
 
+async function correct(entry: Entry, body: string): Promise<void> {
+  // The instant moves only if the day did (RN5): opening and saving keeps the
+  // hour the entry already had.
+  const sameDay = day.value === dayOf(entry.occurredAt, props.deps.zone)
+  await props.deps.updateEntry(entry.id, {
+    body,
+    ...(sameDay ? {} : { occurredAt: occurredAtFor(day.value, props.deps.now(), props.deps.zone) }),
+  })
+  startNew()
+  await load()
+}
+
+async function remove(): Promise<void> {
+  const entry = editing.value
+  if (!entry) return
+  saving.value = true
+  error.value = null
+  try {
+    await props.deps.deleteEntry(entry.id)
+    startNew()
+    await load()
+  } catch (cause) {
+    if (cause instanceof EntryNotFoundError) await lost()
+    else error.value = cause instanceof Error ? cause.message : 'não consegui apagar'
+  } finally {
+    saving.value = false
+  }
+}
+
 async function save(body: string): Promise<void> {
   saving.value = true
   error.value = null
+  const entry = editing.value
+  if (entry) {
+    try {
+      await correct(entry, body)
+    } catch (cause) {
+      // On any other failure the correction stays on the board (C5).
+      if (cause instanceof EntryNotFoundError) await lost()
+      else error.value = cause instanceof Error ? cause.message : 'não consegui salvar'
+    } finally {
+      saving.value = false
+    }
+    return
+  }
   try {
     await props.deps.createEntry({
       body,
@@ -87,8 +160,10 @@ onMounted(load)
           :title="title"
           :saving="saving"
           :max-day="today"
+          :editing="editing !== null"
           @submit="save"
-          @cancel="composer?.clear()"
+          @cancel="startNew"
+          @remove="remove"
         />
         <p
           v-if="error"
@@ -101,7 +176,14 @@ onMounted(load)
       </div>
 
       <aside class="min-h-0 border-t border-[#1e2638] pt-6 xl:border-l xl:border-t-0 xl:pl-6 xl:pt-0">
-        <Timeline :entries="entries" :zone="props.deps.zone" :now="now" :loading="loading" />
+        <Timeline
+          :entries="entries"
+          :zone="props.deps.zone"
+          :now="now"
+          :loading="loading"
+          :editing-id="editing?.id ?? null"
+          @open="open"
+        />
       </aside>
     </div>
   </div>

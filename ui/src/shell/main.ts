@@ -1,4 +1,4 @@
-import { createEntry, queryEntries, systemClock, uuidIds } from '@dailly/domain'
+import { createEntry, deleteEntry, queryEntries, systemClock, updateEntry, uuidIds } from '@dailly/domain'
 import { UTC } from '@dailly/periods'
 import { API_CONFIG } from '../adapters/api.js'
 import { httpEntryRepository } from '../adapters/http-entry-repository.js'
@@ -45,6 +45,8 @@ async function boot(): Promise<void> {
         'daily-log': {
           createEntry: createEntry({ entries, clock: systemClock, ids: uuidIds }),
           queryEntries: queryEntries({ entries }),
+          updateEntry: updateEntry({ entries, clock: systemClock }),
+          deleteEntry: deleteEntry({ entries }),
         },
         requests: {
           requests: httpRequestsClient({ config }),
