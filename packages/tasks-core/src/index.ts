@@ -5,12 +5,16 @@
  * (`rankBetween`) and the `TaskStore` port. No DOM, no Node, no network.
  */
 export { rankBetween } from './rank.js'
+export { completionAfterMove, placeAt } from './move.js'
+export type { Placement } from './move.js'
 export {
   DEFAULT_STATUSES,
+  InvalidRankError,
   PRIORITY_LABELS,
   StatusNotFoundError,
   TitleRequiredError,
   formatKey,
+  isRank,
   normalizeTitle,
   parseKey,
 } from './task.js'

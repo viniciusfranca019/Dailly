@@ -1,3 +1,4 @@
+import type { Placement } from './move.js'
 import type { Task, TaskStatus } from './task.js'
 
 export interface NewTask {
@@ -27,6 +28,12 @@ export interface TaskStore {
   board(): Promise<TaskBoard>
   /** Throws `TitleRequiredError` or `StatusNotFoundError`; nothing is written then. */
   create(input: NewTask): Promise<Task>
+  /**
+   * Put the task in `statusId` at `rank`, applying RN3 with the store's clock.
+   * `null` when no task has that key; throws `StatusNotFoundError` or
+   * `InvalidRankError`, and nothing changes then.
+   */
+  move(key: number, placement: Placement): Promise<Task | null>
   /** `false` when no task has that key. */
   delete(key: number): Promise<boolean>
 }

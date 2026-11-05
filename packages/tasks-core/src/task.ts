@@ -77,6 +77,16 @@ export class StatusNotFoundError extends Error {
   }
 }
 
+export class InvalidRankError extends Error {
+  override readonly name = 'InvalidRankError'
+  constructor(readonly rank: string) {
+    super(`rank inválido: ${JSON.stringify(rank)}`)
+  }
+}
+
+/** The shape `rankBetween` produces: base-36 digits, never ending in '0'. */
+export const isRank = (rank: string): boolean => /^[0-9a-z]*[1-9a-z]$/.test(rank)
+
 /** The title as it is stored: trimmed, and never empty (C5). */
 export function normalizeTitle(title: string): string {
   const trimmed = title.trim()
