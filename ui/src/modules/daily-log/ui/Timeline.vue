@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Entry } from '@dailly/domain'
+import type { Entry, Label } from '@dailly/domain'
 import { dayOf, type TimeZone } from '@dailly/periods'
 import { computed, ref } from 'vue'
 import TimelineEntry from './TimelineEntry.vue'
@@ -12,6 +12,8 @@ const props = defineProps<{
   loading: boolean
   /** The entry open in the editor, marked on its card. */
   editingId?: string | null
+  /** The global labels, to show each entry's by name and color. */
+  labels?: readonly Label[]
 }>()
 
 const emit = defineEmits<{ open: [entry: Entry] }>()
@@ -98,6 +100,7 @@ function headingFor(day: string): string {
             :entry="entry"
             :zone="props.zone"
             :editing="entry.id === props.editingId"
+            :labels="props.labels ?? []"
             class="mb-4 last:mb-0"
             @open="emit('open', $event)"
           />

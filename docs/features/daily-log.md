@@ -38,6 +38,14 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-02T20:30:00-03:00 }
   falha, a correção continua no editor. Se o registro foi apagado em outra aba, salvar ou
   apagar diz "registro não encontrado", volta para um registro novo e relê a timeline.
 
+- **Labels (Fase 2, F2, card #34):** abaixo do editor, o campo "+ label" sugere as labels
+  que existem; Enter aplica a que tem o nome digitado, sem diferenciar maiúsculas, ou cria
+  uma nova com a próxima cor da paleta. O × tira a label do registro. As labels aparecem
+  na timeline com a cor delas.
+- "Gerenciar labels", abaixo do editor, renomeia, troca a cor (azul, verde, amarelo,
+  laranja, vermelho, roxo, rosa, cinza) e apaga uma label com confirmação. Apagar tira a
+  label de todo registro e não apaga registro nenhum.
+
 # Regras
 
 - Os use-cases (`createEntry`, `queryEntries`, `updateEntry`, `deleteEntry`) rodam no renderer; o servidor guarda a
@@ -51,6 +59,11 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-02T20:30:00-03:00 }
 - `GET`, `PATCH` e `DELETE /entries/:id` só alcançam registros do dia: a Entry de uma
   tarefa responde 404, porque a tarefa se edita no Tasks e apagar a Entry dela levaria a
   tarefa junto.
+- Uma label é global, a mesma para registros e tarefas (o Tasks v2 vai usá-las), com nome
+  único sem diferenciar maiúsculas nem acentos (`labels.name_key`, a chave que o domínio
+  calcula) e uma cor da paleta. Fica no módulo entries: `GET`, `POST`, `PATCH` e
+  `DELETE /labels`, e a migration 6 (`labels`, `entry_labels`, com cascade dos dois lados).
+- Um registro com uma label que não existe é 400 nomeando `labelIds`.
 - Um fuso só: `DAILLY_TZ` do processo da API (padrão UTC); um fuso inválido derruba o
   boot com mensagem. Todo "que dia é este instante" passa por `@dailly/periods`.
 
@@ -71,8 +84,8 @@ ligado, sem flag.
 
 # Limites
 
-- Sem labels, propriedades nem filtros: são a F2 a F4 da [Fase 2](/prd/daily-log-fase-2.md).
-  O filtro por label responde 501, e `labelIds` vem sempre vazio.
+- Sem propriedades nem filtros: são a F3 e a F4 da [Fase 2](/prd/daily-log-fase-2.md).
+  O filtro por label no `GET /entries` ainda responde 501.
 - Corrige só o dia, não a hora exata, e não guarda histórico de edições.
 - A API aceita `GET /entries?from&to`, mas nenhuma tela filtra por período ainda.
 - A timeline mostra só o título; o markdown do corpo não é renderizado na leitura.

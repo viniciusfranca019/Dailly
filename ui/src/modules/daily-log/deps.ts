@@ -1,4 +1,5 @@
 import type { Entry, EntryCorrection, EntryFilter, NewEntry } from '@dailly/domain'
+import type { LabelsPort } from '@shared'
 
 /** O que é só do Daily Log: os use-cases de Entry. */
 export interface DailyLogDeps {
@@ -6,4 +7,6 @@ export interface DailyLogDeps {
   queryEntries(filter?: EntryFilter): Promise<Entry[]>
   updateEntry(id: string, correction: EntryCorrection): Promise<Entry>
   deleteEntry(id: string): Promise<void>
+  /** The global labels (card #34). */
+  labels: LabelsPort
 }

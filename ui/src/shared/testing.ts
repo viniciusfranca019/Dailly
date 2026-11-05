@@ -1,6 +1,8 @@
 import {
   createEntry,
   deleteEntry,
+  findByName,
+  type Label,
   inMemoryEntryRepository,
   queryEntries,
   sequentialIds,
@@ -65,6 +67,7 @@ export function testEntryDeps(options: { seed?: readonly Entry[]; now?: string }
     queryEntries: queryEntries({ entries }),
     updateEntry: updateEntry({ entries, clock }),
     deleteEntry: deleteEntry({ entries }),
+    labels: testLabelsPort(),
   }
 }
 
@@ -205,5 +208,36 @@ export function testVaultPort(
     async remove(_environment, name) {
       secrets.delete(name)
     },
+  }
+}
+
+/**
+ * The labels port the tests run: a hand-written fake that keeps the server's
+ * rules that a screen can observe (name unique regardless of case, 404 as
+ * null/false), so a screen test fails for the reasons the real one would.
+ */
+export function testLabelsPort(seed: readonly Label[] = []): import('./labels.js').LabelsPort {
+  const labels = new Map(seed.map((label) => [label.id, label]))
+  let minted = 0
+  const taken = (name: string, except?: string) =>
+    findByName([...labels.values()].filter((label) => label.id !== except), name) !== undefined
+  return {
+    list: async () => [...labels.values()].sort((a, b) => a.name.localeCompare(b.name)),
+    create: async ({ name, color }) => {
+      if (taken(name)) throw new Error('já existe uma label com esse nome')
+      const label = { id: `label-${++minted}`, name: name.trim(), color }
+      labels.set(label.id, label)
+      return label
+    },
+    update: async (id, change) => {
+      const current = labels.get(id)
+      if (!current) return null
+      if (change.name !== undefined && change.name.trim() === '') throw new Error('o nome da label é obrigatório')
+      if (change.name !== undefined && taken(change.name, id)) throw new Error('já existe uma label com esse nome')
+      const next = { ...current, ...change }
+      labels.set(id, next)
+      return next
+    },
+    delete: async (id) => labels.delete(id),
   }
 }

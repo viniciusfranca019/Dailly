@@ -2,6 +2,7 @@ import { entryRepositoryContract } from '@dailly/domain/testing'
 import { createEntry, sequentialIds, fixedClock, uuidIds } from '@dailly/domain'
 import { createServer, type RunningServer } from '../server/src/index.js'
 import { httpEntryRepository } from '../ui/src/adapters/http-entry-repository.js'
+import { httpLabelsClient } from '../ui/src/adapters/http-labels-client.js'
 import { afterAll, describe, expect, it } from 'vitest'
 
 /**
@@ -21,6 +22,8 @@ import { afterAll, describe, expect, it } from 'vitest'
  */
 
 const running: RunningServer[] = []
+/** The server each client talks to, so the contract can create a label on it. */
+const servers = new WeakMap<object, string>()
 
 afterAll(async () => {
   await Promise.all(running.map((server) => server.close()))
@@ -33,15 +36,19 @@ async function makeOverTheWire(token?: string) {
     ...(token ? { token } : {}),
   })
   running.push(server)
-  return httpEntryRepository({
+  const repository = httpEntryRepository({
     config: { baseUrl: server.url, ...(token ? { token } : {}) },
   })
+  servers.set(repository, server.url)
+  return repository
 }
 
 // The same contract the in-memory fake and the SQLite store pass, now across a
 // socket. Three implementations, one set of promises.
 entryRepositoryContract('httpEntryRepository against the real server', {
   make: () => makeOverTheWire(),
+  label: async (repository, name) =>
+    (await httpLabelsClient({ config: { baseUrl: servers.get(repository)! } }).create({ name, color: 'blue' })).id,
 })
 
 describe('the vertical slice, end to end', () => {
