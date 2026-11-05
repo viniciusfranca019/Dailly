@@ -1,5 +1,3 @@
-version: 0.1.5
+version: 0.1.6
 
-- Tasks F3 (#22): o painel da tarefa, aberto pelo card ou pela linha, para editar título, status, prioridade e o corpo no editor de blocos, salvar com Ctrl+S e apagar com confirmação.
-- `PATCH /tasks/:key` passa a aceitar qualquer subconjunto de `title`, `priority`, `body` e `statusId` com `rank`; o `TaskStore.move` do F2 virou `TaskStore.update`.
-- A tarefa traz o `body` da Entry no `GET /tasks`.
+- PRD do Tasks, v2: vários boards com prefixo próprio, status configuráveis com cor, painel redimensionável, comentários, labels, busca com Ctrl+K e criação rápida com C, em sete fatias (F4 a F10). A P4, onde mora o comentário, está aberta.
