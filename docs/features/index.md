@@ -21,4 +21,5 @@ importam e onde mora no código. O Analyse ainda é só uma tela-esqueleto atrá
 * [Tasks, painel da tarefa](/features/tasks-painel.md) - editar título, status, prioridade e corpo, e apagar com confirmação
 
 ## O app
+* [Ordem da barra lateral](/features/ordem-da-barra.md) - arrastar ou Alt+↑/↓ para pôr os módulos na ordem do uso, lembrada no navegador
 * [App local](/features/app-local.md) - só web, só nesta máquina: os dois bancos, as portas e a guarda da API
