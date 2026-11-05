@@ -128,6 +128,10 @@ describe('C3: a new key picks its type once (RN3)', () => {
 
     expect(text(all(host, 'entry-prop'))).toEqual(['dormiu: sim'])
     expect(await properties.list()).toEqual([{ key: 'dormiu', type: 'boolean' }])
+    // On the screen, not only in the port: the key is suggested as yes/no now.
+    expect([...host.querySelectorAll<HTMLOptionElement>('#daily-log-props option')].map((o) => o.label)).toEqual([
+      'dormiu · sim/não',
+    ])
   })
 
   it('asks for the type only of a key that has none', async () => {
