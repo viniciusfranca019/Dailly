@@ -11,3 +11,4 @@ faz. Como escrever aqui: [OKF neste bundle](/conventions/okf.md).
 # Seções
 * [Convenções](/conventions/index.md) - a arquitetura, como adicionar um módulo, versão e o próprio bundle
 * [Features](/features/index.md) - o que o dailly faz hoje, uma feature por conceito
+* [PRDs](/prd/index.md) - o que ainda vai ser feito, uma feature por PRD, antes de virar cards
