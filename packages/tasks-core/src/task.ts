@@ -17,6 +17,8 @@ export interface Task {
   /** Set on entering a completed or canceled status (RN3, from F2 on). */
   readonly completedAt: string | null
   readonly createdAt: string
+  /** The Entry's body: the task's description, markdown, empty at capture. */
+  readonly body: string
 }
 
 export type Priority = 0 | 1 | 2 | 3 | 4
@@ -76,6 +78,16 @@ export class StatusNotFoundError extends Error {
     super(`não existe status ${statusId}`)
   }
 }
+
+export class InvalidPriorityError extends Error {
+  override readonly name = 'InvalidPriorityError'
+  constructor(readonly priority: unknown) {
+    super(`prioridade inválida: ${JSON.stringify(priority)} (de 0 a 4)`)
+  }
+}
+
+export const isPriority = (value: unknown): value is Priority =>
+  value === 0 || value === 1 || value === 2 || value === 3 || value === 4
 
 export class InvalidRankError extends Error {
   override readonly name = 'InvalidRankError'

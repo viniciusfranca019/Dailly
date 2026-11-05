@@ -29,3 +29,16 @@ export function insertEntryRow(db: Database, row: EntryRow): void {
 export function deleteEntryRow(db: Database, id: string): void {
   db.prepare('DELETE FROM entries WHERE id = ?').run(id)
 }
+
+/**
+ * Touch the Entry after its facet changed, and replace its body when one is
+ * given (the task panel, card #22). `updated_at` moves either way, since the
+ * Entry is the atom a future aggregate reads.
+ */
+export function updateEntryRow(db: Database, id: string, change: { readonly body?: string }, updatedAt: string): void {
+  if (change.body === undefined) {
+    db.prepare('UPDATE entries SET updated_at = ? WHERE id = ?').run(updatedAt, id)
+  } else {
+    db.prepare('UPDATE entries SET body = ?, updated_at = ? WHERE id = ?').run(change.body, updatedAt, id)
+  }
+}

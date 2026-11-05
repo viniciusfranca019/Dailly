@@ -57,4 +57,23 @@ describe('sqliteTaskStore — the task is an Entry (RN1)', () => {
 
     expect(db.prepare('SELECT count(*) AS total FROM entries').get()).toEqual({ total: 0 })
   })
+
+  it('writes the body on the Entry and touches its updated_at', async () => {
+    const db = migrated()
+    let clock = 0
+    const store = sqliteTaskStore({
+      db,
+      newId: () => '00000000-0000-4000-8000-000000000001',
+      now: () => `2026-11-05T12:00:0${(clock += 1)}.000Z`,
+    })
+    await store.create({ title: 'x', statusId: 'todo' })
+
+    await store.update(1, { body: '# notas' })
+
+    expect(db.prepare('SELECT body, created_at, updated_at FROM entries').get()).toEqual({
+      body: '# notas',
+      created_at: '2026-11-05T12:00:01.000Z',
+      updated_at: '2026-11-05T12:00:02.000Z',
+    })
+  })
 })

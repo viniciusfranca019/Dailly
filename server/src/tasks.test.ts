@@ -151,3 +151,47 @@ describe('PATCH /tasks/:key', () => {
     expect((await move('T-9', { statusId: 'todo', rank: 'i' })).statusCode).toBe(404)
   })
 })
+
+describe('PATCH /tasks/:key, from the panel (card #22)', () => {
+  const patch = (key: string, payload: unknown) =>
+    app.inject({ method: 'PATCH', url: `/tasks/${key}`, payload: payload as object })
+
+  it('C2: saves the title, the priority and the body, and the board reads them back', async () => {
+    await create({ title: 'um', statusId: 'todo' })
+
+    const response = await patch('T-1', { title: 'Comprar café especial', priority: 2, body: '- moído fino' })
+
+    expect(response.statusCode).toBe(200)
+    expect((await board()).tasks[0]).toMatchObject({
+      title: 'Comprar café especial',
+      priority: 2,
+      body: '- moído fino',
+      statusId: 'todo',
+    })
+  })
+
+  it('C3: refuses an erased title, naming the field, and keeps the old one', async () => {
+    await create({ title: 'um', statusId: 'todo' })
+
+    const response = await patch('T-1', { title: '  ' })
+
+    expect(response.statusCode).toBe(400)
+    expect(response.json().errors[0]).toEqual({ field: 'title', message: 'o título é obrigatório' })
+    expect((await board()).tasks[0].title).toBe('um')
+  })
+
+  it('refuses a priority outside 0 to 4, a body that is not text, and a status without a rank', async () => {
+    await create({ title: 'um', statusId: 'todo' })
+
+    expect((await patch('T-1', { priority: 9 })).json().errors[0].field).toBe('priority')
+    expect((await patch('T-1', { body: 3 })).statusCode).toBe(400)
+    expect((await patch('T-1', { statusId: 'doing' })).statusCode).toBe(400)
+  })
+
+  it('C6: answers 404 for a task deleted while its panel was open', async () => {
+    await create({ title: 'um', statusId: 'todo' })
+    await app.inject({ method: 'DELETE', url: '/tasks/T-1' })
+
+    expect((await patch('T-1', { title: 'x' })).statusCode).toBe(404)
+  })
+})
