@@ -116,3 +116,38 @@ describe('C7: a task stays out of the Daily Log timeline (RN6)', () => {
     expect(listed.map((entry: { body: string }) => entry.body)).toEqual(['Registro do dia'])
   })
 })
+
+describe('PATCH /tasks/:key', () => {
+  const move = (key: string, payload: unknown) =>
+    app.inject({ method: 'PATCH', url: `/tasks/${key}`, payload: payload as object })
+
+  it('C1: puts the task in the new status at the rank sent, and the board reads it there', async () => {
+    await create({ title: 'um', statusId: 'todo' })
+    await create({ title: 'dois', statusId: 'doing' })
+
+    const response = await move('T-1', { statusId: 'doing', rank: 'z' })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.json()).toMatchObject({ key: 1, statusId: 'doing', rank: 'z' })
+    expect((await board()).tasks.map((task: { key: number }) => task.key)).toEqual([2, 1])
+  })
+
+  it('C3: stamps completedAt on entering "Feito" and clears it on leaving (RN3)', async () => {
+    await create({ title: 'um', statusId: 'doing' })
+
+    expect((await move('T-1', { statusId: 'done', rank: 'i' })).json().completedAt).toEqual(expect.any(String))
+    expect((await move('T-1', { statusId: 'doing', rank: 'i' })).json().completedAt).toBeNull()
+  })
+
+  it('refuses an unknown status or a malformed rank, naming the field', async () => {
+    await create({ title: 'um', statusId: 'todo' })
+
+    expect((await move('T-1', { statusId: 'nope', rank: 'i' })).json().errors[0].field).toBe('statusId')
+    expect((await move('T-1', { statusId: 'doing', rank: 'a0' })).json().errors[0].field).toBe('rank')
+    expect((await move('T-1', { statusId: 'doing' })).statusCode).toBe(400)
+  })
+
+  it('answers 404 for a key that does not exist', async () => {
+    expect((await move('T-9', { statusId: 'todo', rank: 'i' })).statusCode).toBe(404)
+  })
+})
