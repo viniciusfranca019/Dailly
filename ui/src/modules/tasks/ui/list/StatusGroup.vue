@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { TimeZone } from '@dailly/periods'
+import { completionLabel } from '../../model/completion.js'
 import type { StatusGroup } from '../../model/list.js'
 import NewTask from './NewTask.vue'
 import TaskRow from './TaskRow.vue'
@@ -6,6 +8,7 @@ import TaskRow from './TaskRow.vue'
 /** A status's header (name, count, "+") and its tasks; the capture opens on top. */
 const props = defineProps<{
   group: StatusGroup
+  zone: TimeZone
   composing: boolean
   create: (statusId: string, title: string) => Promise<void>
 }>()
@@ -30,7 +33,12 @@ const createHere = (title: string) => props.create(props.group.status.id, title)
     </header>
     <NewTask v-if="composing" :status-name="group.status.name" :create="createHere" @cancel="emit('cancel')" />
     <ul v-if="group.tasks.length > 0">
-      <TaskRow v-for="task in group.tasks" :key="task.id" :task="task" />
+      <TaskRow
+        v-for="task in group.tasks"
+        :key="task.id"
+        :task="task"
+        :completion="completionLabel(task.completedAt, zone)"
+      />
     </ul>
   </section>
 </template>
