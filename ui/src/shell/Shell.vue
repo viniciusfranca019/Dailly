@@ -39,6 +39,12 @@ const ids = () => props.modules.map((module) => module.id)
 /** The module being dragged; cleared on `dragend`, dropped or not. */
 const grabbed = ref<string | null>(null)
 
+function grab(event: DragEvent, id: string): void {
+  // Firefox starts no drag without data. jsdom has no DataTransfer, hence the guard.
+  event.dataTransfer?.setData('text/plain', id)
+  grabbed.value = id
+}
+
 function drop(target: string): void {
   if (grabbed.value === null) return
   emit('reorder', moveOnto(ids(), grabbed.value, target))
@@ -88,8 +94,9 @@ async function nudge(event: KeyboardEvent, id: string): Promise<void> {
         class="flex flex-col gap-0.5"
         data-testid="nav"
         aria-label="Módulos"
-        aria-description="Arraste, ou use Alt+↑ e Alt+↓, para mudar a ordem"
+        aria-describedby="nav-order-hint"
       >
+        <span id="nav-order-hint" class="sr-only">Arraste, ou use Alt+↑ e Alt+↓, para mudar a ordem</span>
         <button
           v-for="module in modules"
           :key="module.id"
@@ -104,7 +111,7 @@ async function nudge(event: KeyboardEvent, id: string): Promise<void> {
             grabbed === module.id ? 'opacity-50' : '',
           ]"
           @click="emit('navigate', module.route)"
-          @dragstart="grabbed = module.id"
+          @dragstart="grab($event, module.id)"
           @dragover.prevent
           @drop.prevent="drop(module.id)"
           @dragend="grabbed = null"

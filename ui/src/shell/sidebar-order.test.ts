@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 import { mountShell, type ShellHandle } from './mount.js'
 import { ORDER_KEY } from './nav-order.js'
@@ -112,6 +112,16 @@ describe('sidebar order', () => {
     await nextTick()
     expect(shell.current).toBe('/requests')
     expect(host.querySelector('[data-marker="requests"]')).not.toBeNull()
+  })
+
+  it('C1: dragstart puts data on the transfer, or Firefox never starts the drag', async () => {
+    await open()
+    const setData = vi.fn()
+    const start = new Event('dragstart', { bubbles: true, cancelable: true })
+    Object.defineProperty(start, 'dataTransfer', { value: { setData, effectAllowed: 'all' } })
+    button('Tasks').dispatchEvent(start)
+
+    expect(setData).toHaveBeenCalledWith('text/plain', 'tasks')
   })
 
   it('a drop with nothing grabbed changes nothing', async () => {
