@@ -8,6 +8,7 @@ import BoardColumn from './board/BoardColumn.vue'
 import type { Draft } from '../model/draft.js'
 import TaskPanel from './detail/TaskPanel.vue'
 import StatusGroup from './list/StatusGroup.vue'
+import { usePanelWidth } from './panel-width.js'
 import { useTasksView } from './view.js'
 
 /**
@@ -34,6 +35,12 @@ const moveError = ref<string | null>(null)
  */
 const grabbed = ref<number | null>(null)
 const { view, choose } = useTasksView()
+/**
+ * The panel's width lives with the page, not with the panel (card #44): the
+ * panel is remounted for every task, and without storage (C5) the width must
+ * still hold until the reload, not until the panel closes.
+ */
+const panelWidth = usePanelWidth()
 /** The task whose panel is open (card #22). */
 const opened = ref<number | null>(null)
 
@@ -222,6 +229,9 @@ async function drop(statusId: string, beforeKey: number | null): Promise<void> {
         :statuses="read.board.statuses"
         :save="(draft: Draft) => save(panelTask!.key, draft)"
         :remove="() => remove(panelTask!.key)"
+        :width="panelWidth.width.value"
+        @resize="panelWidth.follow"
+        @resized="panelWidth.settle"
         @close="close"
       />
     </div>
