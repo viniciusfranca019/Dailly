@@ -62,4 +62,16 @@ export const ENTRIES_MIGRATIONS: readonly Migration[] = [
       CREATE INDEX idx_entry_labels_label ON entry_labels(label_id);
     `,
   },
+  {
+    // Property definitions (PRD Fase 2, RN3, card #35): one type per key,
+    // born on the key's first use. The values stay in `entries.props`, the
+    // JSON column that was always there; this only says what each key holds.
+    version: 7,
+    up: `
+      CREATE TABLE property_defs (
+        key  TEXT PRIMARY KEY,
+        type TEXT NOT NULL CHECK (type IN ('text', 'number', 'boolean'))
+      );
+    `,
+  },
 ]

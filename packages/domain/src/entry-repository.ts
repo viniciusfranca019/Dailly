@@ -29,6 +29,8 @@ export interface EntryPatch {
   readonly occurredAt?: string
   /** Replaces the whole set; absent keeps it (card #34). */
   readonly labelIds?: readonly string[]
+  /** Replaces the whole map; absent keeps it (card #35). */
+  readonly props?: Readonly<Record<string, unknown>>
   readonly updatedAt: string
 }
 

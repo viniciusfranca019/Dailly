@@ -1,6 +1,7 @@
 import { EntryNotFoundError, NotImplementedError, type EntryRepository } from '@dailly/domain'
 import type { FastifyInstance } from 'fastify'
-import { validateEntry, validatePatch, validateRange } from './validate.js'
+import { checkProps, validateEntry, validatePatch, validateRange } from './validate.js'
+import type { PropertyDef } from '@dailly/domain'
 
 /**
  * As rotas do Daily Log: o outro lado do `EntryRepository`.
@@ -18,7 +19,12 @@ const UNKNOWN_LABEL = { field: 'labelIds', message: 'contém uma label que não 
 const isUnknownLabel = (error: unknown): boolean =>
   typeof error === 'object' && error !== null && (error as { code?: unknown }).code === 'SQLITE_CONSTRAINT_FOREIGNKEY'
 
-export function registerEntryRoutes(app: FastifyInstance, entries: EntryRepository): void {
+export function registerEntryRoutes(
+  app: FastifyInstance,
+  entries: EntryRepository,
+  /** The property definitions the values are checked against (card #35). */
+  propertyDefs: () => readonly PropertyDef[],
+): void {
   app.get('/entries', async (request, reply) => {
     const query = request.query as { from?: unknown; to?: unknown }
     const errors = validateRange(query)
@@ -42,6 +48,8 @@ export function registerEntryRoutes(app: FastifyInstance, entries: EntryReposito
   app.post('/entries', async (request, reply) => {
     const validated = validateEntry(request.body)
     if ('errors' in validated) return reply.code(400).send({ errors: validated.errors })
+    const wrongProps = checkProps(validated.entry.props, propertyDefs())
+    if (wrongProps.length > 0) return reply.code(400).send({ errors: wrongProps })
 
     try {
       const created = await entries.create(validated.entry)
@@ -64,6 +72,8 @@ export function registerEntryRoutes(app: FastifyInstance, entries: EntryReposito
   app.patch<{ Params: { id: string } }>('/entries/:id', async (request, reply) => {
     const validated = validatePatch(request.body)
     if ('errors' in validated) return reply.code(400).send({ errors: validated.errors })
+    const wrongProps = validated.patch.props ? checkProps(validated.patch.props, propertyDefs()) : []
+    if (wrongProps.length > 0) return reply.code(400).send({ errors: wrongProps })
     try {
       return await entries.update(request.params.id, validated.patch)
     } catch (error) {

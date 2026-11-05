@@ -151,6 +151,18 @@ export function entryRepositoryContract(name: string, { make, label }: ContractO
       expect((await entries.getById(written.id))?.labelIds).toEqual([health])
     })
 
+    it('replaces the properties on update, and keeps them when the patch has none (card #35)', async () => {
+      const entries = await make()
+      const written = entry('com propriedade', '2026-07-24T10:00:00.000Z', { props: { humor: 'bom' } })
+      await entries.create(written)
+
+      await entries.update(written.id, { body: 'outro', updatedAt: '2026-07-24T11:00:00.000Z' })
+      expect((await entries.getById(written.id))?.props).toEqual({ humor: 'bom' })
+
+      await entries.update(written.id, { props: { horas: 7.5 }, updatedAt: '2026-07-24T12:00:00.000Z' })
+      expect((await entries.getById(written.id))?.props).toEqual({ horas: 7.5 })
+    })
+
     it('finds an entry by id, and answers null for an unknown one', async () => {
       const entries = await make()
       const written = entry('achada', '2026-07-24T10:00:00.000Z')

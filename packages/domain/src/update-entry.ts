@@ -15,6 +15,8 @@ export interface EntryCorrection {
   readonly occurredAt?: ISODateTime
   /** The labels it carries now; absent keeps them (card #34). */
   readonly labelIds?: readonly string[]
+  /** The properties it carries now; absent keeps them (card #35). */
+  readonly props?: Readonly<Record<string, unknown>>
 }
 
 /**
@@ -32,6 +34,7 @@ export const updateEntry =
       body,
       ...(correction.occurredAt ? { occurredAt: correction.occurredAt } : {}),
       ...(correction.labelIds ? { labelIds: correction.labelIds } : {}),
+      ...(correction.props ? { props: correction.props } : {}),
       updatedAt: clock.now(),
     })
   }

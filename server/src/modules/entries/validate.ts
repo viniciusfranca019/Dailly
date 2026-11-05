@@ -1,4 +1,4 @@
-import type { Entry, EntryPatch } from '@dailly/domain'
+import { matchesType, type Entry, type EntryPatch, type PropertyDef } from '@dailly/domain'
 
 /**
  * What the API checks before letting something into the store.
@@ -96,7 +96,7 @@ export function validateRange(query: { from?: unknown; to?: unknown }): Invalid[
 }
 
 /** What a correction may change (PRD Fase 2, RN5); anything else is refused. */
-const PATCHABLE = new Set(['body', 'occurredAt', 'labelIds', 'updatedAt'])
+const PATCHABLE = new Set(['body', 'occurredAt', 'labelIds', 'props', 'updatedAt'])
 
 /**
  * Validate a correction. `updatedAt` is required because the renderer's
@@ -111,7 +111,7 @@ export function validatePatch(payload: unknown): { patch: EntryPatch } | { error
   const errors: Invalid[] = Object.keys(payload)
     .filter((field) => !PATCHABLE.has(field))
     .map((field) => ({ field, message: 'não se altera numa correção' }))
-  const { body, occurredAt, labelIds, updatedAt } = payload
+  const { body, occurredAt, labelIds, props, updatedAt } = payload
 
   if (body !== undefined && (typeof body !== 'string' || body.trim() === '')) {
     errors.push({ field: 'body', message: 'é obrigatório' })
@@ -122,6 +122,9 @@ export function validatePatch(payload: unknown): { patch: EntryPatch } | { error
   if (labelIds !== undefined && !(Array.isArray(labelIds) && labelIds.every((id) => typeof id === 'string'))) {
     errors.push({ field: 'labelIds', message: 'deve ser uma lista de ids' })
   }
+  if (props !== undefined && !isRecord(props)) {
+    errors.push({ field: 'props', message: 'deve ser um objeto' })
+  }
   if (typeof updatedAt !== 'string' || !INSTANT.test(updatedAt)) {
     errors.push({ field: 'updatedAt', message: 'deve ser um instante ISO-8601 em UTC, como 2026-07-24T10:00:00.000Z' })
   }
@@ -129,10 +132,26 @@ export function validatePatch(payload: unknown): { patch: EntryPatch } | { error
   if (errors.length > 0) return { errors }
   return {
     patch: {
+      ...(props !== undefined ? { props: props as Record<string, unknown> } : {}),
       updatedAt: updatedAt as string,
       ...(body !== undefined ? { body: body as string } : {}),
       ...(occurredAt !== undefined ? { occurredAt: occurredAt as string } : {}),
       ...(labelIds !== undefined ? { labelIds: labelIds as string[] } : {}),
     },
   }
+}
+
+/**
+ * Every property of an entry needs a defined key and a value of its type
+ * (PRD Fase 2, RN3, card #35). The store is the last guard: the screen checks
+ * first, and anything else on this machine can still POST.
+ */
+export function checkProps(props: Readonly<Record<string, unknown>>, defs: readonly PropertyDef[]): Invalid[] {
+  const types = new Map(defs.map((def) => [def.key, def.type]))
+  const reasons = { number: 'espera um número', boolean: 'espera sim ou não', text: 'precisa de um valor' } as const
+  return Object.entries(props).flatMap(([key, value]) => {
+    const type = types.get(key)
+    if (!type) return [{ field: 'props', message: `${key} não tem tipo definido` }]
+    return matchesType(type, value) ? [] : [{ field: 'props', message: `${key} ${reasons[type]}` }]
+  })
 }
