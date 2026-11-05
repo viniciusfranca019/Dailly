@@ -2,6 +2,7 @@ import { createEntry, deleteEntry, queryEntries, systemClock, updateEntry, uuidI
 import { UTC } from '@dailly/periods'
 import { API_CONFIG } from '../adapters/api.js'
 import { httpEntryRepository } from '../adapters/http-entry-repository.js'
+import { httpLabelsClient } from '../adapters/http-labels-client.js'
 import { httpRequestsClient } from '../adapters/http-requests-client.js'
 import { httpTasksClient } from '../adapters/http-tasks-client.js'
 import { httpVaultClient } from '../adapters/http-vault-client.js'
@@ -47,6 +48,7 @@ async function boot(): Promise<void> {
           queryEntries: queryEntries({ entries }),
           updateEntry: updateEntry({ entries, clock: systemClock }),
           deleteEntry: deleteEntry({ entries }),
+          labels: httpLabelsClient({ config }),
         },
         requests: {
           requests: httpRequestsClient({ config }),

@@ -96,7 +96,7 @@ export function validateRange(query: { from?: unknown; to?: unknown }): Invalid[
 }
 
 /** What a correction may change (PRD Fase 2, RN5); anything else is refused. */
-const PATCHABLE = new Set(['body', 'occurredAt', 'updatedAt'])
+const PATCHABLE = new Set(['body', 'occurredAt', 'labelIds', 'updatedAt'])
 
 /**
  * Validate a correction. `updatedAt` is required because the renderer's
@@ -111,13 +111,16 @@ export function validatePatch(payload: unknown): { patch: EntryPatch } | { error
   const errors: Invalid[] = Object.keys(payload)
     .filter((field) => !PATCHABLE.has(field))
     .map((field) => ({ field, message: 'não se altera numa correção' }))
-  const { body, occurredAt, updatedAt } = payload
+  const { body, occurredAt, labelIds, updatedAt } = payload
 
   if (body !== undefined && (typeof body !== 'string' || body.trim() === '')) {
     errors.push({ field: 'body', message: 'é obrigatório' })
   }
   if (occurredAt !== undefined && (typeof occurredAt !== 'string' || !INSTANT.test(occurredAt))) {
     errors.push({ field: 'occurredAt', message: 'deve ser um instante ISO-8601 em UTC, como 2026-07-24T10:00:00.000Z' })
+  }
+  if (labelIds !== undefined && !(Array.isArray(labelIds) && labelIds.every((id) => typeof id === 'string'))) {
+    errors.push({ field: 'labelIds', message: 'deve ser uma lista de ids' })
   }
   if (typeof updatedAt !== 'string' || !INSTANT.test(updatedAt)) {
     errors.push({ field: 'updatedAt', message: 'deve ser um instante ISO-8601 em UTC, como 2026-07-24T10:00:00.000Z' })
@@ -129,6 +132,7 @@ export function validatePatch(payload: unknown): { patch: EntryPatch } | { error
       updatedAt: updatedAt as string,
       ...(body !== undefined ? { body: body as string } : {}),
       ...(occurredAt !== undefined ? { occurredAt: occurredAt as string } : {}),
+      ...(labelIds !== undefined ? { labelIds: labelIds as string[] } : {}),
     },
   }
 }

@@ -13,14 +13,29 @@ import { sqliteEntryRepository } from './sqlite-entry-repository.js'
  */
 const migrated = () => {
   const db = new Database(':memory:')
+  db.pragma('foreign_keys = ON')
   for (const migration of ENTRIES_MIGRATIONS) db.exec(migration.up)
   return db
 }
-const make = (zone = UTC) => sqliteEntryRepository({ db: migrated(), zone })
+/** Which file each repository writes to, so the contract can seed a label in it. */
+const files = new WeakMap<object, Database.Database>()
+const make = (zone = UTC) => {
+  const db = migrated()
+  const repository = sqliteEntryRepository({ db, zone })
+  files.set(repository, db)
+  return repository
+}
 
 // The same suite the in-memory fake passes. This is the whole point of the
 // port: two implementations, one set of promises, proven rather than assumed.
-entryRepositoryContract('sqliteEntryRepository', { make: () => make() })
+entryRepositoryContract('sqliteEntryRepository', {
+  make: () => make(),
+  label: async (repository, name) => {
+    const id = `label-${name}`
+    files.get(repository)!.prepare('INSERT INTO labels (id, name, name_key, color) VALUES (?, ?, ?, ?)').run(id, name, name, 'blue')
+    return id
+  },
+})
 
 describe('sqliteEntryRepository beyond the contract', () => {
   it('reads the date filter in the configured zone, not in UTC', () => {

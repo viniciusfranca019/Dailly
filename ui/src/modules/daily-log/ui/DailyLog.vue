@@ -1,10 +1,20 @@
 <script setup lang="ts">
-import { EntryNotFoundError, type Entry } from '@dailly/domain'
+import {
+  EntryNotFoundError,
+  findByName,
+  nextColor,
+  normalizeLabelName,
+  type Entry,
+  type Label,
+  type LabelColor,
+} from '@dailly/domain'
 import type { SharedDeps } from '@shared'
 import type { DailyLogDeps } from '../deps.js'
 import { computed, onMounted, ref, useTemplateRef } from 'vue'
 import Composer from './Composer.vue'
 import Timeline from './Timeline.vue'
+import LabelPicker from './LabelPicker.vue'
+import LabelManager from './LabelManager.vue'
 import { formatDay } from '../model/timeline.js'
 import { occurredAtFor } from '../model/entry-date.js'
 import { dayOf, type CalendarDay } from '@dailly/periods'
@@ -41,23 +51,114 @@ const title = computed(() =>
   editing.value ? 'Corrigir registro' : `Registro do Dia — ${formatDay(today.value)}`,
 )
 
-/** Back to a new entry: empty board, today. */
+/** The global labels (card #34), and the ones the entry on the board carries. */
+const labels = ref<Label[]>([])
+const chosen = ref<string[]>([])
+
+/** Back to a new entry: empty board, no labels, today. */
 function startNew(): void {
   editing.value = null
   composer.value?.clear()
+  chosen.value = []
   day.value = today.value
+}
+
+const sameSet = (a: readonly string[], b: readonly string[]) =>
+  a.length === b.length && a.every((id) => b.includes(id))
+
+/** Reread the labels; a failure here is shown, not thrown (RN7). */
+async function loadLabels(): Promise<void> {
+  try {
+    labels.value = await props.deps.labels.list()
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : 'não consegui carregar as labels'
+  }
+}
+
+/** Run a label write, then reread labels and the timeline, whatever happened (RN7). */
+async function labelWrite(write: () => Promise<unknown>): Promise<void> {
+  let failure: string | null = null
+  try {
+    await write()
+  } catch (cause) {
+    failure = cause instanceof Error ? cause.message : 'não consegui gravar a label'
+  }
+  await loadLabels()
+  await load()
+  if (failure) error.value = failure
+}
+
+/** An existing label whatever its case (C4), or a new one with the next palette color (C2). */
+async function addLabel(name: string): Promise<void> {
+  const normalized = normalizeLabelName(name)
+  if (normalized === null) return
+  const existing = findByName(labels.value, normalized)
+  if (existing) {
+    if (!chosen.value.includes(existing.id)) chosen.value = [...chosen.value, existing.id]
+    return
+  }
+  error.value = null
+  try {
+    const created = await props.deps.labels.create({ name: normalized, color: nextColor(labels.value) })
+    chosen.value = [...chosen.value, created.id]
+    await loadLabels()
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : 'não consegui criar a label'
+    await loadLabels()
+  }
+}
+
+function dropLabel(id: string): void {
+  chosen.value = chosen.value.filter((x) => x !== id)
+}
+
+async function renameLabel(id: string, name: string): Promise<void> {
+  const normalized = normalizeLabelName(name)
+  if (normalized === null) {
+    // Reread so the field shows the name the label still has.
+    await loadLabels()
+    error.value = 'o nome da label é obrigatório'
+    return
+  }
+  await labelWrite(async () => {
+    if ((await props.deps.labels.update(id, { name: normalized })) === null) throw new Error('label não encontrada')
+  })
+}
+
+async function recolorLabel(id: string, color: LabelColor): Promise<void> {
+  await labelWrite(async () => {
+    if ((await props.deps.labels.update(id, { color })) === null) throw new Error('label não encontrada')
+  })
+}
+
+async function removeLabel(id: string): Promise<void> {
+  await labelWrite(async () => {
+    await props.deps.labels.delete(id)
+    // Only once it is gone (a refusal changes nothing, C10), and from the
+    // entry being corrected too: the cascade took it off the stored one, so
+    // the board must not count its absence as an unsaved change (C8).
+    dropLabel(id)
+    if (editing.value) {
+      editing.value = { ...editing.value, labelIds: editing.value.labelIds.filter((x) => x !== id) }
+    }
+  })
 }
 
 /** Text on the board that is not saved anywhere: a new draft, or an edited correction. */
 function dirty(): boolean {
   const board = composer.value?.markdown() ?? ''
-  return board !== (editing.value?.body ?? '') && board.trim() !== ''
+  const text = board !== (editing.value?.body ?? '') && board.trim() !== ''
+  return text || !sameSet(chosen.value, editing.value?.labelIds ?? [])
 }
 
 /** "Cancelar edição" starts over; "Cancelar" on a new entry only empties it. */
 function cancel(): void {
   if (editing.value) startNew()
-  else composer.value?.clear()
+  else {
+    // The board and its labels, but not the day the person picked.
+    composer.value?.clear()
+    chosen.value = []
+  }
 }
 
 function open(entry: Entry): void {
@@ -69,6 +170,7 @@ function open(entry: Entry): void {
   error.value = null
   editing.value = entry
   day.value = dayOf(entry.occurredAt, props.deps.zone)
+  chosen.value = [...entry.labelIds]
   composer.value?.load(entry.body)
 }
 
@@ -98,13 +200,14 @@ async function correct(entry: Entry, body: string): Promise<void> {
   const sameDay = day.value === dayOf(entry.occurredAt, props.deps.zone)
   // Opening and saving without a change is a no-op: no request, no phantom
   // `updatedAt`. The board is canonical, like the stored body.
-  if (sameDay && body === entry.body) {
+  if (sameDay && body === entry.body && sameSet(chosen.value, entry.labelIds)) {
     startNew()
     return
   }
   await props.deps.updateEntry(entry.id, {
     body,
     ...(sameDay ? {} : { occurredAt: occurredAtFor(day.value, props.deps.now(), props.deps.zone) }),
+    labelIds: chosen.value,
   })
   startNew()
   await load()
@@ -147,8 +250,10 @@ async function save(body: string): Promise<void> {
     await props.deps.createEntry({
       body,
       occurredAt: occurredAtFor(day.value, props.deps.now(), props.deps.zone),
+      labelIds: chosen.value,
     })
     composer.value?.clear()
+    chosen.value = []
     now.value = props.deps.now()
     // Back to today after a successful register. The badge makes backdating
     // visible, but a badge is a mitigation and not a control: the next entry
@@ -164,7 +269,9 @@ async function save(body: string): Promise<void> {
   }
 }
 
-onMounted(load)
+onMounted(async () => {
+  await Promise.all([load(), loadLabels()])
+})
 </script>
 
 <template>
@@ -188,6 +295,7 @@ onMounted(load)
           @cancel="cancel"
           @remove="remove"
         />
+        <LabelPicker :labels="labels" :chosen="chosen" @add="addLabel" @remove="dropLabel" />
         <p
           v-if="error"
           role="alert"
@@ -196,6 +304,12 @@ onMounted(load)
         >
           {{ error }}
         </p>
+        <LabelManager
+          :labels="labels"
+          @rename="renameLabel"
+          @recolor="recolorLabel"
+          @remove="removeLabel"
+        />
       </div>
 
       <aside class="min-h-0 border-t border-[#1e2638] pt-6 xl:border-l xl:border-t-0 xl:pl-6 xl:pt-0">
@@ -205,6 +319,7 @@ onMounted(load)
           :now="now"
           :loading="loading"
           :editing-id="editing?.id ?? null"
+          :labels="labels"
           @open="open"
         />
       </aside>

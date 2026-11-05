@@ -1,10 +1,18 @@
 <script setup lang="ts">
-import type { Entry } from '@dailly/domain'
+import type { Entry, Label } from '@dailly/domain'
+import { CHIP } from '../model/label-colors.js'
 import { timeOf, type TimeZone } from '@dailly/periods'
 import { computed } from 'vue'
 import { titleOf } from '../model/timeline.js'
 
-const props = defineProps<{ entry: Entry; zone: TimeZone; editing?: boolean }>()
+const props = defineProps<{ entry: Entry; zone: TimeZone; editing?: boolean; labels?: readonly Label[] }>()
+
+/** The entry's labels, by id; an id the list does not know is skipped, not shown raw. */
+const chips = computed(() =>
+  props.entry.labelIds
+    .map((id) => props.labels?.find((label) => label.id === id))
+    .filter((label): label is Label => label !== undefined),
+)
 
 /** Clicking the card opens the entry in the editor to correct it (card #33). */
 const emit = defineEmits<{ open: [entry: Entry] }>()
@@ -44,19 +52,16 @@ const time = computed(() => timeOf(props.entry.occurredAt, props.zone))
         {{ titleOf(props.entry.body) }}
       </span>
 
-      <!--
-        Labels are Fase 2 of the roadmap: `labelIds` is always empty today, so
-        this row renders for nobody. It is here rather than invented because the
-        shape is decided (ADR 0002) and seeding fake tags would make a screenshot
-        that promises something the product cannot do.
-      -->
-      <span v-if="props.entry.labelIds.length > 0" class="mt-1.5 flex flex-wrap gap-1">
+      <span v-if="chips.length > 0" class="mt-1.5 flex flex-wrap gap-1">
         <span
-          v-for="label in props.entry.labelIds"
-          :key="label"
-          class="rounded-full border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-400"
+          v-for="label in chips"
+          :key="label.id"
+          class="rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+          :class="CHIP[label.color]"
+          :data-color="label.color"
+          data-testid="entry-label"
         >
-          {{ label }}
+          {{ label.name }}
         </span>
       </span>
     </button>

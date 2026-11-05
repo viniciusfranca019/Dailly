@@ -27,6 +27,8 @@ export interface EntryFilter {
 export interface EntryPatch {
   readonly body?: string
   readonly occurredAt?: string
+  /** Replaces the whole set; absent keeps it (card #34). */
+  readonly labelIds?: readonly string[]
   readonly updatedAt: string
 }
 

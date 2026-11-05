@@ -1,6 +1,7 @@
 # Directory Update Log
 
 ## 2026-11-05
+* **Update**: [Daily Log](/features/daily-log.md) ganha labels globais, a F2 da [Fase 2](/prd/daily-log-fase-2.md) (card #34).
 * **Update**: [Daily Log](/features/daily-log.md) corrige e apaga registros, a F1 da [Fase 2](/prd/daily-log-fase-2.md) (card #33).
 * **Creation**: [Daily Log, Fase 2](/prd/daily-log-fase-2.md), refinado em modo delegado: editar e apagar registro, labels, propriedades e filtros, em quatro fatias. A F8 do [Tasks](/prd/tasks.md) passa a depender da F2 dele.
 * **Update**: [Módulos](/conventions/modules.md) e [Arquitetura](/conventions/architecture.md) sem a exceção do entries: o repositório do Daily Log nasce no `provide` do módulo, e a regra pura da tela foi para `model/` (card #29).

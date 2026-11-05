@@ -1,4 +1,4 @@
-version: 0.1.10
+version: 0.1.11
 
-- Daily Log, Fase 2, F1 (#33): clicar num registro da timeline o abre no editor para corrigir o corpo e o dia, ou apagar com confirmação. Registro apagado em outra aba diz "registro não encontrado" e relê a timeline.
-- `GET`, `PATCH` e `DELETE /entries/:id`, só para registros do dia (a Entry de uma tarefa é 404). O `EntryRepository` implementa `getById`, `update` e `delete`, e o domínio ganha `updateEntry`, `deleteEntry` e `EntryNotFoundError`.
+- Daily Log, Fase 2, F2 (#34): labels globais. O campo "+ label" aplica uma label existente (sem diferenciar maiúsculas) ou cria uma com a próxima cor da paleta; "Gerenciar labels" renomeia, recolore e apaga. Apagar uma label a tira de todo registro.
+- Migration 6: `labels` (nome único por `name_key`, cor da paleta) e `entry_labels`, com cascade. Rotas `/labels`; `POST` e `PATCH /entries` gravam `labelIds`, e uma label desconhecida é 400.
