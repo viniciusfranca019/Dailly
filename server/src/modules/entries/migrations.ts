@@ -3,10 +3,9 @@ import type { Migration } from '../../shell/module.js'
 /**
  * A fatia do módulo Entries no `user_version`.
  *
- * `labels`, `entry_labels` e `property_defs` são Fase 2 no roadmap e estão
- * deliberadamente ausentes: uma tabela sem leitor é um palpite sobre um formato
- * que ninguém usou ainda. Elas chegam na próxima versão livre, e o runner já
- * existe para que isso não custe nada.
+ * `labels` e `entry_labels` chegaram com a F2 da Fase 2 (migration 6), quando
+ * passaram a ter leitor: uma tabela sem leitor é um palpite sobre um formato
+ * que ninguém usou ainda.
  *
  * O número não é nomeado aqui de propósito: o `user_version` é global, e
  * reservar não é tomar. Este comentário dizia "migration 2" e o módulo

@@ -132,8 +132,16 @@ async function recolorLabel(id: string, color: LabelColor): Promise<void> {
 }
 
 async function removeLabel(id: string): Promise<void> {
-  dropLabel(id)
-  await labelWrite(() => props.deps.labels.delete(id))
+  await labelWrite(async () => {
+    await props.deps.labels.delete(id)
+    // Only once it is gone (a refusal changes nothing, C10), and from the
+    // entry being corrected too: the cascade took it off the stored one, so
+    // the board must not count its absence as an unsaved change (C8).
+    dropLabel(id)
+    if (editing.value) {
+      editing.value = { ...editing.value, labelIds: editing.value.labelIds.filter((x) => x !== id) }
+    }
+  })
 }
 
 /** Text on the board that is not saved anywhere: a new draft, or an edited correction. */
