@@ -1,3 +1,4 @@
-version: 0.1.7
+version: 0.1.8
 
-- Shell (#28): os módulos da barra lateral na ordem que a pessoa escolher, arrastando ou com Alt+↑ e Alt+↓, lembrada no navegador (`dailly.nav.order`). Módulo novo entra no fim; sem storage, vale a ordem do manifesto.
+- Daily Log na convenção de Módulos (#29): o repositório SQLite de entries nasce no `provide` do módulo, e o `ServerModuleDeps` fica só com a zona. Um manifest sem o entries sobe. A regra pura da tela (`timeline`, `entry-date`) foi para `ui/src/modules/daily-log/model/`.
+- `@dailly/server` não exporta mais `sqliteEntryRepository`, que ninguém fora do módulo usava.

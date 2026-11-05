@@ -1,6 +1,5 @@
 import { UTC } from '@dailly/periods'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { sqliteEntryRepository } from './adapters/sqlite-entry-repository.js'
 import { buildApp } from './shell/app.js'
 import { openDatabase } from './shell/database.js'
 
@@ -15,7 +14,7 @@ let app: ReturnType<typeof buildApp>
 
 beforeEach(() => {
   const db = openDatabase(':memory:')
-  app = buildApp({ db, zone: UTC, entries: sqliteEntryRepository({ db, zone: UTC }) })
+  app = buildApp({ db, zone: UTC })
 })
 
 const create = (payload: unknown) => app.inject({ method: 'POST', url: '/tasks', payload: payload as object })

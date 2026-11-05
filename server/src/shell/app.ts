@@ -40,7 +40,7 @@ export interface AppDeps extends ServerModuleDeps {
  * socket de verdade (ADR 0009) seja a exceção, não a regra.
  */
 export function buildApp(
-  { entries, zone, token, db, secretKey, kdf }: AppDeps,
+  { zone, token, db, secretKey, kdf }: AppDeps,
   modules: readonly AnyServerModule[] = MODULES,
 ): FastifyInstance {
   assertManifest(modules)
@@ -106,7 +106,7 @@ export function buildApp(
 
   for (const module of modules) {
     if (!module.provide) {
-      module.register(app, { entries, zone }, undefined)
+      module.register(app, { zone }, undefined)
       continue
     }
     if (!context) {
@@ -115,7 +115,7 @@ export function buildApp(
           'mas `buildApp` foi chamado sem ele.',
       )
     }
-    module.register(app, { entries, zone }, module.provide(context))
+    module.register(app, { zone }, module.provide(context))
   }
 
   return app

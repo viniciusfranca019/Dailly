@@ -98,16 +98,19 @@ server/src/modules/<id>/
   desligado na tela fica só sem quem a chame.
 - **Dependência própria vai no `provide`**, construída pelo módulo a partir do
   `ProvideContext` (`db`, `zone`, `vault`), e não como campo novo em
-  `ServerModuleDeps`. Cada campo novo ali faria todos os módulos verem uma
-  dependência que só um usa.
+  `ServerModuleDeps`, que hoje só carrega a zona. Cada campo novo ali faria
+  todos os módulos verem uma dependência que só um usa. Não há exceção: o
+  entries também constrói o repositório dele no `provide` (card #29).
 - **Migrations numa sequência global** de `PRAGMA user_version`: o módulo
   escolhe os números das suas fatias, e o `collectMigrations` recusa colisão no
-  boot nomeando os dois módulos. Hoje entries é `1`, requests é `2` e o cofre é
-  `3`; o módulo novo pega o próximo livre. Uma migration já entregue nunca muda:
+  boot nomeando os dois módulos. Hoje entries é `1` e `4`, requests é `2`, o cofre é
+  `3` e o tasks é `5`; o módulo novo pega o próximo livre. Uma migration já entregue nunca muda:
   uma correção é uma migration nova.
 - **Os testes de rota moram na raiz de `server/src`** (`requests.test.ts`,
   `cofre.test.ts`), não dentro de `modules/`: a regra de arquitetura recusa teste
-  de integração dentro de um módulo, porque ele monta o app inteiro.
+  de integração dentro de um módulo, porque ele monta o app inteiro. Um teste
+  que monta só as rotas do módulo num Fastify próprio, sobre um store de
+  teste, mora dentro dele (`modules/entries/routes.test.ts`).
 
 # O que os testes cobram
 

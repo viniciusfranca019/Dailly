@@ -24,10 +24,10 @@ server/src/
     module.ts           o contrato de módulo: ServerModule · defineModule · assertManifest
     app.ts              buildApp: token, /health e o laço que registra os módulos
   modules/
-    entries/            Daily Log: routes · validate · migrations · index
+    entries/            Daily Log: routes · validate · migrations · rows · sqlite-entry-repository · index
     requests/           Requests: routes · validate · migrations · execute · sqlite-request-store · index
-  adapters/
-    sqlite-entry-repository.ts   EntryRepository sobre SQLite
+    vault/              o cofre: rotas de criar, destravar e trancar
+    tasks/              Tasks: routes · migrations · sqlite-task-store · index
   __fixtures__/v1.sqlite         um banco real da versão 1, versionado de propósito
 ```
 
@@ -51,7 +51,7 @@ inconsistente derruba o boot sem ter escrito nada.
 
 ```
 resolveConfig ─► assertManifest ─► collectMigrations ─► openDatabase(migrate)
-             ─► sqliteEntryRepository ─► buildApp(módulos) ─► listen
+             ─► buildApp(módulos, cada um com o seu provide) ─► listen
 ```
 
 - **Config** (`config.ts`): fuso inválido falha no boot com mensagem, não num
@@ -86,17 +86,17 @@ história de backup da [ADR 0005](../../../docs/conventions/architecture.md).
 ```ts
 ServerModule<TOwn> = {
   id, migrations,
-  provide?(ctx: { db, zone }): TOwn        // a dependência que é só deste módulo
-  register(app, deps: { entries, zone }, own: TOwn): void
+  provide?(ctx: { db, zone, vault }): TOwn // a dependência que é só deste módulo
+  register(app, deps: { zone }, own: TOwn): void
 }
 ```
 
 - **`provide`** existe para que um módulo novo não faça o saco comum
   (`ServerModuleDeps`) crescer um campo. O Requests constrói o próprio
-  `RequestStore` por aqui.
-- O **entries fica fora do `provide` de propósito**: o repositório dele é
-  construído no composition root, porque o teste do 501 injeta um diferente a
-  cada `buildApp`.
+  `RequestStore` por aqui, o entries o `EntryRepository` SQLite (card #29) e o
+  Tasks o `TaskStore`. O saco comum ficou só com a zona.
+- **O manifest decide a composição sozinho.** Nenhum módulo é construído fora do
+  laço, então um manifest sem o entries sobe (sem `no such table: entries`).
 - **`defineModule`** é a única porta para o manifest. `ServerModule<T>` é o tipo
   de *autoria* (amarra "declara `TOwn`" a "tem `provide`"); `AnyServerModule` é
   o tipo de *armazenamento*, alargado, e só `defineModule` produz a marca que
@@ -114,14 +114,16 @@ desligada não custa nada a ninguém.
 | `GET /entries?from&to` | lista, mais novo primeiro; `from`/`to` são dias `YYYY-MM-DD` | 400 período inválido · 501 filtro da Fase 2 |
 | `POST /entries` | grava uma `Entry` **já pronta** | 400 nomeando o campo |
 
-O `SqliteEntryRepository` (`adapters/`) não normaliza nem carimba nada: o
+O `sqliteEntryRepository` (`modules/entries/`) não normaliza nem carimba nada: o
 corpo chega normalizado e o id chega gerado, porque `createEntry` rodou no
 renderer. O que ele faz é traduzir o filtro de dias em limites de instante com
 `rangeBounds` do `@dailly/periods`, no fuso do processo.
 
-Ele mora em `adapters/` e não em `modules/entries/` porque implementa uma port
-do **pacote** `@dailly/domain`, não do módulo — o mesmo critério que põe o
-`http-entry-repository.ts` em `ui/src/adapters/`.
+Ele mora em `modules/entries/`, construído no `provide` do módulo, como o
+`sqliteRequestStore` e o `sqliteTaskStore`. Morava em `adapters/` e era montado
+no composition root porque o teste do 501 injetava outro a cada `buildApp`;
+esse teste agora monta as rotas sobre o repositório que recusa
+(`modules/entries/routes.test.ts`).
 
 ### `requests` — o cliente de API
 
@@ -175,9 +177,11 @@ As outras suítes do projeto:
 
 | Arquivo | Prova |
 |---|---|
-| `app.test.ts` | a superfície HTTP do entries, as recusas e o token |
+| `app.test.ts` | a superfície HTTP do entries, o 400 de validação e o token |
+| `entries-provide.test.ts` | o repositório do entries nasce no `provide`, e um manifest sem o entries sobe |
 | `composition.test.ts` | módulo entra pelo manifest, sua migration é a que roda, `/health` isento pela rota, `provide` |
 | `requests.test.ts` | a execução ponta a ponta contra um alvo local, e as pastas pela API |
 | `existing-database.test.ts` | o `v1.sqlite` sobe de versão sem reaplicar o que já rodou |
 | `boots-without-electron.test.ts` | `createServer` com socket de verdade, sem Electron |
-| `adapters/*.test.ts` · `modules/requests/*.test.ts` | os stores SQLite contra o contract test do pacote |
+| `modules/*/sqlite-*.test.ts` | os stores SQLite contra o contract test do pacote |
+| `modules/entries/routes.test.ts` | o 501 da Fase 2, com as rotas sobre um repositório que recusa |

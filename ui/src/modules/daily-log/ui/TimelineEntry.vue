@@ -2,7 +2,7 @@
 import type { Entry } from '@dailly/domain'
 import { timeOf, type TimeZone } from '@dailly/periods'
 import { computed } from 'vue'
-import { titleOf } from './timeline.js'
+import { titleOf } from '../model/timeline.js'
 
 const props = defineProps<{ entry: Entry; zone: TimeZone }>()
 

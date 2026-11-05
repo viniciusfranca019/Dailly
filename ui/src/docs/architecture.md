@@ -157,7 +157,8 @@ modules/daily-log/
     Composer.vue           ilha do whiteboard: monta mountWhiteboard num ref, lê toMarkdown()
     Timeline.vue           dias agrupados
     TimelineEntry.vue      um cartão: título e hora no fuso do servidor
-    timeline.ts            groupByDay · formatDay · titleOf (puro)
+  model/                   TypeScript puro, sem Vue
+    timeline.ts            groupByDay · formatDay · titleOf
     entry-date.ts          occurredAtFor · isLoggable (a política da data)
 ```
 

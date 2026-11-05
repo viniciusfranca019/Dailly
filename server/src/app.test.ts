@@ -1,4 +1,4 @@
-import { NotImplementedError, inMemoryEntryRepository, uuidIds } from '@dailly/domain'
+import { uuidIds } from '@dailly/domain'
 import { UTC } from '@dailly/periods'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { buildApp } from './shell/app.js'
@@ -10,8 +10,8 @@ import { openDatabase } from './shell/database.js'
  *
  * Um `:memory:` por chamada: este arquivo testa a superfície HTTP do entries e
  * do shell, e continua fazendo isso montando o manifesto **de verdade** — o
- * que é mais cobertura, não menos. O repositório de entries segue injetado,
- * que é do que o teste do 501 depende.
+ * que é mais cobertura, não menos. O repositório de entries é o SQLite do
+ * `provide` do módulo; o teste do 501 mora em `modules/entries/routes.test.ts`.
  */
 const withDb = <T extends object>(deps: T) => ({ ...deps, db: openDatabase(':memory:') })
 
@@ -33,7 +33,7 @@ describe('the HTTP surface', () => {
   let app: ReturnType<typeof buildApp>
 
   beforeEach(() => {
-    app = buildApp(withDb({ entries: inMemoryEntryRepository(), zone: UTC }))
+    app = buildApp(withDb({ zone: UTC }))
   })
 
   it('accepts an entry and gives it back created', async () => {
@@ -58,7 +58,7 @@ describe('the HTTP surface', () => {
   it('reports the zone, because the UI must always show it', async () => {
     // ADR 0007: "a UI sempre mostra qual zona está em uso". Only this process
     // knows — the zone is its environment variable.
-    const saoPaulo = buildApp(withDb({ entries: inMemoryEntryRepository(), zone: 'America/Sao_Paulo' }))
+    const saoPaulo = buildApp(withDb({ zone: 'America/Sao_Paulo' }))
 
     expect((await saoPaulo.inject({ method: 'GET', url: '/health' })).json()).toEqual({
       status: 'ok',
@@ -124,29 +124,6 @@ describe('the HTTP surface', () => {
       const response = await app.inject({ method: 'GET', url: '/entries?from=2026-07-01' })
       expect(response.statusCode).toBe(200)
     })
-
-    it('answers 501, not 500, when the store refuses something that is Fase 2', async () => {
-      // The distinction matters: 500 sends the reader hunting for a bug that
-      // does not exist. Driven through a store that refuses, because the route
-      // does not forward label filters yet — without this the mapping would be
-      // code no test ever reaches.
-      const refusing = buildApp(
-        withDb({
-          entries: {
-            ...inMemoryEntryRepository(),
-            list: async () => {
-              throw new NotImplementedError('filtrar por label')
-            },
-          },
-          zone: UTC,
-        }),
-      )
-
-      const response = await refusing.inject({ method: 'GET', url: '/entries' })
-
-      expect(response.statusCode).toBe(501)
-      expect(response.json().error).toContain('Fase 2')
-    })
   })
 
   describe('the token, which ADR 0008 put in Fase 1', () => {
@@ -154,7 +131,7 @@ describe('the HTTP surface', () => {
     let guarded: ReturnType<typeof buildApp>
 
     beforeEach(() => {
-      guarded = buildApp(withDb({ entries: inMemoryEntryRepository(), zone: UTC, token: TOKEN }))
+      guarded = buildApp(withDb({ zone: UTC, token: TOKEN }))
     })
 
     it('refuses a request with no token', async () => {

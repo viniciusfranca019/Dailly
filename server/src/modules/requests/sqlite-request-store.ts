@@ -19,22 +19,12 @@ interface FolderRow {
 }
 
 /**
- * O outro lado do `RequestStore`, sobre SQLite — e ele mora **dentro do
- * módulo**, ao contrário do `sqliteEntryRepository`.
+ * O outro lado do `RequestStore`, sobre SQLite, dentro do módulo e construído
+ * pelo `provide` dele, como o repositório do entries e o store do Tasks.
  *
- * A assimetria tem duas causas, e as duas são do caso e não do gosto.
- *
- * O adapter do entries foi para `adapters/` porque o composition root precisa
- * construí-lo, e importá-lo de dentro de `modules/` faria o shell conhecer um
- * módulo pelo nome — o que o C3 proíbe. Aqui o composition root **não** o
- * toca: quem o constrói é o `provide` do próprio módulo.
- *
- * E a propriedade que a ADR 0006, Emenda 2, registrou como custo lá — o
- * adapter lendo o schema privado de outro módulo, acoplamento que não carrega
- * import e que nenhuma regra vê — simplesmente não existe aqui. As tabelas
- * `requests` e `request_folders` são deste módulo, criadas pela migration
- * deste módulo, lidas pelo código deste módulo. Separá-los criaria de graça o
- * problema que lá foi aceito a contragosto.
+ * As tabelas `requests` e `request_folders` são deste módulo, criadas pela
+ * migration deste módulo e lidas pelo código deste módulo: nenhum outro
+ * módulo lê esse schema, e nenhum import do shell o alcança.
  */
 export function sqliteRequestStore({ db }: { db: Database }): RequestStore {
   /**

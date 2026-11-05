@@ -216,7 +216,7 @@ describe('C5: a seta do servidor só aponta para onde pode', () => {
     expect(illegalFromModule(from, '../../index.js')).toBe('index.js')
     // O manifest, que carrega todos os módulos.
     expect(illegalFromModule(from, '../../modules.js')).toBe('modules.js')
-    // O interior de outro módulo, e o adapter que saiu de dentro deles.
+    // O interior de outro módulo, e uma pasta do servidor fora do whitelist.
     expect(illegalFromModule(from, '../outro/validate.js')).toBe('modules/outro/validate.js')
     expect(illegalFromModule(from, '../../adapters/sqlite-entry-repository.js')).toBe(
       'adapters/sqlite-entry-repository.js',
@@ -250,7 +250,7 @@ describe('C5: a seta do servidor só aponta para onde pode', () => {
     // de entrada (`dev.ts`) são folhas — ninguém os importa, então eles não
     // podem fechar ciclo nenhum. Escopo largo demais aqui proibiria o
     // `boots-without-electron.test.ts`, que o C6 congelou.
-    const INTERIOR = ['shell/', 'modules/', 'adapters/']
+    const INTERIOR = ['shell/', 'modules/']
     const found = FILES.filter(
       (file) =>
         !file.path.endsWith('.test.ts') &&
@@ -267,9 +267,9 @@ describe('C5: a seta do servidor só aponta para onde pode', () => {
   it('fora de modules/, só o manifest importa um módulo', () => {
     // A regra valia só para `shell/` e isentava justamente o arquivo que fazia
     // o que ela proíbe: o composition root importava o adapter *através* do
-    // módulo. Com o adapter em `adapters/`, ela passa a valer para a árvore
-    // inteira, que é o que o C3 diz — "o shell não importa o módulo em lugar
-    // nenhum", não "nenhum arquivo sob shell/".
+    // módulo. Ela vale para a árvore inteira, que é o que o C3 diz — "o shell
+    // não importa o módulo em lugar nenhum", não "nenhum arquivo sob shell/".
+    // Desde o card #29 o composition root não constrói módulo nenhum.
     const found = FILES.filter(
       (file) => !file.path.startsWith('modules/') && file.path !== 'modules.ts',
     ).flatMap((file) =>

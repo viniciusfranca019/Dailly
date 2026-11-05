@@ -1,4 +1,3 @@
-import { sqliteEntryRepository } from './adapters/sqlite-entry-repository.js'
 import { MODULES } from './modules.js'
 import { buildApp } from './shell/app.js'
 import { resolveConfig, type ConfigInput, type ServerConfig } from './shell/config.js'
@@ -10,7 +9,6 @@ export { resolveConfig, InvalidTimeZoneError } from './shell/config.js'
 export type { ServerConfig, ConfigInput } from './shell/config.js'
 export { buildApp } from './shell/app.js'
 export { openDatabase } from './shell/database.js'
-export { sqliteEntryRepository } from './adapters/sqlite-entry-repository.js'
 export {
   MIGRATIONS,
   LATEST_VERSION,
@@ -49,18 +47,6 @@ export interface RunningServer {
  * coletadas *antes* de o arquivo ser aberto: um manifest inconsistente derruba
  * o boot sem ter escrito nada. Um boot que falha depois de aplicar metade do
  * schema é pior que um que não sobe.
- *
- * **Pressuposição do parâmetro `modules`, dita porque ela não é checada.** O
- * repositório de entries é construído aqui, incondicionalmente, fora do laço do
- * manifest — então a lista passada não determina sozinha a composição: ela
- * precisa conter o módulo entries, ou a tabela que o repositório lê não existe.
- * Violada, quem reclama é o SQLite (`no such table: entries`), não o contrato.
- *
- * **O `provide` já existe** — o Requests, que era o gatilho nomeado na ADR 0006,
- * Emenda 2, chegou e o construiu. O entries continua fora dele por escolha: o
- * teste do 501 injeta um repositório diferente a cada `buildApp`, e migrá-lo
- * tiraria essa injeção. Então esta pressuposição sobrevive, e sobrevive por um
- * motivo que não é mais "a saída não existe".
  */
 export async function createServer(
   input: ConfigInput,
@@ -72,11 +58,8 @@ export async function createServer(
   const migrations = collectMigrations(modules)
 
   const db = openDatabase(config.databaseFile, migrations)
-  const entries = sqliteEntryRepository({ db, zone: config.zone })
-
   const app = buildApp(
     {
-      entries,
       zone: config.zone,
       db,
       ...(config.token ? { token: config.token } : {}),
