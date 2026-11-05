@@ -61,7 +61,8 @@ function pickDay(event: Event): void {
   emit('update:day', chosen)
 }
 
-const backdated = computed(() => props.day !== props.maxDay)
+/** While correcting, the entry's day is always named, today included (C1). */
+const backdated = computed(() => props.editing || props.day !== props.maxDay)
 
 const boardHost = ref<HTMLElement | null>(null)
 const board = shallowRef<WhiteboardHandle | null>(null)
@@ -170,7 +171,12 @@ function confirmRemove(): void {
   emit('remove')
 }
 
-defineExpose({ clear, load })
+/** What is on the board now, canonical, to tell unsaved writing apart. */
+function markdown(): string {
+  return doc.value?.toMarkdown() ?? ''
+}
+
+defineExpose({ clear, load, markdown })
 
 let unsubscribe: (() => void) | undefined
 

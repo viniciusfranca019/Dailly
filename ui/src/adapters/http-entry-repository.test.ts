@@ -147,6 +147,13 @@ describe('httpEntryRepository', () => {
       expect(init?.body).toBeUndefined()
     })
 
+    it('a 404 on the collection stays the API error, not "registro não encontrado"', async () => {
+      const lost = () => respondWith({ error: 'Route GET:/api/entries not found' }, 404)
+      await expect(subject(lost()).list({})).rejects.toBeInstanceOf(ApiError)
+      await expect(subject(lost()).create(entry)).rejects.toBeInstanceOf(ApiError)
+      await expect(subject(lost()).list({})).rejects.toThrow('Route GET:/api/entries not found')
+    })
+
     it('reads one entry, and a 404 is null', async () => {
       expect(await subject(respondWith(entry)).getById(entry.id)).toEqual(entry)
       expect(await subject(respondWith({ error: 'registro não encontrado' }, 404)).getById(entry.id)).toBeNull()

@@ -269,3 +269,46 @@ describe('cancelling the correction', () => {
     expect((await entries.list({}))[0]?.body).toBe('Reunião com o time')
   })
 })
+
+describe('gate findings (iteration 1)', () => {
+  it('C1: the day of an entry from today is visible while correcting it', async () => {
+    const host = await mount(inMemoryEntryRepository([seed('Reunião com o time')]))
+    await open(host, 'Reunião com o time')
+    expect(at(host, 'backdated')?.textContent).toContain('16 de setembro de 2026')
+  })
+
+  it('does not discard unsaved writing when another entry is clicked', async () => {
+    const host = await mount(inMemoryEntryRepository([seed('Reunião com o time')]))
+    type(host, 'ideia nova que não salvei')
+    await settle()
+
+    await open(host, 'Reunião com o time')
+
+    expect(editorText(host)).toBe('ideia nova que não salvei')
+    expect(at(host, 'submit')!.textContent?.trim()).toBe('Registrar')
+    expect(at(host, 'error')?.textContent).toContain('salve ou cancele')
+  })
+
+  it('opening and saving without a change does not touch the entry', async () => {
+    const entries = inMemoryEntryRepository([seed('Reunião com o time')])
+    const host = await mount(entries)
+    await open(host, 'Reunião com o time')
+
+    await click(host, 'submit')
+
+    expect((await entries.list({}))[0]?.updatedAt).toBe(TODAY_AT)
+    expect(at(host, 'submit')!.textContent?.trim()).toBe('Registrar')
+  })
+
+  it('cancelling a new entry keeps the day that was picked', async () => {
+    const host = await mount(inMemoryEntryRepository([]))
+    const input = at<HTMLInputElement>(host, 'day-input')!
+    input.value = '2026-09-15'
+    input.dispatchEvent(new Event('change'))
+    await settle()
+
+    await click(host, 'cancel')
+
+    expect(at<HTMLInputElement>(host, 'day-input')!.value).toBe('2026-09-15')
+  })
+})

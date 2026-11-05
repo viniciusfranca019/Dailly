@@ -29,8 +29,11 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-02T20:30:00-03:00 }
   o abre no mesmo editor, com o corpo e o dia dele. "Salvar" ou Ctrl+S grava a correção,
   "Cancelar edição" volta para um registro novo sem gravar, e "Apagar" pede confirmação
   antes de tirar o registro da timeline.
-- Trocar o dia no calendário move o registro para o dia novo, ao meio-dia (a mesma regra
-  do composer). Sem trocar o dia, o registro guarda a hora que tinha.
+- Trocar o dia no calendário move o registro para o dia novo pela regra do composer: ao
+  meio-dia num dia anterior, na hora atual se o dia novo é hoje. Sem trocar o dia, o
+  registro guarda a hora que tinha, e abrir e salvar sem mudar nada não grava nada.
+- Clicar noutro registro com texto não salvo no editor não o descarta: a tela pede para
+  salvar ou cancelar antes.
 - Corpo apagado por inteiro é recusado com "o corpo da entrada é obrigatório". Se a API
   falha, a correção continua no editor. Se o registro foi apagado em outra aba, salvar ou
   apagar diz "registro não encontrado", volta para um registro novo e relê a timeline.

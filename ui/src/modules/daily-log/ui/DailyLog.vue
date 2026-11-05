@@ -48,7 +48,24 @@ function startNew(): void {
   day.value = today.value
 }
 
+/** Text on the board that is not saved anywhere: a new draft, or an edited correction. */
+function dirty(): boolean {
+  const board = composer.value?.markdown() ?? ''
+  return board !== (editing.value?.body ?? '') && board.trim() !== ''
+}
+
+/** "Cancelar edição" starts over; "Cancelar" on a new entry only empties it. */
+function cancel(): void {
+  if (editing.value) startNew()
+  else composer.value?.clear()
+}
+
 function open(entry: Entry): void {
+  // Never replace unsaved writing behind the person's back.
+  if (dirty()) {
+    error.value = 'salve ou cancele o que está no editor antes de abrir outro registro'
+    return
+  }
   error.value = null
   editing.value = entry
   day.value = dayOf(entry.occurredAt, props.deps.zone)
@@ -79,6 +96,12 @@ async function correct(entry: Entry, body: string): Promise<void> {
   // The instant moves only if the day did (RN5): opening and saving keeps the
   // hour the entry already had.
   const sameDay = day.value === dayOf(entry.occurredAt, props.deps.zone)
+  // Opening and saving without a change is a no-op: no request, no phantom
+  // `updatedAt`. The board is canonical, like the stored body.
+  if (sameDay && body === entry.body) {
+    startNew()
+    return
+  }
   await props.deps.updateEntry(entry.id, {
     body,
     ...(sameDay ? {} : { occurredAt: occurredAtFor(day.value, props.deps.now(), props.deps.zone) }),
@@ -149,7 +172,7 @@ onMounted(load)
     <nav class="flex items-center gap-2 px-6 py-4 text-sm text-[#747e8f]">
       <span>Diários</span>
       <span class="text-[#1e2638]">/</span>
-      <span class="text-gray-300">Novo Registro</span>
+      <span class="text-gray-300">{{ editing ? 'Corrigir Registro' : 'Novo Registro' }}</span>
     </nav>
 
     <div class="grid min-h-0 flex-1 grid-cols-1 gap-6 px-6 pb-6 xl:grid-cols-[minmax(0,1fr)_384px]">
@@ -162,7 +185,7 @@ onMounted(load)
           :max-day="today"
           :editing="editing !== null"
           @submit="save"
-          @cancel="startNew"
+          @cancel="cancel"
           @remove="remove"
         />
         <p

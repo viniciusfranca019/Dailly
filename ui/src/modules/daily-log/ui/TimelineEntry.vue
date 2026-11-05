@@ -40,9 +40,9 @@ const time = computed(() => timeOf(props.entry.occurredAt, props.zone))
       data-testid="entry-open"
       @click="emit('open', props.entry)"
     >
-      <p class="text-sm font-medium text-gray-200" data-testid="entry-title">
+      <span class="block text-sm font-medium text-gray-200" data-testid="entry-title">
         {{ titleOf(props.entry.body) }}
-      </p>
+      </span>
 
       <!--
         Labels are Fase 2 of the roadmap: `labelIds` is always empty today, so
@@ -50,15 +50,15 @@ const time = computed(() => timeOf(props.entry.occurredAt, props.zone))
         shape is decided (ADR 0002) and seeding fake tags would make a screenshot
         that promises something the product cannot do.
       -->
-      <ul v-if="props.entry.labelIds.length > 0" class="mt-1.5 flex flex-wrap gap-1">
-        <li
+      <span v-if="props.entry.labelIds.length > 0" class="mt-1.5 flex flex-wrap gap-1">
+        <span
           v-for="label in props.entry.labelIds"
           :key="label"
           class="rounded-full border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-400"
         >
           {{ label }}
-        </li>
-      </ul>
+        </span>
+      </span>
     </button>
   </li>
 </template>

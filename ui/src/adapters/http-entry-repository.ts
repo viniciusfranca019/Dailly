@@ -42,8 +42,20 @@ export const httpEntryRepository = ({
       if (error instanceof ApiError && error.status === 501) {
         throw new NotImplementedError(error.message)
       }
-      // One entry that is not there (card #33): never written, deleted in
-      // another tab, or the Entry of a task, which /entries does not serve.
+      throw error
+    }
+  }
+
+  /**
+   * One entry (card #33). A 404 here means that entry is not there: never
+   * written, deleted in another tab, or the Entry of a task, which /entries
+   * does not serve. Only here: a 404 on the collection is a wrong base URL or
+   * proxy, and must keep saying so.
+   */
+  const one = async (id: string, init: RequestInit = {}): Promise<unknown> => {
+    try {
+      return await request(`/entries/${encodeURIComponent(id)}`, init)
+    } catch (error) {
       if (error instanceof ApiError && error.status === 404) throw new EntryNotFoundError()
       throw error
     }
@@ -72,19 +84,19 @@ export const httpEntryRepository = ({
     },
 
     async update(id, patch) {
-      return (await request(`/entries/${encodeURIComponent(id)}`, {
+      return (await one(id, {
         method: 'PATCH',
         body: JSON.stringify(patch),
       })) as Entry
     },
 
     async delete(id) {
-      await request(`/entries/${encodeURIComponent(id)}`, { method: 'DELETE' })
+      await one(id, { method: 'DELETE' })
     },
 
     async getById(id) {
       try {
-        return (await request(`/entries/${encodeURIComponent(id)}`)) as Entry
+        return (await one(id)) as Entry
       } catch (error) {
         // Asking whether it exists is not a failure (the port's promise).
         if (error instanceof EntryNotFoundError) return null
