@@ -47,5 +47,6 @@ export {
   matchesType,
   normalizePropertyKey,
   parsePropertyValue,
+  propertyRefusal,
 } from './property.js'
 export type { PropertyDef, PropertyType, PropertyValue } from './property.js'

@@ -1,4 +1,4 @@
-import { uuidIds } from '@dailly/domain'
+import { parsePropertyValue, uuidIds } from '@dailly/domain'
 import { UTC } from '@dailly/periods'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { buildApp } from './shell/app.js'
@@ -89,5 +89,19 @@ describe('properties on an entry', () => {
 
     expect(response.statusCode).toBe(400)
     expect((await app.inject({ method: 'GET', url: `/entries/${entry.id}` })).json().props).toEqual({ horas: 7 })
+  })
+})
+
+describe('one refusal text (Law 2)', () => {
+  it('the API names a wrong value with the words the screen uses', async () => {
+    await define({ key: 'horas', type: 'number' })
+    await define({ key: 'dormiu', type: 'boolean' })
+    const response = await post(anEntry({ horas: 'abc', dormiu: 'talvez' }))
+    const screen = (key: string, type: 'number' | 'boolean', raw: string) =>
+      (parsePropertyValue(key, type, raw) as { error: string }).error
+    expect(response.json().errors.map((error: { message: string }) => error.message)).toEqual([
+      screen('horas', 'number', 'abc'),
+      screen('dormiu', 'boolean', 'talvez'),
+    ])
   })
 })

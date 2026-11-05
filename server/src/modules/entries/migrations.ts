@@ -71,6 +71,17 @@ export const ENTRIES_MIGRATIONS: readonly Migration[] = [
         key  TEXT PRIMARY KEY,
         type TEXT NOT NULL CHECK (type IN ('text', 'number', 'boolean'))
       );
+      -- The keys already stored get a definition from the JSON type of their
+      -- values: the API stored props as given before this, and an entry with
+      -- an undefined key could not be corrected. A null, object or array has
+      -- no type here and is left undefined; the first type seen for a key wins.
+      INSERT OR IGNORE INTO property_defs (key, type)
+        SELECT prop.key,
+               CASE prop.type WHEN 'integer' THEN 'number' WHEN 'real' THEN 'number'
+                              WHEN 'true' THEN 'boolean' WHEN 'false' THEN 'boolean'
+                              ELSE 'text' END
+          FROM entries, json_each(entries.props) AS prop
+         WHERE prop.type IN ('integer', 'real', 'true', 'false', 'text');
     `,
   },
 ]

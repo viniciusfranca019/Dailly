@@ -35,6 +35,7 @@ import { dayOf, type CalendarDay } from '@dailly/periods'
 const props = defineProps<{ deps: SharedDeps & DailyLogDeps }>()
 
 const composer = useTemplateRef<InstanceType<typeof Composer>>('composer')
+const propertyEditor = useTemplateRef<InstanceType<typeof PropertyEditor>>('propertyEditor')
 
 const entries = ref<Entry[]>([])
 const loading = ref(true)
@@ -98,6 +99,7 @@ async function addProp(rawKey: string, type: PropertyType, raw: string): Promise
     await loadDefs()
   }
   values.value = { ...values.value, [key]: parsed.value }
+  propertyEditor.value?.reset()
 }
 
 function dropProp(key: string): void {
@@ -294,7 +296,12 @@ async function save(body: string): Promise<void> {
     } catch (cause) {
       // On any other failure the correction stays on the board (C5).
       if (cause instanceof EntryNotFoundError) await lost()
-      else error.value = cause instanceof Error ? cause.message : 'não consegui salvar'
+      else {
+        // The timeline goes back to what the server has (RN7); the board keeps
+        // the correction, to fix and retry (C5 of card #33).
+        await load()
+        error.value = cause instanceof Error ? cause.message : 'não consegui salvar'
+      }
     } finally {
       saving.value = false
     }
@@ -352,7 +359,7 @@ onMounted(async () => {
           @remove="remove"
         />
         <LabelPicker :labels="labels" :chosen="chosen" @add="addLabel" @remove="dropLabel" />
-        <PropertyEditor :defs="defs" :values="values" @add="addProp" @remove="dropProp" />
+        <PropertyEditor ref="propertyEditor" :defs="defs" :values="values" @add="addProp" @remove="dropProp" />
         <p
           v-if="error"
           role="alert"
