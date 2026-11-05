@@ -51,7 +51,7 @@ inconsistente derruba o boot sem ter escrito nada.
 
 ```
 resolveConfig ─► assertManifest ─► collectMigrations ─► openDatabase(migrate)
-             ─► sqliteEntryRepository ─► buildApp(módulos) ─► listen
+             ─► buildApp(módulos, cada um com o seu provide) ─► listen
 ```
 
 - **Config** (`config.ts`): fuso inválido falha no boot com mensagem, não num

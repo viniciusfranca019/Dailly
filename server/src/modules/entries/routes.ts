@@ -1,6 +1,5 @@
-import { NotImplementedError } from '@dailly/domain'
+import { NotImplementedError, type EntryRepository } from '@dailly/domain'
 import type { FastifyInstance } from 'fastify'
-import type { EntryRepository } from '@dailly/domain'
 import { validateEntry, validateRange } from './validate.js'
 
 /**

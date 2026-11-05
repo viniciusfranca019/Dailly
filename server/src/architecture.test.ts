@@ -216,7 +216,7 @@ describe('C5: a seta do servidor só aponta para onde pode', () => {
     expect(illegalFromModule(from, '../../index.js')).toBe('index.js')
     // O manifest, que carrega todos os módulos.
     expect(illegalFromModule(from, '../../modules.js')).toBe('modules.js')
-    // O interior de outro módulo, e o adapter que saiu de dentro deles.
+    // O interior de outro módulo, e uma pasta do servidor fora do whitelist.
     expect(illegalFromModule(from, '../outro/validate.js')).toBe('modules/outro/validate.js')
     expect(illegalFromModule(from, '../../adapters/sqlite-entry-repository.js')).toBe(
       'adapters/sqlite-entry-repository.js',
