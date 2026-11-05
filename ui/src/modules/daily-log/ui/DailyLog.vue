@@ -4,7 +4,12 @@ import {
   findByName,
   nextColor,
   normalizeLabelName,
+  normalizePropertyKey,
+  parsePropertyValue,
   type Entry,
+  type PropertyDef,
+  type PropertyType,
+  type PropertyValue,
   type Label,
   type LabelColor,
 } from '@dailly/domain'
@@ -15,6 +20,7 @@ import Composer from './Composer.vue'
 import Timeline from './Timeline.vue'
 import LabelPicker from './LabelPicker.vue'
 import LabelManager from './LabelManager.vue'
+import PropertyEditor from './PropertyEditor.vue'
 import { formatDay } from '../model/timeline.js'
 import { occurredAtFor } from '../model/entry-date.js'
 import { dayOf, type CalendarDay } from '@dailly/periods'
@@ -55,11 +61,56 @@ const title = computed(() =>
 const labels = ref<Label[]>([])
 const chosen = ref<string[]>([])
 
+/** The property definitions (card #35), and the values the entry on the board carries. */
+const defs = ref<PropertyDef[]>([])
+const values = ref<Record<string, PropertyValue>>({})
+
+const sameProps = (a: Readonly<Record<string, unknown>>, b: Readonly<Record<string, unknown>>) =>
+  Object.keys(a).length === Object.keys(b).length && Object.entries(a).every(([key, value]) => b[key] === value)
+
+async function loadDefs(): Promise<void> {
+  try {
+    defs.value = await props.deps.properties.list()
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : 'não consegui carregar as propriedades'
+  }
+}
+
+/** A key defined on first use (C3), a value parsed by its type (C4); an empty key adds nothing (C5). */
+async function addProp(rawKey: string, type: PropertyType, raw: string): Promise<void> {
+  const key = normalizePropertyKey(rawKey)
+  if (key === null) return
+  const known = defs.value.find((def) => def.key === key)
+  const parsed = parsePropertyValue(key, known?.type ?? type, raw)
+  if ('error' in parsed) {
+    error.value = parsed.error
+    return
+  }
+  error.value = null
+  if (!known) {
+    try {
+      await props.deps.properties.define(key, type)
+    } catch (cause) {
+      error.value = cause instanceof Error ? cause.message : 'não consegui definir a propriedade'
+      await loadDefs()
+      return
+    }
+    await loadDefs()
+  }
+  values.value = { ...values.value, [key]: parsed.value }
+}
+
+function dropProp(key: string): void {
+  const { [key]: _gone, ...rest } = values.value
+  values.value = rest
+}
+
 /** Back to a new entry: empty board, no labels, today. */
 function startNew(): void {
   editing.value = null
   composer.value?.clear()
   chosen.value = []
+  values.value = {}
   day.value = today.value
 }
 
@@ -148,7 +199,7 @@ async function removeLabel(id: string): Promise<void> {
 function dirty(): boolean {
   const board = composer.value?.markdown() ?? ''
   const text = board !== (editing.value?.body ?? '') && board.trim() !== ''
-  return text || !sameSet(chosen.value, editing.value?.labelIds ?? [])
+  return text || !sameSet(chosen.value, editing.value?.labelIds ?? []) || !sameProps(values.value, editing.value?.props ?? {})
 }
 
 /** "Cancelar edição" starts over; "Cancelar" on a new entry only empties it. */
@@ -158,6 +209,7 @@ function cancel(): void {
     // The board and its labels, but not the day the person picked.
     composer.value?.clear()
     chosen.value = []
+    values.value = {}
   }
 }
 
@@ -171,6 +223,7 @@ function open(entry: Entry): void {
   editing.value = entry
   day.value = dayOf(entry.occurredAt, props.deps.zone)
   chosen.value = [...entry.labelIds]
+  values.value = { ...(entry.props as Record<string, PropertyValue>) }
   composer.value?.load(entry.body)
 }
 
@@ -200,7 +253,7 @@ async function correct(entry: Entry, body: string): Promise<void> {
   const sameDay = day.value === dayOf(entry.occurredAt, props.deps.zone)
   // Opening and saving without a change is a no-op: no request, no phantom
   // `updatedAt`. The board is canonical, like the stored body.
-  if (sameDay && body === entry.body && sameSet(chosen.value, entry.labelIds)) {
+  if (sameDay && body === entry.body && sameSet(chosen.value, entry.labelIds) && sameProps(values.value, entry.props)) {
     startNew()
     return
   }
@@ -208,6 +261,7 @@ async function correct(entry: Entry, body: string): Promise<void> {
     body,
     ...(sameDay ? {} : { occurredAt: occurredAtFor(day.value, props.deps.now(), props.deps.zone) }),
     labelIds: chosen.value,
+    props: values.value,
   })
   startNew()
   await load()
@@ -251,9 +305,11 @@ async function save(body: string): Promise<void> {
       body,
       occurredAt: occurredAtFor(day.value, props.deps.now(), props.deps.zone),
       labelIds: chosen.value,
+      props: values.value,
     })
     composer.value?.clear()
     chosen.value = []
+    values.value = {}
     now.value = props.deps.now()
     // Back to today after a successful register. The badge makes backdating
     // visible, but a badge is a mitigation and not a control: the next entry
@@ -270,7 +326,7 @@ async function save(body: string): Promise<void> {
 }
 
 onMounted(async () => {
-  await Promise.all([load(), loadLabels()])
+  await Promise.all([load(), loadLabels(), loadDefs()])
 })
 </script>
 
@@ -296,6 +352,7 @@ onMounted(async () => {
           @remove="remove"
         />
         <LabelPicker :labels="labels" :chosen="chosen" @add="addLabel" @remove="dropLabel" />
+        <PropertyEditor :defs="defs" :values="values" @add="addProp" @remove="dropProp" />
         <p
           v-if="error"
           role="alert"

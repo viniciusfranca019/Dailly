@@ -3,6 +3,7 @@ import { createEntry, sequentialIds, fixedClock, uuidIds } from '@dailly/domain'
 import { createServer, type RunningServer } from '../server/src/index.js'
 import { httpEntryRepository } from '../ui/src/adapters/http-entry-repository.js'
 import { httpLabelsClient } from '../ui/src/adapters/http-labels-client.js'
+import { httpPropertiesClient } from '../ui/src/adapters/http-properties-client.js'
 import { afterAll, describe, expect, it } from 'vitest'
 
 /**
@@ -49,6 +50,9 @@ entryRepositoryContract('httpEntryRepository against the real server', {
   make: () => makeOverTheWire(),
   label: async (repository, name) =>
     (await httpLabelsClient({ config: { baseUrl: servers.get(repository)! } }).create({ name, color: 'blue' })).id,
+  property: async (repository, key, type) => {
+    await httpPropertiesClient({ config: { baseUrl: servers.get(repository)! } }).define(key, type)
+  },
 })
 
 describe('the vertical slice, end to end', () => {

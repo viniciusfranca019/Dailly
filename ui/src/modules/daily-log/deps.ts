@@ -1,5 +1,5 @@
 import type { Entry, EntryCorrection, EntryFilter, NewEntry } from '@dailly/domain'
-import type { LabelsPort } from '@shared'
+import type { LabelsPort, PropertiesPort } from '@shared'
 
 /** O que é só do Daily Log: os use-cases de Entry. */
 export interface DailyLogDeps {
@@ -9,4 +9,6 @@ export interface DailyLogDeps {
   deleteEntry(id: string): Promise<void>
   /** The global labels (card #34). */
   labels: LabelsPort
+  /** The property definitions (card #35). */
+  properties: PropertiesPort
 }

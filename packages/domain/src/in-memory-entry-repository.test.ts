@@ -6,4 +6,5 @@ entryRepositoryContract('inMemoryEntryRepository', {
   make: () => inMemoryEntryRepository(),
   // The fake checks no label, so any id is one; the name is a readable id.
   label: async (_repository, name) => name,
+  property: async () => {},
 })

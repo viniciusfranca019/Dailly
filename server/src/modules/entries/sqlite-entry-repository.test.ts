@@ -35,6 +35,8 @@ entryRepositoryContract('sqliteEntryRepository', {
     files.get(repository)!.prepare('INSERT INTO labels (id, name, name_key, color) VALUES (?, ?, ?, ?)').run(id, name, name, 'blue')
     return id
   },
+  // The store does not check values against definitions; the routes do.
+  property: async () => {},
 })
 
 describe('sqliteEntryRepository beyond the contract', () => {

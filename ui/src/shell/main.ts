@@ -3,6 +3,7 @@ import { UTC } from '@dailly/periods'
 import { API_CONFIG } from '../adapters/api.js'
 import { httpEntryRepository } from '../adapters/http-entry-repository.js'
 import { httpLabelsClient } from '../adapters/http-labels-client.js'
+import { httpPropertiesClient } from '../adapters/http-properties-client.js'
 import { httpRequestsClient } from '../adapters/http-requests-client.js'
 import { httpTasksClient } from '../adapters/http-tasks-client.js'
 import { httpVaultClient } from '../adapters/http-vault-client.js'
@@ -49,6 +50,7 @@ async function boot(): Promise<void> {
           updateEntry: updateEntry({ entries, clock: systemClock }),
           deleteEntry: deleteEntry({ entries }),
           labels: httpLabelsClient({ config }),
+          properties: httpPropertiesClient({ config }),
         },
         requests: {
           requests: httpRequestsClient({ config }),
