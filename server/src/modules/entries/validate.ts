@@ -1,4 +1,4 @@
-import { matchesType, type Entry, type EntryPatch, type PropertyDef } from '@dailly/domain'
+import { matchesType, parsePropertyValue, type Entry, type EntryFilter, type EntryPatch, type PropertyDef, type PropertyValue } from '@dailly/domain'
 
 /**
  * What the API checks before letting something into the store.
@@ -154,4 +154,40 @@ export function checkProps(props: Readonly<Record<string, unknown>>, defs: reado
     if (!type) return [{ field: 'props', message: `${key} não tem tipo definido` }]
     return matchesType(type, value) ? [] : [{ field: 'props', message: `${key} ${reasons[type]}` }]
   })
+}
+
+/**
+ * The label and property half of the listing filter (card #36). Labels come
+ * as `labelIds=a,b`; each property as `props[key]=value`, read by the type of
+ * its key, so "7,5" is the number 7.5 and "sim" is true.
+ */
+export function parseFilter(
+  query: Record<string, unknown>,
+  defs: readonly PropertyDef[],
+): { filter: Pick<EntryFilter, 'labelIds' | 'props'> } | { errors: Invalid[] } {
+  const errors: Invalid[] = []
+  const filter: { labelIds?: string[]; props?: Record<string, PropertyValue> } = {}
+
+  if (query['labelIds'] !== undefined) {
+    const ids = typeof query['labelIds'] === 'string' ? query['labelIds'].split(',').filter((id) => id !== '') : []
+    if (ids.length === 0) errors.push({ field: 'labelIds', message: 'deve ser uma lista de ids separados por vírgula' })
+    else filter.labelIds = ids
+  }
+
+  const types = new Map(defs.map((def) => [def.key, def.type]))
+  for (const [name, raw] of Object.entries(query)) {
+    const match = /^props\[(.+)\]$/.exec(name)
+    if (!match) continue
+    const key = match[1]!
+    const type = types.get(key)
+    if (!type) {
+      errors.push({ field: 'props', message: `${key} não tem tipo definido` })
+      continue
+    }
+    const parsed = parsePropertyValue(key, type, typeof raw === 'string' ? raw : '')
+    if ('error' in parsed) errors.push({ field: 'props', message: parsed.error })
+    else filter.props = { ...filter.props, [key]: parsed.value }
+  }
+
+  return errors.length > 0 ? { errors } : { filter }
 }
