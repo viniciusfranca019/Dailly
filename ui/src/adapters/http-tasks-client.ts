@@ -1,4 +1,4 @@
-import type { Priority, StatusCategory, Task, TaskBoard, TaskStatus } from '@dailly/tasks-core'
+import { formatKey, type Priority, type StatusCategory, type Task, type TaskBoard, type TaskStatus } from '@dailly/tasks-core'
 import type { TasksPort } from '@shared'
 import type { ApiConfig } from './api.js'
 import { ApiError } from './errors.js'
@@ -80,6 +80,14 @@ export function httpTasksClient(deps: HttpTasksClientDeps): TasksPort {
         await call('/tasks', {
           method: 'POST',
           body: JSON.stringify({ title: input.title, statusId: input.statusId }),
+        }),
+      )
+    },
+    async move(key, placement) {
+      return parseTask(
+        await call(`/tasks/${formatKey(key)}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ statusId: placement.statusId, rank: placement.rank }),
         }),
       )
     },

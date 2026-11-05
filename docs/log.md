@@ -1,6 +1,7 @@
 # Directory Update Log
 
 ## 2026-11-05
+* **Creation**: [Tasks, board e a troca board/lista](/features/tasks-board.md), o F2 do [Tasks](/prd/tasks.md) (card #21).
 * **Creation**: [Tasks, capturar e listar](/features/tasks-capturar-e-listar.md), o F1 do [Tasks](/prd/tasks.md) (card #20).
 
 ## 2026-11-04

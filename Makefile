@@ -43,7 +43,7 @@ build-all: ## Builda com todos os módulos ligados por flag
 	VITE_ANALYSE=true VITE_REQUESTS=true VITE_TASKS=true pnpm --filter @dailly/ui build
 
 start: ## O app de verdade, no navegador, com o diário de verdade: http://localhost:4173
-	VITE_REQUESTS=true pnpm --filter @dailly/ui build
+	VITE_REQUESTS=true VITE_TASKS=true pnpm --filter @dailly/ui build
 	@mkdir -p $(dir $(APP_DB))
 	@$(MAKE) -j2 start-api start-ui
 

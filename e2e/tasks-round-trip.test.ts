@@ -1,4 +1,5 @@
 import { createEntry, fixedClock, uuidIds } from '@dailly/domain'
+import { placeAt } from '@dailly/tasks-core'
 import { afterAll, describe, expect, it } from 'vitest'
 import { createServer, type RunningServer } from '../server/src/index.js'
 import { httpEntryRepository } from '../ui/src/adapters/http-entry-repository.js'
@@ -53,5 +54,18 @@ describe('Tasks, end to end', () => {
     })
 
     expect((await entries.list({})).map((entry) => entry.body)).toEqual(['Registro do dia'])
+  })
+
+  it('#21 C1, C3: a drop computed by placeAt travels as PATCH and the board reads it back, stamped', async () => {
+    const { tasks } = await overTheWire()
+    await tasks.create({ title: 'um', statusId: 'todo' })
+    await tasks.create({ title: 'dois', statusId: 'done' })
+
+    const before = await tasks.board()
+    const moved = await tasks.move(1, placeAt(before, 1, 'done', 2))
+
+    const after = await tasks.board()
+    expect(moved.completedAt).toEqual(expect.any(String))
+    expect(after.tasks.filter((task) => task.statusId === 'done').map((task) => task.key)).toEqual([1, 2])
   })
 })

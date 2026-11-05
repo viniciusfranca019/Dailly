@@ -12,4 +12,4 @@ export type {
 export { ExecutionFailedError, MissingVariablesError } from './requests.js'
 export type { SecretSummary, VaultPort, VaultRefusal, VaultState } from './vault.js'
 export { LockedSecretsError, VaultRefusedError } from './vault.js'
-export type { NewTask, Task, TaskBoard, TaskStatus, TasksPort } from './tasks.js'
+export type { NewTask, Placement, Task, TaskBoard, TaskStatus, TasksPort } from './tasks.js'

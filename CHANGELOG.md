@@ -1,5 +1,5 @@
-version: 0.1.3
+version: 0.1.4
 
-- Tasks F1 (#20): lista de tarefas agrupada por status, captura por título no "+" de cada status, chave `T-<n>` que nunca é reaproveitada, atrás de `VITE_TASKS`.
-- A tarefa é uma Entry: `entries` ganha a coluna `kind` (migration 4, os registros existentes viram `log`), e a timeline do Daily Log mostra só os registros.
-- Pacote novo `@dailly/tasks-core` e o módulo `tasks` no servidor (migration 5: `task_statuses`, `tasks`, `task_counter`).
+- Tasks F2 (#21): o board kanban, com arrastar entre colunas e dentro delas (drag-and-drop nativo), o "concluída em <dia>" ao soltar em Feito ou Cancelado (RN3, no servidor) e a troca board/lista lembrada no navegador.
+- `PATCH /tasks/:key` com `statusId` e `rank`; a posição é calculada por `placeAt` no `@dailly/tasks-core`.
+- O Tasks passa a aparecer no `make start` (`VITE_TASKS=true` no alvo).

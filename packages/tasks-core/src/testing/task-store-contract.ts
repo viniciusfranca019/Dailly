@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_STATUSES, StatusNotFoundError, TitleRequiredError } from '../task.js'
+import { DEFAULT_STATUSES, InvalidRankError, StatusNotFoundError, TitleRequiredError } from '../task.js'
 import type { TaskStore } from '../task-store.js'
 
 /**
@@ -83,6 +83,43 @@ export function taskStoreContract(label: string, { make }: { make: () => TaskSto
         StatusNotFoundError,
       )
       expect((await store.create({ title: 'y', statusId: 'todo' })).key).toBe(1)
+    })
+
+    it('move: troca o status e a ordem, e o board lê a ordem nova (C1, C2)', async () => {
+      const store = make()
+      await store.create({ title: 'um', statusId: 'todo' })
+      await store.create({ title: 'dois', statusId: 'doing' })
+
+      const moved = await store.move(1, { statusId: 'doing', rank: 'z' })
+
+      expect(moved).toMatchObject({ key: 1, statusId: 'doing', rank: 'z' })
+      expect((await store.board()).tasks.map((task) => task.key)).toEqual([2, 1])
+    })
+
+    it('move: carimba ao entrar em concluída e apaga ao sair (RN3)', async () => {
+      const store = make()
+      await store.create({ title: 'um', statusId: 'doing' })
+
+      const done = await store.move(1, { statusId: 'done', rank: 'i' })
+      expect(done?.completedAt).toEqual(expect.any(String))
+
+      const back = await store.move(1, { statusId: 'doing', rank: 'i' })
+      expect(back?.completedAt).toBeNull()
+    })
+
+    it('move: devolve null para uma chave que não existe', async () => {
+      expect(await make().move(9, { statusId: 'todo', rank: 'i' })).toBeNull()
+    })
+
+    it('move: recusa status inexistente e rank mal formado, sem mudar nada', async () => {
+      const store = make()
+      const created = await store.create({ title: 'um', statusId: 'todo' })
+
+      await expect(store.move(1, { statusId: 'nope', rank: 'i' })).rejects.toThrow(StatusNotFoundError)
+      for (const rank of ['', 'a0', 'A', 'a-b']) {
+        await expect(store.move(1, { statusId: 'doing', rank })).rejects.toThrow(InvalidRankError)
+      }
+      expect((await store.board()).tasks).toEqual([created])
     })
   })
 }

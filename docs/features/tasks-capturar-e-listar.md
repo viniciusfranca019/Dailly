@@ -47,11 +47,10 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-05T12:00:00-03:00 }
 # Entregue
 
 No card #20 (F1 do [PRD do Tasks](/prd/tasks.md)), em 2026-11-05. Exige
-`VITE_TASKS=true`: está no `make dev-all`, e não no `make start`.
+`VITE_TASKS=true`, que o `make start` liga desde o [board](/features/tasks-board.md) (F2).
 
 # Limites
 
-- Só a lista: o board, arrastar e a troca de visualização são o F2 (#21).
 - Sem painel, edição ou apagar na tela; isso é o F3 (#22). A API já apaga
   (`DELETE /tasks/T-<n>`).
-- Prioridade e `completedAt` existem no dado, mas nada na tela os muda ainda.
+- A prioridade existe no dado, mas nada na tela a muda ainda; o `completedAt` muda pelo [board](/features/tasks-board.md).

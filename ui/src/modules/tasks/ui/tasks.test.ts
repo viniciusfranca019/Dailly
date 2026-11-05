@@ -15,6 +15,7 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 let app: App | undefined
 afterEach(() => {
+  localStorage.clear()
   app?.unmount()
   document.body.innerHTML = ''
 })
@@ -29,6 +30,11 @@ const storeWith = async (seed: readonly [string, string][] = []): Promise<TaskSt
 const portOver = (store: TaskStore, over: Partial<TasksPort> = {}): TasksPort => ({
   board: () => store.board(),
   create: (input) => store.create(input),
+  move: async (key, placement) => {
+    const moved = await store.move(key, placement)
+    if (!moved) throw new Error('tarefa não encontrada')
+    return moved
+  },
   ...over,
 })
 
@@ -62,6 +68,7 @@ async function typeAndConfirm(host: HTMLElement, value: string): Promise<void> {
 
 describe('C1: as tarefas aparecem agrupadas por status', () => {
   it('mostra cada tarefa sob o seu status, na lista', async () => {
+    localStorage.setItem('dailly.tasks.view', 'list')
     const host = await mount(portOver(await storeWith([['Comprar café', 'todo'], ['Ligar pro banco', 'doing']])))
 
     expect(rows(group(host, 'A fazer'))).toEqual([expect.stringContaining('Comprar café')])

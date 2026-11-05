@@ -26,8 +26,13 @@ export function testShellDeps(
   }
 }
 
-/** The screen's port over a store: the two calls the list makes. */
+/** The screen's port over a store: the calls the board and the list make. */
 const tasksOver = (store: ReturnType<typeof inMemoryTaskStore>) => ({
   board: () => store.board(),
   create: (input: Parameters<typeof store.create>[0]) => store.create(input),
+  move: async (key: number, placement: Parameters<typeof store.move>[1]) => {
+    const moved = await store.move(key, placement)
+    if (!moved) throw new Error('tarefa não encontrada')
+    return moved
+  },
 })

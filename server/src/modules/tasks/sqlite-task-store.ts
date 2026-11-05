@@ -1,5 +1,8 @@
 import {
+  InvalidRankError,
   StatusNotFoundError,
+  completionAfterMove,
+  isRank,
   normalizeTitle,
   rankBetween,
   type Priority,
@@ -89,6 +92,27 @@ export function sqliteTaskStore({ db, newId, now }: SqliteTaskStoreDeps): TaskSt
     return task
   })
 
+  const move = db.transaction((key: number, statusId: string, rank: string): Task | null => {
+    const current = db
+      .prepare(`${SELECT_TASKS} WHERE t.key = ?`)
+      .get(key) as TaskRow | undefined
+    if (!current) return null
+    const status = db.prepare('SELECT category FROM task_statuses WHERE id = ?').get(statusId) as
+      | { category: StatusCategory }
+      | undefined
+    if (!status) throw new StatusNotFoundError(statusId)
+    if (!isRank(rank)) throw new InvalidRankError(rank)
+
+    const completedAt = completionAfterMove(current.completed_at, status.category, now())
+    db.prepare('UPDATE tasks SET status_id = ?, rank = ?, completed_at = ? WHERE key = ?').run(
+      statusId,
+      rank,
+      completedAt,
+      key,
+    )
+    return toTask({ ...current, status_id: statusId, rank, completed_at: completedAt })
+  })
+
   return {
     async board() {
       const rows = db.prepare(`${SELECT_TASKS} ORDER BY s.position, t.rank`).all() as TaskRow[]
@@ -98,6 +122,10 @@ export function sqliteTaskStore({ db, newId, now }: SqliteTaskStoreDeps): TaskSt
     async create({ title, statusId }) {
       // Validated before the transaction, so a refusal costs no key.
       return create(normalizeTitle(title), statusId)
+    },
+
+    async move(key, { statusId, rank }) {
+      return move(key, statusId, rank)
     },
 
     async delete(key) {

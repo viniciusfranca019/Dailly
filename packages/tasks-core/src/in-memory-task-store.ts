@@ -1,7 +1,10 @@
+import { completionAfterMove } from './move.js'
 import { rankBetween } from './rank.js'
 import {
   DEFAULT_STATUSES,
+  InvalidRankError,
   StatusNotFoundError,
+  isRank,
   normalizeTitle,
   type Task,
   type TaskStatus,
@@ -52,6 +55,23 @@ export function inMemoryTaskStore({ newId, now }: InMemoryTaskStoreDeps): TaskSt
       }
       tasks.push(task)
       return task
+    },
+
+    async move(key, { statusId, rank }) {
+      const index = tasks.findIndex((task) => task.key === key)
+      if (index < 0) return null
+      const status = DEFAULT_STATUSES.find((candidate) => candidate.id === statusId)
+      if (!status) throw new StatusNotFoundError(statusId)
+      if (!isRank(rank)) throw new InvalidRankError(rank)
+      const current = tasks[index] as Task
+      const moved: Task = {
+        ...current,
+        statusId,
+        rank,
+        completedAt: completionAfterMove(current.completedAt, status.category, now()),
+      }
+      tasks[index] = moved
+      return moved
     },
 
     async delete(key) {

@@ -1,16 +1,20 @@
 <script setup lang="ts">
+import { placeAt } from '@dailly/tasks-core'
 import type { SharedDeps, TaskBoard } from '@shared'
 import { computed, onMounted, ref } from 'vue'
 import type { TasksDeps } from '../deps.js'
 import { firstToDo, groupByStatus } from '../model/list.js'
+import BoardColumn from './board/BoardColumn.vue'
 import StatusGroup from './list/StatusGroup.vue'
+import { useTasksView } from './view.js'
 
 /**
- * Tasks, F1: the list grouped by status and the capture under each "+".
+ * Tasks: the board and the list over the same read (RN4), and the capture
+ * under each "+".
  *
- * After a create the screen reads the board again instead of inserting the
- * task by hand: the server owns the key and the rank, and rereading is what
- * the Requests screen already does (PRD RN7).
+ * After every write the screen reads the board again instead of patching it
+ * by hand: the server owns the key, the rank and the RN3 stamp, and a refused
+ * write then shows what the server has, which is RN7 (the Requests rule).
  */
 const props = defineProps<{ deps: SharedDeps & TasksDeps }>()
 
@@ -19,12 +23,23 @@ type Read = { state: 'loading' } | { state: 'failed'; message: string } | { stat
 const read = ref<Read>({ state: 'loading' })
 /** The status whose capture is open, if any. */
 const composing = ref<string | null>(null)
+/** The last refused move, shown above the board until the next one. */
+const moveError = ref<string | null>(null)
+/**
+ * The card being dragged; HTML5 drag carries no state the board can trust.
+ * Cleared on the card's `dragend` too (it fires after the drop): a cancelled
+ * drag must not leave a key armed for the next thing dropped on a column.
+ */
+const grabbed = ref<number | null>(null)
+const { view, choose } = useTasksView()
+
+const message = (cause: unknown, fallback: string) => (cause instanceof Error ? cause.message : fallback)
 
 async function load(): Promise<void> {
   try {
     read.value = { state: 'ready', board: await props.deps.tasks.board() }
   } catch (cause) {
-    read.value = { state: 'failed', message: cause instanceof Error ? cause.message : 'não consegui ler as tarefas' }
+    read.value = { state: 'failed', message: message(cause, 'não consegui ler as tarefas') }
   }
 }
 
@@ -40,10 +55,23 @@ function inviteFirst(): void {
   composing.value = firstToDo(read.value.board)?.id ?? null
 }
 
-/** Throws on refusal, so the form keeps what was typed and shows why (C6). */
+/** Throws on refusal, so the form keeps what was typed and shows why (C6 of #20). */
 async function create(statusId: string, title: string): Promise<void> {
   await props.deps.tasks.create({ title, statusId })
   composing.value = null
+  await load()
+}
+
+async function drop(statusId: string, beforeKey: number | null): Promise<void> {
+  const key = grabbed.value
+  grabbed.value = null
+  if (key === null || key === beforeKey || read.value.state !== 'ready') return
+  moveError.value = null
+  try {
+    await props.deps.tasks.move(key, placeAt(read.value.board, key, statusId, beforeKey))
+  } catch (cause) {
+    moveError.value = message(cause, 'não consegui mover a tarefa')
+  }
   await load()
 }
 </script>
@@ -53,10 +81,23 @@ async function create(statusId: string, title: string): Promise<void> {
     <nav class="flex items-center gap-2 px-6 py-4 text-sm text-[#747e8f]">
       <span>Tasks</span>
       <span class="text-[#1e2638]">/</span>
-      <span class="text-gray-300">Lista</span>
+      <span class="text-gray-300">{{ view === 'board' ? 'Board' : 'Lista' }}</span>
+      <div class="ml-auto flex rounded-md border border-[#1e2638] p-0.5" role="group" aria-label="Visualização">
+        <button
+          v-for="option in (['board', 'list'] as const)"
+          :key="option"
+          type="button"
+          :aria-pressed="view === option ? 'true' : 'false'"
+          class="rounded px-2 py-0.5 text-xs"
+          :class="view === option ? 'bg-white/10 text-gray-100' : 'text-[#747e8f] hover:text-gray-200'"
+          @click="choose(option)"
+        >
+          {{ option === 'board' ? 'Board' : 'Lista' }}
+        </button>
+      </div>
     </nav>
 
-    <div class="min-h-0 flex-1 overflow-y-auto px-6 pb-6">
+    <div class="min-h-0 flex-1 overflow-auto px-6 pb-6">
       <p v-if="read.state === 'loading'" class="text-sm text-[#747e8f]">Carregando as tarefas…</p>
 
       <p
@@ -78,17 +119,44 @@ async function create(statusId: string, title: string): Promise<void> {
         </button>
       </div>
 
-      <div v-else class="flex flex-col gap-4">
-        <StatusGroup
-          v-for="group in groups"
-          :key="group.status.id"
-          :group="group"
-          :composing="composing === group.status.id"
-          :create="create"
-          @compose="composing = $event"
-          @cancel="composing = null"
-        />
-      </div>
+      <template v-else>
+        <p
+          v-if="moveError"
+          role="alert"
+          class="mb-3 rounded-md border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-300"
+        >
+          {{ moveError }}
+        </p>
+
+        <div v-if="view === 'board'" data-view="board" class="flex items-start gap-4">
+          <BoardColumn
+            v-for="group in groups"
+            :key="group.status.id"
+            :group="group"
+            :zone="deps.zone"
+            :composing="composing === group.status.id"
+            :create="create"
+            @compose="composing = $event"
+            @cancel="composing = null"
+            @grab="grabbed = $event"
+            @release="grabbed = null"
+            @drop="drop"
+          />
+        </div>
+
+        <div v-else data-view="list" class="flex flex-col gap-4">
+          <StatusGroup
+            v-for="group in groups"
+            :key="group.status.id"
+            :group="group"
+            :zone="deps.zone"
+            :composing="composing === group.status.id"
+            :create="create"
+            @compose="composing = $event"
+            @cancel="composing = null"
+          />
+        </div>
+      </template>
     </div>
   </div>
 </template>

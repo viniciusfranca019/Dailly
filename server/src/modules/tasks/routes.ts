@@ -1,4 +1,5 @@
 import {
+  InvalidRankError,
   StatusNotFoundError,
   TitleRequiredError,
   parseKey,
@@ -32,6 +33,31 @@ export function registerTaskRoutes(app: FastifyInstance, store: TaskStore): void
       }
       if (error instanceof StatusNotFoundError) {
         return reply.code(400).send({ errors: [{ field: 'statusId', message: error.message }] })
+      }
+      throw error
+    }
+  })
+
+  // The only move the board makes (card #21): a status and a rank, computed by
+  // the screen from the neighbours with `placeAt`. RN3 is the store's.
+  app.patch('/tasks/:key', async (request, reply) => {
+    const key = parseKey((request.params as { key: string }).key)
+    const body = request.body
+    if (!isRecord(body) || typeof body.statusId !== 'string' || typeof body.rank !== 'string') {
+      return reply.code(400).send({
+        errors: [{ field: '', message: 'o corpo deve ter statusId e rank, os dois texto' }],
+      })
+    }
+    try {
+      const moved = key === null ? null : await store.move(key, { statusId: body.statusId, rank: body.rank })
+      if (!moved) return reply.code(404).send({ error: 'tarefa não encontrada' })
+      return moved
+    } catch (error) {
+      if (error instanceof StatusNotFoundError) {
+        return reply.code(400).send({ errors: [{ field: 'statusId', message: error.message }] })
+      }
+      if (error instanceof InvalidRankError) {
+        return reply.code(400).send({ errors: [{ field: 'rank', message: error.message }] })
       }
       throw error
     }
