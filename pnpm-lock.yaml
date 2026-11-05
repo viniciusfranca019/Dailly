@@ -78,6 +78,9 @@ importers:
       '@dailly/requests-core':
         specifier: workspace:*
         version: link:../packages/requests-core
+      '@dailly/tasks-core':
+        specifier: workspace:*
+        version: link:../packages/tasks-core
       better-sqlite3:
         specifier: ^13.0.0
         version: 13.0.3

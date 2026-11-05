@@ -1,5 +1,6 @@
 import { entriesModule } from './modules/entries/index.js'
 import { requestsModule } from './modules/requests/index.js'
+import { tasksModule } from './modules/tasks/index.js'
 import { type AnyServerModule, defineModule } from './shell/module.js'
 import { vaultModule } from './modules/vault/index.js'
 
@@ -18,4 +19,5 @@ export const MODULES: readonly AnyServerModule[] = [
   defineModule(entriesModule),
   defineModule(requestsModule),
   defineModule(vaultModule),
+  defineModule(tasksModule),
 ]

@@ -12,7 +12,7 @@ describe('migrate', () => {
     expect(migrate(db)).toBe(LATEST_VERSION)
   })
 
-  it('creates the entries table with the columns ADR 0002 specified', () => {
+  it('creates the entries table with the columns ADR 0002 specified, plus the kind of Tasks', () => {
     const db = fresh()
     migrate(db)
 
@@ -21,7 +21,8 @@ describe('migrate', () => {
     )
 
     expect(columns.sort()).toEqual(
-      ['body', 'created_at', 'id', 'occurred_at', 'props', 'updated_at'].sort(),
+      // `kind` came with Tasks (PRD RN1, card #20): a task is an Entry too.
+      ['body', 'created_at', 'id', 'kind', 'occurred_at', 'props', 'updated_at'].sort(),
     )
   })
 

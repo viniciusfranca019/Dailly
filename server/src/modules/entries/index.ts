@@ -17,3 +17,5 @@ export const entriesModule: ServerModule = {
 
 export { validateEntry, validateRange } from './validate.js'
 export type { Invalid } from './validate.js'
+export { deleteEntryRow, insertEntryRow } from './rows.js'
+export type { EntryRow } from './rows.js'
