@@ -289,3 +289,54 @@ describe('gate findings (iteration 1)', () => {
     expect(at(host, 'submit')!.textContent?.trim()).toBe('Salvar')
   })
 })
+
+describe('gate findings (iteration 2)', () => {
+  it('a refused label delete keeps the label on the entry open on the board (C10)', async () => {
+    const entries = inMemoryEntryRepository([seed('e1', 'Reunião', ['work'])])
+    const labels = testLabelsPort([work])
+    const refusing: LabelsPort = {
+      ...labels,
+      delete: async () => {
+        throw new Error('não consegui falar com a API local')
+      },
+    }
+    const host = await mount(entries, refusing)
+    at<HTMLButtonElement>(host, 'entry-open')!.click()
+    await settle()
+
+    await click(host, 'label-delete')
+    await click(host, 'confirm-label-delete')
+    type(host, 'Reunião editada')
+    await settle()
+    await click(host, 'submit')
+
+    expect((await entries.list({}))[0]?.labelIds).toEqual(['work'])
+  })
+
+  it('a deleted label leaves the open entry clean, so another one opens (C8)', async () => {
+    const stored = inMemoryEntryRepository([seed('e1', 'primeiro', ['work']), seed('e2', 'segundo')])
+    const labels = testLabelsPort([work])
+    const cascading: LabelsPort = {
+      ...labels,
+      delete: async (id) => {
+        for (const entry of await stored.list({})) {
+          await stored.update(entry.id, { labelIds: entry.labelIds.filter((x) => x !== id), updatedAt: NOW })
+        }
+        return labels.delete(id)
+      },
+    }
+    const host = await mount(stored, cascading)
+    const open = async (title: string) => {
+      all(host, 'entry-open').find((b) => b.textContent?.includes(title))!.click()
+      await settle()
+    }
+    await open('primeiro')
+
+    await click(host, 'label-delete')
+    await click(host, 'confirm-label-delete')
+    await open('segundo')
+
+    expect(at(host, 'error')).toBeNull()
+    expect(at<HTMLElement>(host, 'board')!.textContent).toContain('segundo')
+  })
+})
