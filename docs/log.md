@@ -1,6 +1,7 @@
 # Directory Update Log
 
 ## 2026-11-05
+* **Update**: [Tasks](/prd/tasks.md) v2 refinado (`Refinado: sim`) em modo delegado: a P4 fecha em `task_comments`, e a F8 deixa de esperar a Fase 2, que já entrou.
 * **Update**: [Daily Log](/features/daily-log.md) filtra a timeline por labels e propriedades, a F4 da [Fase 2](/prd/daily-log-fase-2.md) (card #36), que fecha a fase.
 * **Update**: [Daily Log](/features/daily-log.md) ganha propriedades tipadas, a F3 da [Fase 2](/prd/daily-log-fase-2.md) (card #35).
 * **Update**: [Daily Log](/features/daily-log.md) ganha labels globais, a F2 da [Fase 2](/prd/daily-log-fase-2.md) (card #34).

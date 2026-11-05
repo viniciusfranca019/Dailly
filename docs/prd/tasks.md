@@ -3,8 +3,8 @@ type: PRD
 title: Tasks
 description: O módulo de tarefas do dailly, board kanban ou lista como no Linear, com cada tarefa sendo uma Entry, o átomo que projetos, épicos e programas vão agregar depois. A v2 traz vários boards com prefixo próprio, status configuráveis com cor, comentários, labels, busca com Ctrl+K e criação rápida.
 tags: [tasks, kanban, entries, prd]
-status: draft
-generated: { by: regulus/claude-opus-5-5, at: 2026-11-05T18:30:00-03:00 }
+status: stable
+generated: { by: regulus/claude-opus-5-5, at: 2026-11-05T23:30:00-03:00 }
 sources:
   - id: linear-concepts
     resource: https://linear.app/docs/conceptual-model
@@ -27,7 +27,8 @@ refinada em modo delegado, com as recomendações P1 a P3 aceitas e a regra de a
 status com tarefas aceita pelo dono. Ela acrescenta J5 a J11, RN9 a RN15 e F4 a F10,
 reescreve a RN5 e duas linhas do Fora de escopo, e não renumera nada do v1. O
 feedback 6, reordenar os módulos da barra lateral, é do shell e não entra aqui (Fora
-de escopo).
+de escopo). A P4, onde mora o comentário, foi fechada pela recomendação num segundo
+refinamento delegado (05/11): uma tabela `task_comments` do Tasks.
 
 ## Ficha
 
@@ -36,7 +37,7 @@ Tipo: feature
 Dono: Vinicius
 Porquê: o Vinicius anota o que tem a fazer fora do dailly, longe do diário e do Analyse, e quer as tarefas ao lado do dia, como átomos que depois se agrupam em projetos
 Métrica: dias úteis por semana com ao menos uma tarefa criada ou concluída no dailly hoje 0 → meta 5 de 5 nas 4 semanas depois de F2 entregue
-Refinado: não
+Refinado: sim
 ```
 
 ## Jornadas
@@ -188,7 +189,7 @@ F4: Vários boards          — cobre J5.1, J5.1a, J5.1b, J5.2, J5.3, J5.4, RN5,
 F5: Status do board        — cobre J6.1, J6.1a, J6.2, J6.3, J6.3a, J6.4, J6.4a, RN2, RN11, RN12 — depende de F4     → a criar
 F6: Painel redimensionável — cobre J7.1, J7.1a                                                    — depende de F3     → a criar
 F7: Comentários            — cobre J8.1, J8.1a, J8.1b, J8.2, RN14                                — depende de F3     → a criar
-F8: Labels                 — cobre J9.1, J9.2, J9.2a, J9.3, RN13                                 — depende de F3 e da F2 do Daily Log, Fase 2 → a criar
+F8: Labels                 — cobre J9.1, J9.2, J9.2a, J9.3, RN13                                 — depende de F3     → a criar
 F9: Busca com Ctrl+K       — cobre J10.1, J10.1a, J10.2, J10.2a, J10.3, RN15                     — depende de F4     → a criar
 F10: Criar rápido          — cobre J11.1, J11.1a, J11.2, J11.2a, J11.2b, RN15                    — depende de F4     → a criar
 ```
@@ -204,13 +205,8 @@ passa a partir dela. A F4 vem primeiro porque o board é o dono do status (F5), 
 (F9) e a criação rápida (F10) mostram e escolhem um board. A F6, a F7 e a F8 só dependem
 do painel do F3, que já está na `main`, e podem começar junto com a F4. A F9 e a F10
 dividem a costura de atalhos do shell: a que entrar primeiro cria a costura, e a outra a
-usa.
-
-## Refinamento
-
-```
-P4: Onde mora o comentário? A) uma Entry com kind 'comment', ligada à tarefa B) uma tabela do Tasks, task_comments, com o mesmo formato de corpo e o mesmo editor de blocos das Entries — recomendo B, porque a coluna kind nasceu com CHECK (kind IN ('log','task')), e o SQLite só muda um CHECK reconstruindo a tabela entries inteira, o que a Latitude manda parar; B entrega o mesmo molde na tela sem tocar no diário
-```
+usa. A Fase 2 do Daily Log acabou entrando antes (#37 a #40): as labels globais já
+existem, e a F8 só as aplica às tarefas.
 
 ---
 
@@ -316,14 +312,15 @@ O passo a passo é o de [Módulos](/conventions/modules.md), sem exceção:
 | Atalho de criar (P3) | `C` fora de campo de texto, como no Linear (RN15) | Ctrl+N, Ctrl+T e Ctrl+W, que o navegador toma antes da página |
 | Status com tarefas apagado | pede o destino e move antes (RN12, aceita pelo dono) | apagar junto, ou recusar sempre |
 | Atalho fora do Tasks | costura no shell: o manifesto do módulo contribui comandos | rota por URL (TAIL T1), maior que o pedido |
+| Onde mora o comentário (P4) | tabela `task_comments` do Tasks, com o formato de corpo e o editor de blocos das Entries (RN14) | Entry `kind='comment'`, que exige reconstruir `entries` para mudar o CHECK do `kind` (Latitude: paro) |
 
 **Os dados, para o refinamento dos cards.** As migrations pegam os próximos números
-livres do `user_version` (hoje 1 a 5 tomados).
+livres do `user_version` (hoje 1 a 7 tomados).
 
 | Onde | O quê |
 |------|-------|
 | `task_boards` (Tasks, F4) | `id`, `name`, `prefix` único, `counter`, e os prefixos já usados numa tabela própria para a RN9; semeada com "Tasks"/`T`, que herda o `task_counter` (RN10) |
 | `tasks` (Tasks, F4) | ganha `board_id` e `key_prefix`; a unicidade passa de `key` para `(board_id, key)`, o que reconstrói a tabela `tasks` mantendo toda linha (Latitude: decido) |
 | `task_statuses` (Tasks, F5) | ganha `board_id` e `color`; os cinco de hoje passam para o board "Tasks", e cada board novo é semeado com os cinco |
-| `labels`, `entry_labels` (Entries, F8) | os nomes que o `entries/migrations.ts` já reservou para a Fase 2; `Entry.labelIds` já existe no domínio e passa a ser gravado |
-| comentários (F7) | depende da P4 |
+| `labels`, `entry_labels` (Entries, F8) | já existem, da migration 6 da Fase 2 (#38); a tarefa é uma Entry, então a F8 grava em `entry_labels` sem tabela nova |
+| `task_comments` (Tasks, F7) | `id`, `entry_id` FK para a tarefa com `ON DELETE CASCADE`, `body` no formato de corpo das Entries, `created_at`; índice `(entry_id, created_at)` para a lista do painel |
