@@ -1,4 +1,3 @@
-import { inMemoryEntryRepository } from '@dailly/domain'
 import { UTC } from '@dailly/periods'
 import { randomBytes } from 'node:crypto'
 import Fastify, { type FastifyInstance } from 'fastify'
@@ -34,7 +33,6 @@ afterEach(async () => {
 
 const appWithVault = async (url = () => `${targetUrl}/eco`) => {
   const app = buildApp({
-    entries: inMemoryEntryRepository(),
     zone: UTC,
     db: openDatabase(':memory:'),
     secretKey: randomBytes(32).toString('base64'),
@@ -128,7 +126,6 @@ describe('gate: a execução e o cofre', () => {
   it('3 (major): uma linha do cofre alterada é 422 nomeado, não 500', async () => {
     const db = openDatabase(':memory:')
     const app = buildApp({
-      entries: inMemoryEntryRepository(),
       zone: UTC,
       db,
       secretKey: randomBytes(32).toString('base64'),
@@ -154,7 +151,7 @@ describe('gate: a execução e o cofre', () => {
   })
 
   it('4 (major): sem DAILLY_SECRET_KEY, uma request sem segredo executa normalmente', async () => {
-    const app = buildApp({ entries: inMemoryEntryRepository(), zone: UTC, db: openDatabase(':memory:') })
+    const app = buildApp({ zone: UTC, db: openDatabase(':memory:') })
     await app.inject({
       method: 'POST',
       url: '/requests',
@@ -169,7 +166,7 @@ describe('gate: a execução e o cofre', () => {
   it('nit: sem DAILLY_SECRET_KEY, a recusa diz o que falta em vez de pedir a senha', async () => {
     const db = openDatabase(':memory:')
     const key = randomBytes(32).toString('base64')
-    const withKey = buildApp({ entries: inMemoryEntryRepository(), zone: UTC, db, secretKey: key, kdf: { N: 2 ** 10, r: 8, p: 1 } })
+    const withKey = buildApp({ zone: UTC, db, secretKey: key, kdf: { N: 2 ** 10, r: 8, p: 1 } })
     await withKey.inject({ method: 'POST', url: '/vault', payload: { password: 'uma senha longa' } })
     await withKey.inject({ method: 'PUT', url: '/secrets/default/stripe_key', payload: { value: 'sk_live_123' } })
     await withKey.inject({
@@ -180,7 +177,7 @@ describe('gate: a execução e o cofre', () => {
         spec: { method: 'GET', url: `${targetUrl}/eco?k={{stripe_key}}`, headers: [], body: null, query: [], auth: null },
       },
     })
-    const noKey = buildApp({ entries: inMemoryEntryRepository(), zone: UTC, db })
+    const noKey = buildApp({ zone: UTC, db })
     const response = await execute(noKey)
     expect(response.statusCode).toBe(423)
     expect(response.json().error).toMatch(/DAILLY_SECRET_KEY/)

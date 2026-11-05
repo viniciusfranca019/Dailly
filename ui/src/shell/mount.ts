@@ -1,5 +1,6 @@
 import { assertManifest, findByRoute, type ModuleDescriptor, type VueModule } from '@shared'
 import { createApp, h, nextTick, ref, shallowRef, type App, type Component } from 'vue'
+import { arrange, readOrder, writeOrder } from './nav-order.js'
 import { depsFor, type ShellDeps } from './own-deps.js'
 import Shell from './Shell.vue'
 
@@ -24,6 +25,12 @@ export interface ShellOptions {
    * ADR 0010's open pendencies are plugins.
    */
   configure?(app: App): void
+  /**
+   * Where the sidebar order the person chose is kept. Injectable so a test does
+   * not share the browser's `localStorage` with the next one; a storage that is
+   * missing or throws only means the order lasts until the reload.
+   */
+  storage?: () => Storage | undefined
 }
 
 export interface ShellHandle {
@@ -52,7 +59,18 @@ export interface ShellHandle {
  */
 export async function mountShell(host: HTMLElement, options: ShellOptions): Promise<ShellHandle> {
   const { modules, deps, configure } = options
+  const storage = options.storage ?? (() => globalThis.localStorage)
   assertManifest(modules)
+
+  /**
+   * The sidebar's order, as ids. Display only: boot still opens the manifest's
+   * first module, and `go` still resolves routes against the manifest.
+   */
+  const order = ref(arrange(modules, readOrder(storage)).map((module) => module.id))
+  function reorder(next: string[]): void {
+    order.value = next
+    writeOrder(storage, next)
+  }
   const moduleDeps = depsFor(deps)
 
   const current = ref('')
@@ -188,7 +206,7 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
   const app = createApp({
     render: () =>
       h(Shell, {
-        modules,
+        modules: arrange(modules, order.value),
         zone: deps.shared.zone,
         deps: moduleDeps(findByRoute(modules, current.value)?.id ?? ''),
         current: current.value,
@@ -197,6 +215,7 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
         // `go` handles its own failures and never rejects, which is what makes
         // discarding the promise here safe rather than merely quiet.
         onNavigate: (route: string) => void go(route),
+        onReorder: reorder,
       }),
   })
 

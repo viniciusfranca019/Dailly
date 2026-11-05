@@ -33,3 +33,18 @@ const tasksOver = (store: ReturnType<typeof inMemoryTaskStore>) => ({
   update: (key: number, patch: Parameters<typeof store.update>[1]) => store.update(key, patch),
   delete: (key: number) => store.delete(key),
 })
+
+/** A storage in a Map, so no test sees another test's saved order. */
+export const memoryStorage = (seed: Record<string, string> = {}): Storage => {
+  const data = new Map(Object.entries(seed))
+  return {
+    get length() {
+      return data.size
+    },
+    clear: () => data.clear(),
+    getItem: (k) => data.get(k) ?? null,
+    key: (i) => [...data.keys()][i] ?? null,
+    removeItem: (k) => void data.delete(k),
+    setItem: (k, v) => void data.set(k, v),
+  }
+}

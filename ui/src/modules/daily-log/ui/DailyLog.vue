@@ -5,8 +5,8 @@ import type { DailyLogDeps } from '../deps.js'
 import { computed, onMounted, ref, useTemplateRef } from 'vue'
 import Composer from './Composer.vue'
 import Timeline from './Timeline.vue'
-import { formatDay } from './timeline.js'
-import { occurredAtFor } from './entry-date.js'
+import { formatDay } from '../model/timeline.js'
+import { occurredAtFor } from '../model/entry-date.js'
 import { dayOf, type CalendarDay } from '@dailly/periods'
 
 /**

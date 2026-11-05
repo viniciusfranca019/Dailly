@@ -9,9 +9,10 @@ diário de verdade (`make start`, ADR 0012).
 | Parte | O que é |
 |---|---|
 | `shell/` | o que não é de módulo nenhum: config, banco, runner de migrations, token, `/health` |
-| `modules/entries` | o Daily Log: `GET` e `POST /entries`, a tabela `entries` |
+| `modules/entries` | o Daily Log: `GET` e `POST /entries`, a tabela `entries` e o `sqliteEntryRepository`, que implementa a port de `@dailly/domain` |
 | `modules/requests` | o cliente de API: a coleção e `POST /requests/:id/execute` |
-| `adapters/` | `SqliteEntryRepository`, que implementa a port de `@dailly/domain` |
+| `modules/vault` | o cofre de segredos (ADR 0013) |
+| `modules/tasks` | as tarefas: `/tasks`, a faceta sobre a Entry |
 | `index.ts` | `createServer()`, o composition root — o que `dev.ts` e os testes chamam |
 
 ## Setup e comandos

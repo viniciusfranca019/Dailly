@@ -1,7 +1,6 @@
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { inMemoryEntryRepository } from '@dailly/domain'
 import { UTC } from '@dailly/periods'
 import Database from 'better-sqlite3'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -46,7 +45,7 @@ const fakeModule = (over: Partial<AnyServerModule> = {}): AnyServerModule =>
     ...over,
   } as unknown as Parameters<typeof defineModule<void>>[0])
 
-const deps = () => ({ entries: inMemoryEntryRepository(), zone: UTC })
+const deps = () => ({ zone: UTC })
 
 describe('C3: um módulo entra pelo manifest, não por import no shell', () => {
   it('responde na rota que o módulo registrou', async () => {
@@ -115,18 +114,10 @@ describe('C3: a migration do módulo é a que roda de verdade', () => {
     const file = join(dir, 'dailly.sqlite')
 
     server = await createServer({ databaseFile: file }, [
-      // O manifest de verdade entra junto, e isto é a pressuposição do
-      // `createServer` aparecendo à luz: ele constrói o `sqliteEntryRepository`
-      // incondicionalmente, fora do laço do manifest, então o parâmetro
-      // `modules` não determina sozinho a composição. Sem o entries na lista,
-      // quem reclama é o SQLite — `no such table: entries` — e não o contrato.
-      //
-      // Consequência para o C3: o cenário como aprovado ("um módulo registrado
-      // com id, migrations e register()... as rotas dele respondem") não é
-      // satisfazível só por `createServer`. A suíte o prende em dois pontos: a
-      // metade das rotas pelo `buildApp`, acima, onde o fake sobe sozinho; e a
-      // metade da migration aqui, onde ele sobe ao lado do manifest real.
-      // Registrado na ADR 0006, Emenda 2, com o gatilho que resolve.
+      // O manifest de verdade entra junto para a versão nova ficar acima da
+      // dele. Ele não é mais obrigatório: desde o card #29 nenhum módulo é
+      // montado fora do laço, e um manifest sem o entries sobe
+      // (`entries-provide.test.ts`, C4).
       ...MODULES,
       // A versão é derivada, não escrita à mão. `modules/entries/migrations.ts`
       // anuncia por extenso que `labels` e companhia "chegam como migration 2";
@@ -211,10 +202,9 @@ describe('o módulo traz a própria dependência, em vez de o contrato crescer u
    * requests, e vice-versa. É o tell da Lei 4: acrescentar um caso obriga a
    * editar algo que já funciona.
    *
-   * `provide` é opcional de propósito. O entries não tem: o repositório dele é
-   * construído pelo composition root e entregue no saco, porque o teste do 501
-   * em `app.test.ts` injeta um `entries` diferente a cada chamada e isso
-   * precisa continuar possível.
+   * `provide` é opcional de propósito: um módulo sem dependência própria (o
+   * fake deste arquivo) não precisa declarar um. Os quatro módulos de verdade
+   * declaram, o entries inclusive desde o card #29.
    */
   it('entrega ao módulo o que o provide dele devolveu', async () => {
     const proprio = { marca: 'só deste módulo' }

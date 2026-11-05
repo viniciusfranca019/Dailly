@@ -1,4 +1,3 @@
-import { inMemoryEntryRepository } from '@dailly/domain'
 import { UTC } from '@dailly/periods'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -96,7 +95,6 @@ const saved = (over: Partial<SavedRequest> = {}): SavedRequest => ({
  */
 const appWith = (token?: string) =>
   buildApp({
-    entries: inMemoryEntryRepository(),
     zone: UTC,
     db: openDatabase(':memory:'),
     ...(token ? { token } : {}),
@@ -502,7 +500,7 @@ describe('C4: um spec que nem é JSON não derruba a coleção', () => {
     // Era o pior dos dois: uma linha corrompida derrubava o `GET /requests`
     // inteiro, então a interface não conseguia nem mostrar o que apagar.
     const db = openDatabase(':memory:')
-    const app = buildApp({ entries: inMemoryEntryRepository(), zone: UTC, db })
+    const app = buildApp({ zone: UTC, db })
     corrupt(app, db)
 
     const response = await app.inject({ method: 'GET', url: '/requests' })
@@ -515,7 +513,7 @@ describe('C4: um spec que nem é JSON não derruba a coleção', () => {
 
   it('executar essa request é 422 nomeando-a, e não 500', async () => {
     const db = openDatabase(':memory:')
-    const app = buildApp({ entries: inMemoryEntryRepository(), zone: UTC, db })
+    const app = buildApp({ zone: UTC, db })
     corrupt(app, db)
 
     const response = await execute(app, {}, 'quebrada')

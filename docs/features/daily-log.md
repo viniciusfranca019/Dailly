@@ -40,7 +40,7 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-02T20:30:00-03:00 }
 
 - `ui/src/modules/daily-log/` (`DailyLog.vue`, `Composer.vue`, `Timeline.vue`),
   `ui/src/adapters/http-entry-repository.ts`
-- `server/src/modules/entries/`, `server/src/adapters/sqlite-entry-repository.ts`
+- `server/src/modules/entries/` (as rotas e o `sqlite-entry-repository.ts`, construído no `provide` do módulo)
 - `packages/domain/src/` (`create-entry.ts`, `query-entries.ts`, `entry-repository.ts`),
   `packages/periods/src/`
 - `e2e/entries-round-trip.test.ts` põe as duas metades da port uma contra a outra.
