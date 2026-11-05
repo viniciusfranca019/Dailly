@@ -30,9 +30,6 @@ export function testShellDeps(
 const tasksOver = (store: ReturnType<typeof inMemoryTaskStore>) => ({
   board: () => store.board(),
   create: (input: Parameters<typeof store.create>[0]) => store.create(input),
-  move: async (key: number, placement: Parameters<typeof store.move>[1]) => {
-    const moved = await store.move(key, placement)
-    if (!moved) throw new Error('tarefa não encontrada')
-    return moved
-  },
+  update: (key: number, patch: Parameters<typeof store.update>[1]) => store.update(key, patch),
+  delete: (key: number) => store.delete(key),
 })

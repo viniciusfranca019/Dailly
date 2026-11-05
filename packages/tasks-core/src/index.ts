@@ -9,14 +9,16 @@ export { completionAfterMove, placeAt } from './move.js'
 export type { Placement } from './move.js'
 export {
   DEFAULT_STATUSES,
+  InvalidPriorityError,
   InvalidRankError,
   PRIORITY_LABELS,
   StatusNotFoundError,
   TitleRequiredError,
   formatKey,
+  isPriority,
   isRank,
   normalizeTitle,
   parseKey,
 } from './task.js'
 export type { Priority, StatusCategory, Task, TaskStatus } from './task.js'
-export type { NewTask, TaskBoard, TaskStore } from './task-store.js'
+export type { NewTask, TaskBoard, TaskPatch, TaskStore } from './task-store.js'

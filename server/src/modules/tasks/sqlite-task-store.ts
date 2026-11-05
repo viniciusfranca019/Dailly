@@ -1,18 +1,21 @@
 import {
+  InvalidPriorityError,
   InvalidRankError,
   StatusNotFoundError,
   completionAfterMove,
+  isPriority,
   isRank,
   normalizeTitle,
   rankBetween,
   type Priority,
   type StatusCategory,
   type Task,
+  type TaskPatch,
   type TaskStatus,
   type TaskStore,
 } from '@dailly/tasks-core'
 import type { Database } from 'better-sqlite3'
-import { deleteEntryRow, insertEntryRow } from '../entries/index.js'
+import { deleteEntryRow, insertEntryRow, updateEntryRow } from '../entries/index.js'
 
 export interface SqliteTaskStoreDeps {
   readonly db: Database
@@ -37,6 +40,7 @@ interface TaskRow {
   readonly rank: string
   readonly completed_at: string | null
   readonly created_at: string
+  readonly body: string
 }
 
 const toTask = (row: TaskRow): Task => ({
@@ -48,11 +52,12 @@ const toTask = (row: TaskRow): Task => ({
   rank: row.rank,
   completedAt: row.completed_at,
   createdAt: row.created_at,
+  body: row.body,
 })
 
 const SELECT_TASKS = `
   SELECT t.entry_id AS id, t.key, t.title, t.status_id, t.priority, t.rank,
-         t.completed_at, e.created_at
+         t.completed_at, e.created_at, e.body
     FROM tasks t
     JOIN entries e ON e.id = t.entry_id
     JOIN task_statuses s ON s.id = t.status_id`
@@ -82,6 +87,7 @@ export function sqliteTaskStore({ db, newId, now }: SqliteTaskStoreDeps): TaskSt
       rank: rankBetween(undefined, top?.rank),
       completedAt: null,
       createdAt: at,
+      body: '',
     }
     // The body of the Entry is the task's description, empty at capture.
     insertEntryRow(db, { id: task.id, kind: 'task', body: '', occurredAt: at, createdAt: at, updatedAt: at })
@@ -92,25 +98,35 @@ export function sqliteTaskStore({ db, newId, now }: SqliteTaskStoreDeps): TaskSt
     return task
   })
 
-  const move = db.transaction((key: number, statusId: string, rank: string): Task | null => {
-    const current = db
-      .prepare(`${SELECT_TASKS} WHERE t.key = ?`)
-      .get(key) as TaskRow | undefined
+  const update = db.transaction((key: number, patch: TaskPatch): Task | null => {
+    const current = db.prepare(`${SELECT_TASKS} WHERE t.key = ?`).get(key) as TaskRow | undefined
     if (!current) return null
-    const status = db.prepare('SELECT category FROM task_statuses WHERE id = ?').get(statusId) as
-      | { category: StatusCategory }
-      | undefined
-    if (!status) throw new StatusNotFoundError(statusId)
-    if (!isRank(rank)) throw new InvalidRankError(rank)
+    // Every field is checked before the first write, so a refusal changes nothing.
+    const title = patch.title === undefined ? current.title : normalizeTitle(patch.title)
+    if (patch.priority !== undefined && !isPriority(patch.priority)) {
+      throw new InvalidPriorityError(patch.priority)
+    }
+    let placed = { status_id: current.status_id, rank: current.rank, completed_at: current.completed_at }
+    if (patch.placement) {
+      const { statusId, rank } = patch.placement
+      const status = db.prepare('SELECT category FROM task_statuses WHERE id = ?').get(statusId) as
+        | { category: StatusCategory }
+        | undefined
+      if (!status) throw new StatusNotFoundError(statusId)
+      if (!isRank(rank)) throw new InvalidRankError(rank)
+      placed = {
+        status_id: statusId,
+        rank,
+        completed_at: completionAfterMove(current.completed_at, status.category, now()),
+      }
+    }
+    const priority = patch.priority ?? current.priority
 
-    const completedAt = completionAfterMove(current.completed_at, status.category, now())
-    db.prepare('UPDATE tasks SET status_id = ?, rank = ?, completed_at = ? WHERE key = ?').run(
-      statusId,
-      rank,
-      completedAt,
-      key,
-    )
-    return toTask({ ...current, status_id: statusId, rank, completed_at: completedAt })
+    db.prepare(
+      'UPDATE tasks SET title = ?, priority = ?, status_id = ?, rank = ?, completed_at = ? WHERE key = ?',
+    ).run(title, priority, placed.status_id, placed.rank, placed.completed_at, key)
+    updateEntryRow(db, current.id, patch.body === undefined ? {} : { body: patch.body }, now())
+    return toTask({ ...current, ...placed, title, priority, body: patch.body ?? current.body })
   })
 
   return {
@@ -124,8 +140,8 @@ export function sqliteTaskStore({ db, newId, now }: SqliteTaskStoreDeps): TaskSt
       return create(normalizeTitle(title), statusId)
     },
 
-    async move(key, { statusId, rank }) {
-      return move(key, statusId, rank)
+    async update(key, patch) {
+      return update(key, patch)
     },
 
     async delete(key) {

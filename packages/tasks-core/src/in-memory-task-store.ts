@@ -2,8 +2,10 @@ import { completionAfterMove } from './move.js'
 import { rankBetween } from './rank.js'
 import {
   DEFAULT_STATUSES,
+  InvalidPriorityError,
   InvalidRankError,
   StatusNotFoundError,
+  isPriority,
   isRank,
   normalizeTitle,
   type Task,
@@ -52,26 +54,37 @@ export function inMemoryTaskStore({ newId, now }: InMemoryTaskStoreDeps): TaskSt
         rank: rankBetween(undefined, top?.rank),
         completedAt: null,
         createdAt: now(),
+        body: '',
       }
       tasks.push(task)
       return task
     },
 
-    async move(key, { statusId, rank }) {
+    async update(key, patch) {
       const index = tasks.findIndex((task) => task.key === key)
       if (index < 0) return null
-      const status = DEFAULT_STATUSES.find((candidate) => candidate.id === statusId)
-      if (!status) throw new StatusNotFoundError(statusId)
-      if (!isRank(rank)) throw new InvalidRankError(rank)
       const current = tasks[index] as Task
-      const moved: Task = {
-        ...current,
-        statusId,
-        rank,
-        completedAt: completionAfterMove(current.completedAt, status.category, now()),
+      const title = patch.title === undefined ? current.title : normalizeTitle(patch.title)
+      if (patch.priority !== undefined && !isPriority(patch.priority)) {
+        throw new InvalidPriorityError(patch.priority)
       }
-      tasks[index] = moved
-      return moved
+      let placed: Pick<Task, 'statusId' | 'rank' | 'completedAt'> = current
+      if (patch.placement) {
+        const { statusId, rank } = patch.placement
+        const status = DEFAULT_STATUSES.find((candidate) => candidate.id === statusId)
+        if (!status) throw new StatusNotFoundError(statusId)
+        if (!isRank(rank)) throw new InvalidRankError(rank)
+        placed = { statusId, rank, completedAt: completionAfterMove(current.completedAt, status.category, now()) }
+      }
+      const updated: Task = {
+        ...current,
+        ...placed,
+        title,
+        priority: patch.priority ?? current.priority,
+        body: patch.body ?? current.body,
+      }
+      tasks[index] = updated
+      return updated
     },
 
     async delete(key) {

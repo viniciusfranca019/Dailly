@@ -33,11 +33,8 @@ const storeWith = async (seed: readonly [string, string][] = []): Promise<TaskSt
 const portOver = (store: TaskStore, over: Partial<TasksPort> = {}): TasksPort => ({
   board: () => store.board(),
   create: (input) => store.create(input),
-  move: async (key, placement) => {
-    const moved = await store.move(key, placement)
-    if (!moved) throw new Error('tarefa não encontrada')
-    return moved
-  },
+  update: (key, patch) => store.update(key, patch),
+  delete: (key) => store.delete(key),
   ...over,
 })
 
@@ -129,7 +126,7 @@ describe('C4: gravação recusada volta o card (RN7)', () => {
   it('T-1 volta para "A fazer" e a mensagem do erro aparece', async () => {
     const host = await mount(
       portOver(await storeWith([['um', 'todo']]), {
-        move: async () => {
+        update: async () => {
           throw new Error('a API recusou a requisição')
         },
       }),
@@ -209,8 +206,8 @@ describe('a cancelled drag', () => {
 describe('a tie in the ranks, which two stale tabs can write', () => {
   it('shows the refusal and rereads the board instead of failing in silence', async () => {
     const store = await storeWith([['um', 'todo'], ['dois', 'todo'], ['três', 'todo']])
-    await store.move(1, { statusId: 'doing', rank: 'm' })
-    await store.move(2, { statusId: 'doing', rank: 'm' })
+    await store.update(1, { placement: { statusId: 'doing', rank: 'm' } })
+    await store.update(2, { placement: { statusId: 'doing', rank: 'm' } })
     let reads = 0
     const host = await mount(
       portOver(store, {

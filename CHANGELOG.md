@@ -1,5 +1,5 @@
-version: 0.1.4
+version: 0.1.5
 
-- Tasks F2 (#21): o board kanban, com arrastar entre colunas e dentro delas (drag-and-drop nativo), o "concluída em <dia>" ao soltar em Feito ou Cancelado (RN3, no servidor) e a troca board/lista lembrada no navegador.
-- `PATCH /tasks/:key` com `statusId` e `rank`; a posição é calculada por `placeAt` no `@dailly/tasks-core`.
-- O Tasks passa a aparecer no `make start` (`VITE_TASKS=true` no alvo).
+- Tasks F3 (#22): o painel da tarefa, aberto pelo card ou pela linha, para editar título, status, prioridade e o corpo no editor de blocos, salvar com Ctrl+S e apagar com confirmação.
+- `PATCH /tasks/:key` passa a aceitar qualquer subconjunto de `title`, `priority`, `body` e `statusId` com `rank`; o `TaskStore.move` do F2 virou `TaskStore.update`.
+- A tarefa traz o `body` da Entry no `GET /tasks`.

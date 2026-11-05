@@ -62,10 +62,23 @@ describe('Tasks, end to end', () => {
     await tasks.create({ title: 'dois', statusId: 'done' })
 
     const before = await tasks.board()
-    const moved = await tasks.move(1, placeAt(before, 1, 'done', 2))
+    const moved = await tasks.update(1, { placement: placeAt(before, 1, 'done', 2) })
 
     const after = await tasks.board()
-    expect(moved.completedAt).toEqual(expect.any(String))
+    expect(moved?.completedAt).toEqual(expect.any(String))
     expect(after.tasks.filter((task) => task.statusId === 'done').map((task) => task.key)).toEqual([1, 2])
+  })
+
+  it('#22 C2, C4, C6: the panel saves the fields and the body over the wire, deletes, and a gone task is null', async () => {
+    const { tasks } = await overTheWire()
+    await tasks.create({ title: 'um', statusId: 'todo' })
+
+    const saved = await tasks.update(1, { title: 'Comprar café', priority: 2, body: '- moído fino' })
+    expect((await tasks.board()).tasks[0]).toEqual(saved)
+    expect(saved).toMatchObject({ title: 'Comprar café', priority: 2, body: '- moído fino' })
+
+    expect(await tasks.delete(1)).toBe(true)
+    expect(await tasks.update(1, { title: 'x' })).toBeNull()
+    expect((await tasks.board()).tasks).toEqual([])
   })
 })

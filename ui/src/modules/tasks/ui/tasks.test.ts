@@ -30,11 +30,8 @@ const storeWith = async (seed: readonly [string, string][] = []): Promise<TaskSt
 const portOver = (store: TaskStore, over: Partial<TasksPort> = {}): TasksPort => ({
   board: () => store.board(),
   create: (input) => store.create(input),
-  move: async (key, placement) => {
-    const moved = await store.move(key, placement)
-    if (!moved) throw new Error('tarefa não encontrada')
-    return moved
-  },
+  update: (key, patch) => store.update(key, patch),
+  delete: (key) => store.delete(key),
   ...over,
 })
 

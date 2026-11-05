@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { placeAt } from '@dailly/tasks-core'
-import type { SharedDeps, TaskBoard } from '@shared'
+import type { SharedDeps, Task, TaskBoard } from '@shared'
 import { computed, onMounted, ref } from 'vue'
 import type { TasksDeps } from '../deps.js'
 import { firstToDo, groupByStatus } from '../model/list.js'
 import BoardColumn from './board/BoardColumn.vue'
+import type { Draft } from '../model/draft.js'
+import TaskPanel from './detail/TaskPanel.vue'
 import StatusGroup from './list/StatusGroup.vue'
 import { useTasksView } from './view.js'
 
@@ -32,6 +34,8 @@ const moveError = ref<string | null>(null)
  */
 const grabbed = ref<number | null>(null)
 const { view, choose } = useTasksView()
+/** The task whose panel is open (card #22). */
+const opened = ref<number | null>(null)
 
 const message = (cause: unknown, fallback: string) => (cause instanceof Error ? cause.message : fallback)
 
@@ -62,13 +66,64 @@ async function create(statusId: string, title: string): Promise<void> {
   await load()
 }
 
+const openedTask = computed(() =>
+  read.value.state === 'ready' ? read.value.board.tasks.find((task) => task.key === opened.value) : undefined,
+)
+/** Kept while the panel is open, so a task deleted elsewhere still has its panel to say so (C6). */
+const lastOpened = ref<Task | undefined>(undefined)
+const panelTask = computed(() => openedTask.value ?? (opened.value === null ? undefined : lastOpened.value))
+
+function open(key: number): void {
+  opened.value = key
+  lastOpened.value = read.value.state === 'ready' ? read.value.board.tasks.find((task) => task.key === key) : undefined
+}
+
+function close(): void {
+  opened.value = null
+  lastOpened.value = undefined
+}
+
+/**
+ * The panel's save: the edited fields, and a placement on top of the new
+ * status when the status changed (C8). The board is reread whatever happens
+ * (RN7), so a refused save leaves the card and the row as the server has them.
+ */
+async function save(key: number, draft: Draft): Promise<boolean> {
+  if (read.value.state !== 'ready') return false
+  const board = read.value.board
+  const current = board.tasks.find((task) => task.key === key)
+  const top = board.tasks.find((task) => task.statusId === draft.statusId && task.key !== key)?.key ?? null
+  try {
+    const saved = await props.deps.tasks.update(key, {
+      title: draft.title,
+      priority: draft.priority,
+      body: draft.body,
+      ...(current && current.statusId !== draft.statusId
+        ? { placement: placeAt(board, key, draft.statusId, top) }
+        : {}),
+    })
+    return saved !== null
+  } finally {
+    await load()
+  }
+}
+
+async function remove(key: number): Promise<void> {
+  await props.deps.tasks.delete(key)
+  close()
+  await load()
+}
+
 async function drop(statusId: string, beforeKey: number | null): Promise<void> {
   const key = grabbed.value
   grabbed.value = null
   if (key === null || key === beforeKey || read.value.state !== 'ready') return
   moveError.value = null
   try {
-    await props.deps.tasks.move(key, placeAt(read.value.board, key, statusId, beforeKey))
+    const moved = await props.deps.tasks.update(key, {
+      placement: placeAt(read.value.board, key, statusId, beforeKey),
+    })
+    if (!moved) moveError.value = 'tarefa não encontrada'
   } catch (cause) {
     moveError.value = message(cause, 'não consegui mover a tarefa')
   }
@@ -140,6 +195,7 @@ async function drop(statusId: string, beforeKey: number | null): Promise<void> {
             @cancel="composing = null"
             @grab="grabbed = $event"
             @release="grabbed = null"
+            @open="open"
             @drop="drop"
           />
         </div>
@@ -154,9 +210,20 @@ async function drop(statusId: string, beforeKey: number | null): Promise<void> {
             :create="create"
             @compose="composing = $event"
             @cancel="composing = null"
+            @open="open"
           />
         </div>
       </template>
+
+      <TaskPanel
+        v-if="panelTask && read.state === 'ready'"
+        :key="panelTask.key"
+        :task="panelTask"
+        :statuses="read.board.statuses"
+        :save="(draft: Draft) => save(panelTask!.key, draft)"
+        :remove="() => remove(panelTask!.key)"
+        @close="close"
+      />
     </div>
   </div>
 </template>

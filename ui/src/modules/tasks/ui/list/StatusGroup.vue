@@ -12,7 +12,7 @@ const props = defineProps<{
   composing: boolean
   create: (statusId: string, title: string) => Promise<void>
 }>()
-const emit = defineEmits<{ compose: [statusId: string]; cancel: [] }>()
+const emit = defineEmits<{ compose: [statusId: string]; cancel: []; open: [key: number] }>()
 
 const createHere = (title: string) => props.create(props.group.status.id, title)
 </script>
@@ -38,6 +38,7 @@ const createHere = (title: string) => props.create(props.group.status.id, title)
         :key="task.id"
         :task="task"
         :completion="completionLabel(task.completedAt, zone)"
+        @open="emit('open', $event)"
       />
     </ul>
   </section>

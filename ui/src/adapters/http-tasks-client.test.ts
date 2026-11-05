@@ -12,6 +12,7 @@ const task = {
   rank: 'i',
   completedAt: null,
   createdAt: '2026-11-05T12:00:00.000Z',
+  body: '',
 }
 const status = { id: 'todo', name: 'A fazer', category: 'unstarted', position: 1 }
 
@@ -59,5 +60,36 @@ describe('httpTasksClient', () => {
       }) as unknown as typeof fetch,
     })
     await expect(client.create({ title: 'x', statusId: 'todo' })).rejects.toThrow(ApiUnreachableError)
+  })
+
+  it('patches only the fields given, placement as statusId and rank', async () => {
+    const seen: { url?: string; init?: RequestInit } = {}
+    const client = httpTasksClient({ config, fetch: answering(200, task, seen) })
+
+    await client.update(1, { priority: 2, placement: { statusId: 'doing', rank: 'm' } })
+
+    expect(seen.url).toBe('/api/tasks/T-1')
+    expect(seen.init?.method).toBe('PATCH')
+    expect(JSON.parse(seen.init?.body as string)).toEqual({ priority: 2, statusId: 'doing', rank: 'm' })
+  })
+
+  it('answers null to a patch and false to a delete when the task is gone (404)', async () => {
+    const gone = httpTasksClient({ config, fetch: answering(404, { error: 'tarefa não encontrada' }) })
+    expect(await gone.update(9, { title: 'x' })).toBeNull()
+    expect(await gone.delete(9)).toBe(false)
+  })
+
+  it('deletes by key', async () => {
+    const seen: { url?: string; init?: RequestInit } = {}
+    const client = httpTasksClient({
+      config,
+      fetch: (async (url: string, init?: RequestInit) => {
+        seen.url = url
+        seen.init = init
+        return new Response(null, { status: 204 })
+      }) as unknown as typeof fetch,
+    })
+    expect(await client.delete(2)).toBe(true)
+    expect([seen.url, seen.init?.method]).toEqual(['/api/tasks/T-2', 'DELETE'])
   })
 })

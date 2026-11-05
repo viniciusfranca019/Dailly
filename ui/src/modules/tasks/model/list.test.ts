@@ -11,6 +11,7 @@ const task = (key: number, statusId: string): Task => ({
   rank: 'i',
   completedAt: null,
   createdAt: '2026-11-05T12:00:00.000Z',
+  body: '',
 })
 
 describe('groupByStatus', () => {
