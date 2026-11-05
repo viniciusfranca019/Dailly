@@ -1,4 +1,3 @@
-version: 0.1.13
+version: 0.1.14
 
-- Daily Log, Fase 2, F4 (#36): filtrar a timeline. As labels ligadas somam (OU), cada propriedade restringe (E); "Limpar filtro" volta tudo, e um filtro vazio diz "nenhum registro com esse filtro". Fecha a Fase 2.
-- `GET /entries` aceita `labelIds=a,b` e `props[chave]=valor`, lido pelo tipo da chave; o SQLite filtra de verdade em vez de responder 501.
+- PRD do Tasks v2 refinado (`Refinado: sim`): a P4 fecha pela recomendação, o comentário mora numa tabela `task_comments` do Tasks, e a F8 (labels nas tarefas) passa a depender só do F3, já que a Fase 2 do Daily Log entrou. As fatias F4 a F10 viram cards depois do merge.
