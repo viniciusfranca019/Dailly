@@ -12,6 +12,7 @@ tem passo de build — quem consome importa o `src/` direto.
 | `@dailly/domain` | o Daily Log: `Entry`, a port `EntryRepository`, os use-cases | `createEntry` · `queryEntries` · `Clock` · `IdGenerator` · `/testing` |
 | `@dailly/periods` | o tempo: instante + fuso → dia do calendário, e volta | `dayOf` · `timeOf` · `dayBounds` · `rangeBounds` · `atNoon` |
 | `@dailly/requests-core` | o Requests: curl → `ProtocolSpec` → requisição literal | `ProtocolRegistry` · `resolve` · `RequestStore` · `/http` · `/testing` |
+| `@dailly/tasks-core` | o Tasks: a tarefa, os status, a chave `T-<n>` e a ordem manual | `rankBetween` · `normalizeTitle` · `TaskStore` · `/testing` |
 
 O único acoplamento entre eles: `@dailly/domain` depende de
 `@dailly/whiteboard-core`, porque `createEntry` normaliza o corpo com o parser
