@@ -1,4 +1,4 @@
-version: 0.1.12
+version: 0.1.13
 
-- Daily Log, Fase 2, F3 (#35): propriedades. "+ propriedade" sugere as chaves com o tipo; uma chave nova escolhe o tipo uma vez (texto, número ou sim/não), e o valor é conferido por ele. A timeline mostra "chave: valor".
-- Migration 7: `property_defs`. Rotas `GET` e `POST /property-defs`; `POST` e `PATCH /entries` recusam chave sem tipo ou valor fora do tipo.
+- Daily Log, Fase 2, F4 (#36): filtrar a timeline. As labels ligadas somam (OU), cada propriedade restringe (E); "Limpar filtro" volta tudo, e um filtro vazio diz "nenhum registro com esse filtro". Fecha a Fase 2.
+- `GET /entries` aceita `labelIds=a,b` e `props[chave]=valor`, lido pelo tipo da chave; o SQLite filtra de verdade em vez de responder 501.

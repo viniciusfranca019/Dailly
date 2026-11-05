@@ -1,5 +1,5 @@
 import { entryRepositoryContract } from '@dailly/domain/testing'
-import { EntryNotFoundError, NotImplementedError } from '@dailly/domain'
+import { EntryNotFoundError } from '@dailly/domain'
 import { UTC } from '@dailly/periods'
 import { describe, expect, it } from 'vitest'
 import Database from 'better-sqlite3'
@@ -82,11 +82,16 @@ describe('sqliteEntryRepository beyond the contract', () => {
     expect(found?.props).toEqual({ humor: 'bom', horas: 3, ok: true })
   })
 
-  it('refuses a label filter instead of quietly returning everything', async () => {
-    // There is no entry_labels table until Fase 2. Ignoring the filter would
-    // return too much, which looks like working software.
+  it('C6: a property filter reads the value in its JSON type', async () => {
+    // The contract filters text, number and yes/no; this pins the yes/no
+    // mapping, since json_extract answers a JSON true as the integer 1.
     const entries = make()
-    await expect(entries.list({ labelIds: ['ideia'] })).rejects.toThrow(NotImplementedError)
+    const at = '2026-07-24T10:00:00.000Z'
+    const base = { occurredAt: at, createdAt: at, updatedAt: at, labelIds: [] }
+    await entries.create({ ...base, id: 'yes', body: 'dormiu', props: { dormiu: true } })
+    await entries.create({ ...base, id: 'no', body: 'não dormiu', props: { dormiu: false } })
+
+    expect((await entries.list({ props: { dormiu: false } })).map((entry) => entry.id)).toEqual(['no'])
   })
 
   it('C9: reads, updates and deletes only day logs, never the Entry of a task (RN6)', async () => {

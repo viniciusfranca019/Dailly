@@ -171,6 +171,24 @@ export function entryRepositoryContract(name: string, { make, label, property }:
       expect((await entries.getById(written.id))?.props).toEqual({ horas: 7.5 })
     })
 
+    it('filters by labels with OR, and by properties with AND (card #36, RN4)', async () => {
+      const entries = await make()
+      const work = await label(entries, 'trabalho')
+      const health = await label(entries, 'saúde')
+      await property(entries, 'humor', 'text')
+      await property(entries, 'horas', 'number')
+      await property(entries, 'dormiu', 'boolean')
+      await entries.create(entry('só trabalho', '2026-07-24T10:00:00.000Z', { labelIds: [work], props: { humor: 'bom' } }))
+      await entries.create(entry('só saúde', '2026-07-23T10:00:00.000Z', { labelIds: [health], props: { humor: 'ruim' } }))
+      await entries.create(entry('sem label', '2026-07-22T10:00:00.000Z', { props: { humor: 'bom', horas: 7.5, dormiu: true } }))
+
+      expect(bodies(await entries.list({ labelIds: [work] }))).toEqual(['corpo de só trabalho'])
+      expect(bodies(await entries.list({ labelIds: [work, health] }))).toEqual(['corpo de só trabalho', 'corpo de só saúde'])
+      expect(bodies(await entries.list({ labelIds: [work, health], props: { humor: 'bom' } }))).toEqual(['corpo de só trabalho'])
+      expect(bodies(await entries.list({ props: { horas: 7.5, dormiu: true } }))).toEqual(['corpo de sem label'])
+      expect(await entries.list({ labelIds: [work], props: { humor: 'ruim' } })).toEqual([])
+    })
+
     it('finds an entry by id, and answers null for an unknown one', async () => {
       const entries = await make()
       const written = entry('achada', '2026-07-24T10:00:00.000Z')

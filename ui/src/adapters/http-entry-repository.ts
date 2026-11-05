@@ -1,5 +1,5 @@
 import type { Entry, EntryFilter, EntryRepository } from '@dailly/domain'
-import { EntryNotFoundError, NotImplementedError } from '@dailly/domain'
+import { EntryNotFoundError, NotImplementedError, formatPropertyValue, type PropertyValue } from '@dailly/domain'
 import type { ApiConfig } from './api.js'
 import { ApiError } from './errors.js'
 import { httpClient } from './http.js'
@@ -73,10 +73,11 @@ export const httpEntryRepository = ({
       const query = new URLSearchParams()
       if (filter.from) query.set('from', filter.from)
       if (filter.to) query.set('to', filter.to)
-      if (filter.labelIds?.length || (filter.props && Object.keys(filter.props).length > 0)) {
-        // Refuse here rather than send a filter the API would ignore: silently
-        // returning everything looks like working software.
-        throw new NotImplementedError('filtrar por label ou propriedade')
+      // Labels with OR and properties with AND (card #36). Each value goes the
+      // way a person writes it ("7,5", "sim"); the API reads it by its key's type.
+      if (filter.labelIds?.length) query.set('labelIds', filter.labelIds.join(','))
+      for (const [key, value] of Object.entries(filter.props ?? {})) {
+        query.set(`props[${key}]`, formatPropertyValue(value as PropertyValue))
       }
 
       const suffix = query.size > 0 ? `?${query}` : ''

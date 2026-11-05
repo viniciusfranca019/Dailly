@@ -105,13 +105,16 @@ describe('httpEntryRepository', () => {
       await expect(subject(fetch).list({})).rejects.toBeInstanceOf(NotImplementedError)
     })
 
-    it('refuses a label filter before spending a request on it', async () => {
+    it('C6: puts labels and properties on the query string (card #36)', async () => {
       const fetch = respondWith([])
 
-      await expect(subject(fetch).list({ labelIds: ['ideia'] })).rejects.toBeInstanceOf(
-        NotImplementedError,
-      )
-      expect(fetch).not.toHaveBeenCalled()
+      await subject(fetch).list({ labelIds: ['a', 'b'], props: { humor: 'bom', horas: 7.5, dormiu: true } })
+
+      const url = new URL(fetch.mock.calls[0]![0] as string, 'http://x')
+      expect(url.searchParams.get('labelIds')).toBe('a,b')
+      expect(url.searchParams.get('props[humor]')).toBe('bom')
+      expect(url.searchParams.get('props[horas]')).toBe('7,5')
+      expect(url.searchParams.get('props[dormiu]')).toBe('sim')
     })
   })
 

@@ -1,6 +1,6 @@
 import { EntryNotFoundError, NotImplementedError, type EntryRepository } from '@dailly/domain'
 import type { FastifyInstance } from 'fastify'
-import { checkProps, validateEntry, validatePatch, validateRange } from './validate.js'
+import { checkProps, parseFilter, validateEntry, validatePatch, validateRange } from './validate.js'
 import type { PropertyDef } from '@dailly/domain'
 
 /**
@@ -26,18 +26,22 @@ export function registerEntryRoutes(
   propertyDefs: () => readonly PropertyDef[],
 ): void {
   app.get('/entries', async (request, reply) => {
-    const query = request.query as { from?: unknown; to?: unknown }
-    const errors = validateRange(query)
-    if (errors.length > 0) return reply.code(400).send({ errors })
+    const query = request.query as Record<string, unknown> & { from?: unknown; to?: unknown }
+    const parsed = parseFilter(query, propertyDefs())
+    const errors = [...validateRange(query), ...('errors' in parsed ? parsed.errors : [])]
+    if (errors.length > 0 || 'errors' in parsed) return reply.code(400).send({ errors })
 
     try {
       return await entries.list({
         ...(query.from ? { from: query.from as string } : {}),
         ...(query.to ? { to: query.to as string } : {}),
+        ...parsed.filter,
       })
     } catch (error) {
-      // Um filtro que o roadmap põe na Fase 2 não é falha do servidor; dizer
-      // 500 mandaria o cliente procurar no lugar errado.
+      // A store that refuses a filter (NotImplementedError) is not a server
+      // failure; 500 would send the client looking in the wrong place. The
+      // SQLite store filters everything since card #36, so only a store that
+      // still refuses reaches this (the routes test pins the mapping).
       if (error instanceof NotImplementedError) {
         return reply.code(501).send({ error: error.message })
       }

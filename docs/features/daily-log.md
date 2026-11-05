@@ -52,6 +52,12 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-02T20:30:00-03:00 }
   ("horas espera um número"), e o registro mostra "humor: bom" na timeline. O × tira a
   propriedade do registro; a chave continua sugerida.
 
+- **Filtrar (Fase 2, F4, card #36):** acima da timeline, as labels viram botões; ligar
+  uma mostra só os registros com ela, ligar outra soma (OU). "propriedade… valor Filtrar"
+  restringe (E): "humor = bom" mostra só os que têm humor bom, dentre os das labels
+  ligadas. "Limpar filtro" volta a timeline inteira; sem nenhum registro, a timeline diz
+  "nenhum registro com esse filtro" com o mesmo botão.
+
 # Regras
 
 - Os use-cases (`createEntry`, `queryEntries`, `updateEntry`, `deleteEntry`) rodam no renderer; o servidor guarda a
@@ -75,6 +81,9 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-02T20:30:00-03:00 }
   `property_defs` (migration 7), criada no primeiro uso por `POST /property-defs` e
   imutável (409 se a chave já tem tipo). `POST` e `PATCH /entries` recusam com 400 uma
   chave sem tipo ou um valor fora do tipo.
+- `GET /entries?labelIds=a,b&props[humor]=bom` combina labels por OU e propriedades e
+  período por E (RN4). O valor da propriedade é lido pelo tipo da chave ("7,5", "sim"); chave
+  sem tipo ou valor fora dele é 400.
 - Um fuso só: `DAILLY_TZ` do processo da API (padrão UTC); um fuso inválido derruba o
   boot com mensagem. Todo "que dia é este instante" passa por `@dailly/periods`.
 
@@ -95,8 +104,7 @@ ligado, sem flag.
 
 # Limites
 
-- Sem filtros: são a F4 da [Fase 2](/prd/daily-log-fase-2.md). O filtro por label ou
-  propriedade no `GET /entries` ainda responde 501.
+- O filtro não fica salvo nem na URL: recarregar volta a timeline inteira.
 - Uma chave de propriedade não se renomeia, não se apaga e não troca de tipo.
 - Corrige só o dia, não a hora exata, e não guarda histórico de edições.
 - A API aceita `GET /entries?from&to`, mas nenhuma tela filtra por período ainda.

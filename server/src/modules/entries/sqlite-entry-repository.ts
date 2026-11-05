@@ -1,5 +1,5 @@
 import type { Entry, EntryFilter, EntryRepository } from '@dailly/domain'
-import { EntryNotFoundError, NotImplementedError } from '@dailly/domain'
+import { EntryNotFoundError } from '@dailly/domain'
 import { rangeBounds, type TimeZone } from '@dailly/periods'
 import type { Database } from 'better-sqlite3'
 
@@ -86,15 +86,6 @@ export const sqliteEntryRepository = ({ db, zone }: SqliteEntryRepositoryDeps): 
     },
 
     async list(filter: EntryFilter) {
-      if (filter.labelIds?.length) {
-        // Honest refusal instead of silently ignoring the filter and returning
-        // too much: there is no `entry_labels` table until Fase 2.
-        throw new NotImplementedError('filtrar por label')
-      }
-      if (filter.props && Object.keys(filter.props).length > 0) {
-        throw new NotImplementedError('filtrar por propriedade')
-      }
-
       // The only place the zone touches storage. `from`/`to` are calendar days;
       // `occurred_at` is an instant. Half-open bounds (`>=`, `<`) so the last
       // millisecond of the last day is inside the range without anyone having
@@ -110,7 +101,7 @@ export const sqliteEntryRepository = ({ db, zone }: SqliteEntryRepositoryDeps): 
       // The timeline is the record of the day (PRD RN6): a task is an Entry
       // too, but not a fact of the day, so it never comes out of this port.
       const where: string[] = ["kind = 'log'"]
-      const params: string[] = []
+      const params: (string | number)[] = []
       if (bounds.start) {
         where.push('occurred_at >= ?')
         params.push(bounds.start)
@@ -118,6 +109,20 @@ export const sqliteEntryRepository = ({ db, zone }: SqliteEntryRepositoryDeps): 
       if (bounds.endExclusive) {
         where.push('occurred_at < ?')
         params.push(bounds.endExclusive)
+      }
+
+      // Labels with OR, properties with AND, and every dimension with AND
+      // (PRD Fase 2, RN4, card #36).
+      if (filter.labelIds?.length) {
+        where.push(
+          `EXISTS (SELECT 1 FROM entry_labels WHERE entry_id = entries.id AND label_id IN (${filter.labelIds.map(() => '?').join(', ')}))`,
+        )
+        params.push(...filter.labelIds)
+      }
+      for (const [key, value] of Object.entries(filter.props ?? {})) {
+        // json_extract answers a JSON true as 1, so a yes/no binds as 1 or 0.
+        where.push('json_extract(props, ?) = ?')
+        params.push(`$."${key.replaceAll('"', '\\"')}"`, typeof value === 'boolean' ? Number(value) : (value as string | number))
       }
 
       const rows = db
