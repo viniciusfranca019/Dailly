@@ -1,6 +1,7 @@
 import { sequentialIds, type Entry } from '@dailly/domain'
 import type { TimeZone } from '@dailly/periods'
 import type { RequestsPort } from '@shared'
+import { inMemoryTaskStore } from '@dailly/tasks-core/testing'
 import { testEntryDeps, testRequestsPort, testSharedDeps, testVaultPort } from '@shared/testing.js'
 import type { ShellDeps } from './own-deps.js'
 
@@ -20,6 +21,13 @@ export function testShellDeps(
         ids: sequentialIds('request'),
         vault: testVaultPort(),
       },
+      tasks: { tasks: tasksOver(inMemoryTaskStore({ newId: sequentialIds('task').next, now: () => options.now ?? '2026-09-16T12:00:00.000Z' })) },
     },
   }
 }
+
+/** The screen's port over a store: the two calls the list makes. */
+const tasksOver = (store: ReturnType<typeof inMemoryTaskStore>) => ({
+  board: () => store.board(),
+  create: (input: Parameters<typeof store.create>[0]) => store.create(input),
+})

@@ -118,6 +118,9 @@ importers:
       '@dailly/requests-core':
         specifier: workspace:*
         version: link:../packages/requests-core
+      '@dailly/tasks-core':
+        specifier: workspace:*
+        version: link:../packages/tasks-core
       '@dailly/whiteboard-core':
         specifier: workspace:*
         version: link:../packages/whiteboard-core

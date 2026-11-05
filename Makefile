@@ -22,16 +22,16 @@ dev-ui: ## Só o renderer. Sem a API junto, a timeline não carrega
 	pnpm --filter @dailly/ui dev
 
 dev-all: ## Sobe API + app com todos os módulos ligados por flag
-	@VITE_ANALYSE=true VITE_REQUESTS=true $(MAKE) -j2 dev-api dev-ui
+	@VITE_ANALYSE=true VITE_REQUESTS=true VITE_TASKS=true $(MAKE) -j2 dev-api dev-ui
 
 test: ## Roda os testes de todo o workspace
 	pnpm test
 
 test-all: ## Testes com todos os módulos ligados por flag
-	@echo "com as flags ligadas o manifesto tem 3 módulos, então o loop da"
-	@echo "composition.test.ts monta Analyse e Requests de verdade — com elas"
+	@echo "com as flags ligadas o manifesto tem 4 módulos, então o loop da"
+	@echo "composition.test.ts monta Analyse, Requests e Tasks de verdade — com elas"
 	@echo "desligadas ele tem uma iteração só e nunca exercita esse caminho."
-	VITE_ANALYSE=true VITE_REQUESTS=true pnpm test
+	VITE_ANALYSE=true VITE_REQUESTS=true VITE_TASKS=true pnpm test
 
 test-watch: ## Testes em watch
 	pnpm test:watch
@@ -40,7 +40,7 @@ build: ## Builda o app (só os módulos prontos)
 	pnpm --filter @dailly/ui build
 
 build-all: ## Builda com todos os módulos ligados por flag
-	VITE_ANALYSE=true VITE_REQUESTS=true pnpm --filter @dailly/ui build
+	VITE_ANALYSE=true VITE_REQUESTS=true VITE_TASKS=true pnpm --filter @dailly/ui build
 
 start: ## O app de verdade, no navegador, com o diário de verdade: http://localhost:4173
 	VITE_REQUESTS=true pnpm --filter @dailly/ui build

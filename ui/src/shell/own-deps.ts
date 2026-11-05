@@ -1,6 +1,7 @@
 import type { SharedDeps } from '@shared'
 import type { DailyLogDeps } from '@modules/daily-log'
 import type { RequestsDeps } from '@modules/requests'
+import type { TasksDeps } from '@modules/tasks'
 
 /**
  * O mapa id de módulo → o que é só dele, e por que é um tipo e não um schema.
@@ -17,6 +18,7 @@ import type { RequestsDeps } from '@modules/requests'
 export interface OwnDeps {
   readonly 'daily-log': DailyLogDeps
   readonly requests: RequestsDeps
+  readonly tasks: TasksDeps
 }
 
 /** O que a raiz de composição entrega ao shell: a metade comum e a de cada um. */

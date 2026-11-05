@@ -34,10 +34,12 @@ describe('the real composition', () => {
      */
     const withAnalyse = import.meta.env.VITE_ANALYSE === 'true'
     const withRequests = import.meta.env.VITE_REQUESTS === 'true'
+    const withTasks = import.meta.env.VITE_TASKS === 'true'
     expect(MODULES.map((module) => module.id)).toEqual([
       'daily-log',
       ...(withAnalyse ? ['analyse'] : []),
       ...(withRequests ? ['requests'] : []),
+      ...(withTasks ? ['tasks'] : []),
     ])
   })
 
