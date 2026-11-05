@@ -200,3 +200,34 @@ describe('C7: a refused write rereads (RN7)', () => {
     expect(text(all(host, 'entry-prop'))).toEqual(['humor: bom'])
   })
 })
+
+describe('gate findings (iteration 1)', () => {
+  it('C7: a refused correction rereads the timeline from the server (RN7)', async () => {
+    const entries = inMemoryEntryRepository([seed('e1', 'Dia', { humor: 'bom' })])
+    const refusing: EntryRepository = {
+      ...entries,
+      update: async () => {
+        // Another writer changed it meanwhile; this write is refused.
+        await entries.update('e1', { props: { humor: 'ótimo' }, updatedAt: NOW })
+        throw new Error('humor não tem tipo definido')
+      },
+    }
+    const host = await mount(refusing, testPropertiesPort([humor]))
+    at<HTMLButtonElement>(host, 'entry-open')!.click()
+    await settle()
+    at(host, 'chosen-prop')!.querySelector('button')!.click()
+    await settle()
+
+    await click(host, 'submit')
+
+    expect(at(host, 'error')?.textContent).toContain('humor não tem tipo definido')
+    expect(text(all(host, 'entry-prop'))).toEqual(['humor: ótimo'])
+  })
+
+  it('a refused value keeps the key and the value typed, to fix and retry', async () => {
+    const host = await mount(inMemoryEntryRepository(), testPropertiesPort([hours]))
+    await addProp(host, 'horas', 'abc')
+    expect(at<HTMLInputElement>(host, 'prop-key')!.value).toBe('horas')
+    expect(at<HTMLInputElement>(host, 'prop-value')!.value).toBe('abc')
+  })
+})

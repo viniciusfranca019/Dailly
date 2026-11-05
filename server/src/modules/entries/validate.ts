@@ -1,4 +1,13 @@
-import { matchesType, parsePropertyValue, type Entry, type EntryFilter, type EntryPatch, type PropertyDef, type PropertyValue } from '@dailly/domain'
+import {
+  matchesType,
+  parsePropertyValue,
+  propertyRefusal,
+  type Entry,
+  type EntryFilter,
+  type EntryPatch,
+  type PropertyDef,
+  type PropertyValue,
+} from '@dailly/domain'
 
 /**
  * What the API checks before letting something into the store.
@@ -148,11 +157,10 @@ export function validatePatch(payload: unknown): { patch: EntryPatch } | { error
  */
 export function checkProps(props: Readonly<Record<string, unknown>>, defs: readonly PropertyDef[]): Invalid[] {
   const types = new Map(defs.map((def) => [def.key, def.type]))
-  const reasons = { number: 'espera um número', boolean: 'espera sim ou não', text: 'precisa de um valor' } as const
   return Object.entries(props).flatMap(([key, value]) => {
     const type = types.get(key)
     if (!type) return [{ field: 'props', message: `${key} não tem tipo definido` }]
-    return matchesType(type, value) ? [] : [{ field: 'props', message: `${key} ${reasons[type]}` }]
+    return matchesType(type, value) ? [] : [{ field: 'props', message: propertyRefusal(key, type) }]
   })
 }
 

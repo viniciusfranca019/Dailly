@@ -26,9 +26,9 @@ export interface Entry {
  * why this type is not `Partial<Entry>`: `id`, `createdAt` and `updatedAt` are
  * not the caller's to choose.
  *
- * `labelIds` and `props` are accepted and stored as given. Phase 1 has no UI
- * for either (they are Phase 2), so in practice they arrive empty — but the
- * shape is here so the Phase 2 work is additive.
+ * `labelIds` must name existing labels (card #34), and each key of `props`
+ * needs a definition whose type its value matches (card #35); the API checks
+ * both, and the store keeps them as given.
  */
 export interface NewEntry {
   readonly body: string

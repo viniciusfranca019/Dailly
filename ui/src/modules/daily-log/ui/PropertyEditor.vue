@@ -32,10 +32,16 @@ watch(type, (now) => {
 
 function add(): void {
   emit('add', key.value, type.value, raw.value)
+}
+
+/** Called by the screen once the property is accepted; a refusal keeps what was typed. */
+function reset(): void {
   key.value = ''
   raw.value = ''
   kind.value = 'text'
 }
+
+defineExpose({ reset })
 </script>
 
 <template>

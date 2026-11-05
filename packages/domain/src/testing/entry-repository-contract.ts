@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Entry } from '../entry.js'
 import type { EntryRepository } from '../entry-repository.js'
 import { EntryNotFoundError } from '../errors.js'
+import type { PropertyType } from '../property.js'
 
 /**
  * The contract every `EntryRepository` owes, as an executable suite.
@@ -29,7 +30,7 @@ export interface ContractOptions {
    * Makes a property key exist with a type (card #35). The API checks each
    * value against its key's definition; the stores themselves do not.
    */
-  readonly property: (repository: EntryRepository, key: string, type: 'text' | 'number' | 'boolean') => Promise<void>
+  readonly property: (repository: EntryRepository, key: string, type: PropertyType) => Promise<void>
 }
 
 /**

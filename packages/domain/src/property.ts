@@ -22,6 +22,13 @@ export const PROPERTY_TYPE_NAMES: Record<PropertyType, string> = {
 export const isPropertyType = (value: unknown): value is PropertyType =>
   typeof value === 'string' && (PROPERTY_TYPES as readonly string[]).includes(value)
 
+/** Why a value is refused for a type: one text for the screen and the API (C4). */
+export function propertyRefusal(key: string, type: PropertyType): string {
+  if (type === 'number') return `${key} espera um número`
+  if (type === 'boolean') return `${key} espera sim ou não`
+  return `${key} precisa de um valor`
+}
+
 /** The key as stored: trimmed, and `null` when nothing is left (C5). */
 export function normalizePropertyKey(key: string): string | null {
   const trimmed = key.trim()
@@ -40,14 +47,14 @@ export function parsePropertyValue(
   const text = raw.trim()
   if (type === 'number') {
     const value = Number(text.replace(',', '.'))
-    return text !== '' && Number.isFinite(value) ? { value } : { error: `${key} espera um número` }
+    return text !== '' && Number.isFinite(value) ? { value } : { error: propertyRefusal(key, type) }
   }
   if (type === 'boolean') {
     if (text === 'sim') return { value: true }
     if (text === 'não') return { value: false }
-    return { error: `${key} espera sim ou não` }
+    return { error: propertyRefusal(key, type) }
   }
-  return text === '' ? { error: `${key} precisa de um valor` } : { value: text }
+  return text === '' ? { error: propertyRefusal(key, type) } : { value: text }
 }
 
 /** Whether a stored value is of a type; the store guards with it (C7). */
