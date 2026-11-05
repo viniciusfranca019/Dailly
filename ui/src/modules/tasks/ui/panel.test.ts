@@ -310,3 +310,21 @@ describe('C7, na lista também', () => {
     expect(card(host, 'T-1')?.textContent).toContain('Prioridade: sem')
   })
 })
+
+describe('gate #22, rodada 2: um Esc de outro controle é desse controle', () => {
+  it('cancelar a captura com Esc não fecha o painel nem perde o rascunho', async () => {
+    const host = await mount(portOver(await storeWith([['Comprar café', 'todo']])))
+    await open(host, 'T-1')
+    set(field<HTMLSelectElement>(host, 'Prioridade'), '2')
+
+    button(column(host, 'Fazendo')!, '+').click()
+    await settle()
+    const capture = host.querySelector<HTMLInputElement>('input[aria-label="Título da nova tarefa"]')!
+    capture.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await settle()
+
+    expect(host.querySelector('input[aria-label="Título da nova tarefa"]')).toBeNull()
+    expect(panel(host)).not.toBeNull()
+    expect(field<HTMLSelectElement>(host, 'Prioridade').value).toBe('2')
+  })
+})

@@ -106,16 +106,27 @@ async function confirmRemove(): Promise<void> {
   }
 }
 
-const insideEditor = (event: Event): boolean =>
-  event.target instanceof Node && (boardHost.value?.contains(event.target) ?? false)
+const root = ref<HTMLElement | null>(null)
+
+/**
+ * Whether an Escape is the panel's to act on. Every other control keeps its
+ * own: the block editor clears a selection with it, the capture under a "+"
+ * cancels with it. So the panel closes only on an Escape that comes from
+ * inside itself, outside the editor, or from nowhere in particular (focus on
+ * the page body), which no one else handles.
+ */
+function escapeIsMine(event: Event): boolean {
+  const target = event.target
+  if (!(target instanceof Node) || target === document.body || target === document.documentElement) return true
+  if (boardHost.value?.contains(target)) return false
+  return root.value?.contains(target) ?? false
+}
 
 function onKeydown(event: KeyboardEvent): void {
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
     event.preventDefault()
     void submit()
-  } else if (event.key === 'Escape' && !confirming.value && !insideEditor(event)) {
-    // An Escape inside the block editor is the editor's (it clears a block
-    // selection); closing there would throw away the unsaved body.
+  } else if (event.key === 'Escape' && !confirming.value && escapeIsMine(event)) {
     emit('close')
   }
 }
@@ -123,6 +134,7 @@ function onKeydown(event: KeyboardEvent): void {
 
 <template>
   <aside
+    ref="root"
     role="dialog"
     :aria-label="formatKey(task.key)"
     class="fixed inset-y-0 right-0 z-20 flex w-full max-w-xl flex-col gap-4 overflow-y-auto border-l border-[#1e2638] bg-[#0b1019] p-6 shadow-2xl"
