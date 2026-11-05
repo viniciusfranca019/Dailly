@@ -1,6 +1,7 @@
 # Directory Update Log
 
 ## 2026-11-05
+* **Update**: [Tasks](/prd/tasks.md) ganha a v2, dos feedbacks do dono: J5 a J11, RN9 a RN15, F4 a F10, a RN5 reescrita para o prefixo por board. Volta a `Refinado: não` com a P4 aberta.
 * **Creation**: [Tasks, painel da tarefa](/features/tasks-painel.md), o F3 do [Tasks](/prd/tasks.md) (card #22).
 * **Creation**: [Tasks, board e a troca board/lista](/features/tasks-board.md), o F2 do [Tasks](/prd/tasks.md) (card #21).
 * **Creation**: [Tasks, capturar e listar](/features/tasks-capturar-e-listar.md), o F1 do [Tasks](/prd/tasks.md) (card #20).
