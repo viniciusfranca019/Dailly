@@ -19,8 +19,8 @@ sources:
 Refinado em modo delegado: o dono aceitou as recomendações do rascunho (P1 a P8), e a
 P9, a métrica, foi fechada pela recomendação que o refinamento achou. O contrato é o PRD
 do Regulus (Ficha, Jornadas, Regras, Fora de escopo, Latitude, Fatias); o desenho
-técnico que as decisões fixaram está no anexo, abaixo do contrato. Os cards de cada
-fatia nascem depois que este PRD estiver na `main`, para que o `Origem` deles abra.
+técnico que as decisões fixaram está no anexo, abaixo do contrato. Cada fatia tem o seu card
+nos issues do repo, aberto pelo `Origem` que aponta para cá.
 
 ## Ficha
 
@@ -105,9 +105,9 @@ Quando o drag-and-drop nativo não der conta do uso → paro e pergunto ao Dono 
 ## Fatias
 
 ```
-F1: Capturar e listar      — cobre J1.1, J1.1a, J1.2, J1.2a, J1.2b, RN1, RN2, RN5, RN6                — depende de —      → a criar
-F2: Board e a troca        — cobre J2.1, J2.1a, J2.2, J2.3, J3.1, J3.1a, J3.2, RN3, RN4, RN7    — depende de F1     → a criar
-F3: Painel da tarefa       — cobre J4.1, J4.1a, J4.2, J4.2a, J4.3, J4.3a, RN7, RN8              — depende de F1     → a criar
+F1: Capturar e listar      — cobre J1.1, J1.1a, J1.2, J1.2a, J1.2b, RN1, RN2, RN5, RN6                — depende de —      → #20
+F2: Board e a troca        — cobre J2.1, J2.1a, J2.2, J2.3, J3.1, J3.1a, J3.2, RN3, RN4, RN7    — depende de F1     → #21
+F3: Painel da tarefa       — cobre J4.1, J4.1a, J4.2, J4.2a, J4.3, J4.3a, RN7, RN8              — depende de F1     → #22
 ```
 
 F1 entrega a lista antes do board de propósito: board e lista são a mesma consulta (RN4),
