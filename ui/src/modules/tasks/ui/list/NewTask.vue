@@ -52,6 +52,7 @@ async function submit(): Promise<void> {
         v-model="title"
         type="text"
         :aria-label="'Título da nova tarefa'"
+        :aria-invalid="error ? 'true' : undefined"
         :aria-describedby="error ? 'new-task-error' : undefined"
         :placeholder="`Nova tarefa em ${statusName}`"
         class="min-w-0 flex-1 rounded-md border border-[#1e2638] bg-transparent px-2 py-1 text-sm text-gray-100 outline-none focus:border-[#3b82f6]"

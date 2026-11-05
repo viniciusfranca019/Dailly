@@ -66,7 +66,8 @@ describe('C1: as tarefas aparecem agrupadas por status', () => {
 
     expect(rows(group(host, 'A fazer'))).toEqual([expect.stringContaining('Comprar café')])
     expect(rows(group(host, 'Fazendo'))).toEqual([expect.stringContaining('Ligar pro banco')])
-    expect(group(host, 'A fazer')?.textContent).toContain('1')
+    expect(group(host, 'A fazer')?.querySelector('header')?.textContent).toContain('1')
+    expect(group(host, 'Backlog')?.querySelector('header')?.textContent).toContain('0')
   })
 })
 

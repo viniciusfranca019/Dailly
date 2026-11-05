@@ -5,7 +5,6 @@
  * (`rankBetween`) and the `TaskStore` port. No DOM, no Node, no network.
  */
 export { rankBetween } from './rank.js'
-export { orderTasks } from './in-memory-task-store.js'
 export {
   DEFAULT_STATUSES,
   PRIORITY_LABELS,
