@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Entry } from '../entry.js'
 import type { EntryRepository } from '../entry-repository.js'
 import { EntryNotFoundError } from '../errors.js'
+import type { PropertyType } from '../property.js'
 
 /**
  * The contract every `EntryRepository` owes, as an executable suite.
@@ -25,6 +26,11 @@ export interface ContractOptions {
    * in-memory fake does not, and answers the name.
    */
   readonly label: (repository: EntryRepository, name: string) => Promise<string>
+  /**
+   * Makes a property key exist with a type (card #35). The API checks each
+   * value against its key's definition; the stores themselves do not.
+   */
+  readonly property: (repository: EntryRepository, key: string, type: PropertyType) => Promise<void>
 }
 
 /**
@@ -54,7 +60,7 @@ const entry = (name: string, occurredAt: string, over: Partial<Entry> = {}): Ent
 /** What the assertions compare on, now that ids are opaque. */
 const bodies = (entries: readonly Entry[]): string[] => entries.map((entry) => entry.body)
 
-export function entryRepositoryContract(name: string, { make, label }: ContractOptions): void {
+export function entryRepositoryContract(name: string, { make, label, property }: ContractOptions): void {
   describe(`${name} honours the EntryRepository contract`, () => {
     it('stores an entry and gives it back', async () => {
       const entries = await make()
@@ -149,6 +155,20 @@ export function entryRepositoryContract(name: string, { make, label }: ContractO
 
       await entries.update(written.id, { labelIds: [health], updatedAt: '2026-07-24T12:00:00.000Z' })
       expect((await entries.getById(written.id))?.labelIds).toEqual([health])
+    })
+
+    it('replaces the properties on update, and keeps them when the patch has none (card #35)', async () => {
+      const entries = await make()
+      await property(entries, 'humor', 'text')
+      await property(entries, 'horas', 'number')
+      const written = entry('com propriedade', '2026-07-24T10:00:00.000Z', { props: { humor: 'bom' } })
+      await entries.create(written)
+
+      await entries.update(written.id, { body: 'outro', updatedAt: '2026-07-24T11:00:00.000Z' })
+      expect((await entries.getById(written.id))?.props).toEqual({ humor: 'bom' })
+
+      await entries.update(written.id, { props: { horas: 7.5 }, updatedAt: '2026-07-24T12:00:00.000Z' })
+      expect((await entries.getById(written.id))?.props).toEqual({ horas: 7.5 })
     })
 
     it('finds an entry by id, and answers null for an unknown one', async () => {

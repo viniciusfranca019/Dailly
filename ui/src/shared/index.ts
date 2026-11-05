@@ -14,3 +14,4 @@ export type { SecretSummary, VaultPort, VaultRefusal, VaultState } from './vault
 export { LockedSecretsError, VaultRefusedError } from './vault.js'
 export type { NewTask, Placement, Task, TaskBoard, TaskPatch, TaskStatus, TasksPort } from './tasks.js'
 export type { Label, LabelColor, LabelsPort } from './labels.js'
+export type { PropertiesPort, PropertyDef, PropertyType, PropertyValue } from './properties.js'

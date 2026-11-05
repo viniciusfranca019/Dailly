@@ -35,6 +35,8 @@ entryRepositoryContract('sqliteEntryRepository', {
     files.get(repository)!.prepare('INSERT INTO labels (id, name, name_key, color) VALUES (?, ?, ?, ?)').run(id, name, name, 'blue')
     return id
   },
+  // The store does not check values against definitions; the routes do.
+  property: async () => {},
 })
 
 describe('sqliteEntryRepository beyond the contract', () => {
@@ -104,5 +106,29 @@ describe('sqliteEntryRepository beyond the contract', () => {
     )
     await expect(entries.delete('task-entry')).rejects.toThrow(EntryNotFoundError)
     expect(db.prepare(`SELECT body FROM entries WHERE id = 'task-entry'`).get()).toEqual({ body: 'Comprar café' })
+  })
+})
+
+describe('migration 7 (card #35)', () => {
+  it('defines the keys already stored in entries, by the JSON type of their values', () => {
+    // Before F3 the API stored any props as given, so a diary may already
+    // carry keys with no definition; without one, the entry could not be
+    // corrected (the API checks every key it is sent).
+    const db = new Database(':memory:')
+    db.pragma('foreign_keys = ON')
+    const [seven, ...earlier] = [...ENTRIES_MIGRATIONS].sort((a, b) => b.version - a.version)
+    for (const migration of earlier.reverse()) db.exec(migration.up)
+    db.prepare(
+      `INSERT INTO entries (id, body, occurred_at, created_at, updated_at, props)
+       VALUES ('old', 'antigo', '2026-07-24T10:00:00.000Z', '2026-07-24T10:00:00.000Z', '2026-07-24T10:00:00.000Z', ?)`,
+    ).run(JSON.stringify({ mood: 'ok', horas: 3, ok: true, nada: null }))
+
+    db.exec(seven!.up)
+
+    expect(db.prepare('SELECT key, type FROM property_defs ORDER BY key').all()).toEqual([
+      { key: 'horas', type: 'number' },
+      { key: 'mood', type: 'text' },
+      { key: 'ok', type: 'boolean' },
+    ])
   })
 })

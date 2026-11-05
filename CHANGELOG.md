@@ -1,4 +1,4 @@
-version: 0.1.11
+version: 0.1.12
 
-- Daily Log, Fase 2, F2 (#34): labels globais. O campo "+ label" aplica uma label existente (sem diferenciar maiúsculas) ou cria uma com a próxima cor da paleta; "Gerenciar labels" renomeia, recolore e apaga. Apagar uma label a tira de todo registro.
-- Migration 6: `labels` (nome único por `name_key`, cor da paleta) e `entry_labels`, com cascade. Rotas `/labels`; `POST` e `PATCH /entries` gravam `labelIds`, e uma label desconhecida é 400.
+- Daily Log, Fase 2, F3 (#35): propriedades. "+ propriedade" sugere as chaves com o tipo; uma chave nova escolhe o tipo uma vez (texto, número ou sim/não), e o valor é conferido por ele. A timeline mostra "chave: valor".
+- Migration 7: `property_defs`. Rotas `GET` e `POST /property-defs`; `POST` e `PATCH /entries` recusam chave sem tipo ou valor fora do tipo.

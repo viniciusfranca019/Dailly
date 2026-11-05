@@ -6,6 +6,8 @@ import { ENTRIES_MIGRATIONS } from './migrations.js'
 import { registerEntryRoutes } from './routes.js'
 import { sqliteEntryRepository } from './sqlite-entry-repository.js'
 import { sqliteLabelStore, type LabelStore } from './sqlite-label-store.js'
+import { registerPropertyRoutes } from './property-routes.js'
+import { sqlitePropertyDefs, type PropertyDefStore } from './sqlite-property-defs.js'
 
 /**
  * Entries — superfície pública do módulo no servidor.
@@ -19,7 +21,7 @@ import { sqliteLabelStore, type LabelStore } from './sqlite-label-store.js'
  * 501 injetava outro a cada `buildApp`; esse teste agora monta as rotas sobre
  * o repositório que recusa (`routes.test.ts`), sem o shell no meio.
  */
-export const entriesModule: ServerModule<{ entries: EntryRepository; labels: LabelStore }> = {
+export const entriesModule: ServerModule<{ entries: EntryRepository; labels: LabelStore; propertyDefs: PropertyDefStore }> = {
   id: 'entries',
   migrations: ENTRIES_MIGRATIONS,
   // Labels live here because they are global (PRD Fase 2, RN1): an Entry
@@ -27,10 +29,12 @@ export const entriesModule: ServerModule<{ entries: EntryRepository; labels: Lab
   provide: ({ db, zone }) => ({
     entries: sqliteEntryRepository({ db, zone }),
     labels: sqliteLabelStore({ db, newId: randomUUID }),
+    propertyDefs: sqlitePropertyDefs({ db }),
   }),
-  register: (app, _deps, { entries, labels }) => {
-    registerEntryRoutes(app, entries)
+  register: (app, _deps, { entries, labels, propertyDefs }) => {
+    registerEntryRoutes(app, entries, () => propertyDefs.list())
     registerLabelRoutes(app, labels)
+    registerPropertyRoutes(app, propertyDefs)
   },
 }
 

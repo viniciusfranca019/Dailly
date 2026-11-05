@@ -144,10 +144,17 @@ export const sqliteEntryRepository = ({ db, zone }: SqliteEntryRepositoryDeps): 
             `UPDATE entries
                 SET body = coalesce(?, body),
                     occurred_at = coalesce(?, occurred_at),
+                    props = coalesce(?, props),
                     updated_at = ?
               WHERE id = ? AND kind = 'log'`,
           )
-          .run(patch.body ?? null, patch.occurredAt ?? null, patch.updatedAt, id)
+          .run(
+            patch.body ?? null,
+            patch.occurredAt ?? null,
+            patch.props ? JSON.stringify(patch.props) : null,
+            patch.updatedAt,
+            id,
+          )
         if (changed.changes === 0) throw new EntryNotFoundError()
         if (patch.labelIds) label(id, patch.labelIds)
       })()

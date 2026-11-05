@@ -46,6 +46,12 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-02T20:30:00-03:00 }
   laranja, vermelho, roxo, rosa, cinza) e apaga uma label com confirmação. Apagar tira a
   label de todo registro e não apaga registro nenhum.
 
+- **Propriedades (Fase 2, F3, card #35):** abaixo das labels, "+ propriedade" sugere as
+  chaves que existem com o tipo ("humor · texto"). Uma chave nova pede o tipo uma vez
+  (texto, número ou sim/não), e ele vale dali em diante. O valor é conferido pelo tipo
+  ("horas espera um número"), e o registro mostra "humor: bom" na timeline. O × tira a
+  propriedade do registro; a chave continua sugerida.
+
 # Regras
 
 - Os use-cases (`createEntry`, `queryEntries`, `updateEntry`, `deleteEntry`) rodam no renderer; o servidor guarda a
@@ -65,6 +71,10 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-02T20:30:00-03:00 }
   calcula, e uma cor da paleta. Fica no módulo entries: `GET`, `POST`, `PATCH` e
   `DELETE /labels`, e a migration 6 (`labels`, `entry_labels`, com cascade dos dois lados).
 - Um registro com uma label que não existe é 400 nomeando `labelIds`.
+- O valor de uma propriedade fica em `entries.props` (JSON); o tipo de cada chave, em
+  `property_defs` (migration 7), criada no primeiro uso por `POST /property-defs` e
+  imutável (409 se a chave já tem tipo). `POST` e `PATCH /entries` recusam com 400 uma
+  chave sem tipo ou um valor fora do tipo.
 - Um fuso só: `DAILLY_TZ` do processo da API (padrão UTC); um fuso inválido derruba o
   boot com mensagem. Todo "que dia é este instante" passa por `@dailly/periods`.
 
@@ -85,8 +95,9 @@ ligado, sem flag.
 
 # Limites
 
-- Sem propriedades nem filtros: são a F3 e a F4 da [Fase 2](/prd/daily-log-fase-2.md).
-  O filtro por label no `GET /entries` ainda responde 501.
+- Sem filtros: são a F4 da [Fase 2](/prd/daily-log-fase-2.md). O filtro por label ou
+  propriedade no `GET /entries` ainda responde 501.
+- Uma chave de propriedade não se renomeia, não se apaga e não troca de tipo.
 - Corrige só o dia, não a hora exata, e não guarda histórico de edições.
 - A API aceita `GET /entries?from&to`, mas nenhuma tela filtra por período ainda.
 - A timeline mostra só o título; o markdown do corpo não é renderizado na leitura.

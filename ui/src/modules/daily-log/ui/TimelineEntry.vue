@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Entry, Label } from '@dailly/domain'
+import { formatPropertyValue, type Entry, type Label, type PropertyValue } from '@dailly/domain'
 import { CHIP } from '../model/label-colors.js'
 import { timeOf, type TimeZone } from '@dailly/periods'
 import { computed } from 'vue'
@@ -52,6 +52,11 @@ const time = computed(() => timeOf(props.entry.occurredAt, props.zone))
         {{ titleOf(props.entry.body) }}
       </span>
 
+      <span v-if="Object.keys(props.entry.props).length > 0" class="mt-1 flex flex-wrap gap-x-2 text-xs text-[#747e8f]">
+        <span v-for="(value, name) in props.entry.props" :key="name" data-testid="entry-prop">
+          {{ name }}: {{ formatPropertyValue(value as PropertyValue) }}
+        </span>
+      </span>
       <span v-if="chips.length > 0" class="mt-1.5 flex flex-wrap gap-1">
         <span
           v-for="label in chips"

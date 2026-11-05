@@ -15,12 +15,16 @@ describe('the entries routes', () => {
     // does not forward label filters yet — without this the mapping would be
     // code no test ever reaches.
     const refusing = Fastify()
-    registerEntryRoutes(refusing, {
-      ...inMemoryEntryRepository(),
-      list: async () => {
-        throw new NotImplementedError('filtrar por label')
+    registerEntryRoutes(
+      refusing,
+      {
+        ...inMemoryEntryRepository(),
+        list: async () => {
+          throw new NotImplementedError('filtrar por label')
+        },
       },
-    })
+      () => [],
+    )
 
     const response = await refusing.inject({ method: 'GET', url: '/entries' })
 

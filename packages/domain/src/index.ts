@@ -39,3 +39,14 @@ export { deleteEntry } from './delete-entry.js'
 export type { DeleteEntryDeps } from './delete-entry.js'
 export { LABEL_COLORS, findByName, isLabelColor, labelKey, nextColor, normalizeLabelName } from './label.js'
 export type { Label, LabelColor } from './label.js'
+export {
+  PROPERTY_TYPES,
+  PROPERTY_TYPE_NAMES,
+  formatPropertyValue,
+  isPropertyType,
+  matchesType,
+  normalizePropertyKey,
+  parsePropertyValue,
+  propertyRefusal,
+} from './property.js'
+export type { PropertyDef, PropertyType, PropertyValue } from './property.js'

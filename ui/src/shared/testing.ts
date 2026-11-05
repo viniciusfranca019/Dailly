@@ -3,6 +3,7 @@ import {
   deleteEntry,
   findByName,
   type Label,
+  type PropertyDef,
   inMemoryEntryRepository,
   queryEntries,
   sequentialIds,
@@ -68,6 +69,7 @@ export function testEntryDeps(options: { seed?: readonly Entry[]; now?: string }
     updateEntry: updateEntry({ entries, clock }),
     deleteEntry: deleteEntry({ entries }),
     labels: testLabelsPort(),
+    properties: testPropertiesPort(),
   }
 }
 
@@ -239,5 +241,19 @@ export function testLabelsPort(seed: readonly Label[] = []): import('./labels.js
       return next
     },
     delete: async (id) => labels.delete(id),
+  }
+}
+
+/** The property definitions port the tests run: a key is defined once (card #35). */
+export function testPropertiesPort(seed: readonly PropertyDef[] = []): import('./properties.js').PropertiesPort {
+  const defs = new Map(seed.map((def) => [def.key, def]))
+  return {
+    list: async () => [...defs.values()].sort((a, b) => a.key.localeCompare(b.key)),
+    define: async (key, type) => {
+      if (defs.has(key)) throw new Error(`${key} já tem tipo`)
+      const def = { key, type }
+      defs.set(key, def)
+      return def
+    },
   }
 }
