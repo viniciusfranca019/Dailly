@@ -4,7 +4,10 @@ import { timeOf, type TimeZone } from '@dailly/periods'
 import { computed } from 'vue'
 import { titleOf } from '../model/timeline.js'
 
-const props = defineProps<{ entry: Entry; zone: TimeZone }>()
+const props = defineProps<{ entry: Entry; zone: TimeZone; editing?: boolean }>()
+
+/** Clicking the card opens the entry in the editor to correct it (card #33). */
+const emit = defineEmits<{ open: [entry: Entry] }>()
 
 const time = computed(() => timeOf(props.entry.occurredAt, props.zone))
 </script>
@@ -24,10 +27,22 @@ const time = computed(() => timeOf(props.entry.occurredAt, props.zone))
 
     <p class="text-xs text-[#747e8f]" data-testid="entry-time">{{ time }}</p>
 
-    <div class="mt-1 rounded-lg border border-[#1e2638] bg-[#121724] px-3 py-2">
-      <p class="text-sm font-medium text-gray-200" data-testid="entry-title">
+    <!--
+      A button, so the keyboard opens an entry as the mouse does. The whole card
+      is the target: aiming at the title alone would leave most of it dead.
+    -->
+    <button
+      type="button"
+      class="mt-1 block w-full rounded-lg border bg-[#121724] px-3 py-2 text-left transition-colors hover:border-blue-500/40"
+      :class="props.editing ? 'border-blue-500/60' : 'border-[#1e2638]'"
+      :aria-pressed="props.editing ? 'true' : 'false'"
+      title="Abrir para corrigir"
+      data-testid="entry-open"
+      @click="emit('open', props.entry)"
+    >
+      <span class="block text-sm font-medium text-gray-200" data-testid="entry-title">
         {{ titleOf(props.entry.body) }}
-      </p>
+      </span>
 
       <!--
         Labels are Fase 2 of the roadmap: `labelIds` is always empty today, so
@@ -35,15 +50,15 @@ const time = computed(() => timeOf(props.entry.occurredAt, props.zone))
         shape is decided (ADR 0002) and seeding fake tags would make a screenshot
         that promises something the product cannot do.
       -->
-      <ul v-if="props.entry.labelIds.length > 0" class="mt-1.5 flex flex-wrap gap-1">
-        <li
+      <span v-if="props.entry.labelIds.length > 0" class="mt-1.5 flex flex-wrap gap-1">
+        <span
           v-for="label in props.entry.labelIds"
           :key="label"
           class="rounded-full border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-400"
         >
           {{ label }}
-        </li>
-      </ul>
-    </div>
+        </span>
+      </span>
+    </button>
   </li>
 </template>

@@ -1,5 +1,5 @@
 import type { Entry, EntryFilter, EntryRepository } from '@dailly/domain'
-import { NotImplementedError } from '@dailly/domain'
+import { EntryNotFoundError, NotImplementedError } from '@dailly/domain'
 import { rangeBounds, type TimeZone } from '@dailly/periods'
 import type { Database } from 'better-sqlite3'
 
@@ -46,6 +46,16 @@ export const sqliteEntryRepository = ({ db, zone }: SqliteEntryRepositoryDeps): 
     `INSERT INTO entries (id, body, occurred_at, created_at, updated_at, props)
      VALUES (?, ?, ?, ?, ?, ?)`,
   )
+
+  const getById = async (id: string): Promise<Entry | null> => {
+    const row = db
+      .prepare(
+        `SELECT id, body, occurred_at, created_at, updated_at, props
+           FROM entries WHERE id = ? AND kind = 'log'`,
+      )
+      .get(id) as EntryRow | undefined
+    return row ? toEntry(row) : null
+  }
 
   return {
     async create(entry) {
@@ -107,14 +117,28 @@ export const sqliteEntryRepository = ({ db, zone }: SqliteEntryRepositoryDeps): 
       return rows.map(toEntry)
     },
 
-    async update() {
-      throw new NotImplementedError('update')
+    // Only day logs: a task is an Entry too, but it is edited and deleted by
+    // the Tasks module (PRD RN6), and deleting its Entry here would take the
+    // task with it through the cascade.
+    getById,
+
+    async update(id, patch) {
+      const changed = db
+        .prepare(
+          `UPDATE entries
+              SET body = coalesce(?, body),
+                  occurred_at = coalesce(?, occurred_at),
+                  updated_at = ?
+            WHERE id = ? AND kind = 'log'`,
+        )
+        .run(patch.body ?? null, patch.occurredAt ?? null, patch.updatedAt, id)
+      if (changed.changes === 0) throw new EntryNotFoundError()
+      return (await getById(id))!
     },
-    async delete() {
-      throw new NotImplementedError('delete')
-    },
-    async getById() {
-      throw new NotImplementedError('getById')
+
+    async delete(id) {
+      const changed = db.prepare(`DELETE FROM entries WHERE id = ? AND kind = 'log'`).run(id)
+      if (changed.changes === 0) throw new EntryNotFoundError()
     },
   }
 }

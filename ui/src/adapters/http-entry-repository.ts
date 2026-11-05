@@ -1,5 +1,5 @@
 import type { Entry, EntryFilter, EntryRepository } from '@dailly/domain'
-import { NotImplementedError } from '@dailly/domain'
+import { EntryNotFoundError, NotImplementedError } from '@dailly/domain'
 import type { ApiConfig } from './api.js'
 import { ApiError } from './errors.js'
 import { httpClient } from './http.js'
@@ -46,6 +46,21 @@ export const httpEntryRepository = ({
     }
   }
 
+  /**
+   * One entry (card #33). A 404 here means that entry is not there: never
+   * written, deleted in another tab, or the Entry of a task, which /entries
+   * does not serve. Only here: a 404 on the collection is a wrong base URL or
+   * proxy, and must keep saying so.
+   */
+  const one = async (id: string, init: RequestInit = {}): Promise<unknown> => {
+    try {
+      return await request(`/entries/${encodeURIComponent(id)}`, init)
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) throw new EntryNotFoundError()
+      throw error
+    }
+  }
+
   return {
     async create(entry) {
       return (await request('/entries', {
@@ -68,14 +83,25 @@ export const httpEntryRepository = ({
       return (await request(`/entries${suffix}`)) as Entry[]
     },
 
-    async update() {
-      throw new NotImplementedError('update')
+    async update(id, patch) {
+      return (await one(id, {
+        method: 'PATCH',
+        body: JSON.stringify(patch),
+      })) as Entry
     },
-    async delete() {
-      throw new NotImplementedError('delete')
+
+    async delete(id) {
+      await one(id, { method: 'DELETE' })
     },
-    async getById() {
-      throw new NotImplementedError('getById')
+
+    async getById(id) {
+      try {
+        return (await one(id)) as Entry
+      } catch (error) {
+        // Asking whether it exists is not a failure (the port's promise).
+        if (error instanceof EntryNotFoundError) return null
+        throw error
+      }
     },
   }
 }

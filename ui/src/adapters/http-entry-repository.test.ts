@@ -1,4 +1,4 @@
-import { NotImplementedError, type Entry } from '@dailly/domain'
+import { EntryNotFoundError, NotImplementedError, type Entry } from '@dailly/domain'
 import { describe, expect, it, vi } from 'vitest'
 import { ApiError, ApiUnreachableError } from './errors.js'
 import { httpEntryRepository } from './http-entry-repository.js'
@@ -112,6 +112,51 @@ describe('httpEntryRepository', () => {
         NotImplementedError,
       )
       expect(fetch).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('one entry (card #33)', () => {
+    it('patches a correction and returns what the API stored', async () => {
+      const fetch = respondWith({ ...entry, body: 'novo' })
+      const patch = { body: 'novo', updatedAt: AT }
+
+      expect(await subject(fetch).update(entry.id, patch)).toEqual({ ...entry, body: 'novo' })
+
+      const [url, init] = fetch.mock.calls[0]!
+      expect(url).toBe(`/api/entries/${entry.id}`)
+      expect(init?.method).toBe('PATCH')
+      expect(JSON.parse(init?.body as string)).toEqual(patch)
+    })
+
+    it('C6: a 404 on update or delete is EntryNotFoundError', async () => {
+      const gone = () => respondWith({ error: 'registro não encontrado' }, 404)
+      await expect(subject(gone()).update(entry.id, { body: 'x', updatedAt: AT })).rejects.toBeInstanceOf(
+        EntryNotFoundError,
+      )
+      await expect(subject(gone()).delete(entry.id)).rejects.toBeInstanceOf(EntryNotFoundError)
+    })
+
+    it('deletes with no body', async () => {
+      const fetch = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) => new Response(null, { status: 204 }))
+
+      await subject(fetch).delete(entry.id)
+
+      const [url, init] = fetch.mock.calls[0]!
+      expect(url).toBe(`/api/entries/${entry.id}`)
+      expect(init?.method).toBe('DELETE')
+      expect(init?.body).toBeUndefined()
+    })
+
+    it('a 404 on the collection stays the API error, not "registro não encontrado"', async () => {
+      const lost = () => respondWith({ error: 'Route GET:/api/entries not found' }, 404)
+      await expect(subject(lost()).list({})).rejects.toBeInstanceOf(ApiError)
+      await expect(subject(lost()).create(entry)).rejects.toBeInstanceOf(ApiError)
+      await expect(subject(lost()).list({})).rejects.toThrow('Route GET:/api/entries not found')
+    })
+
+    it('reads one entry, and a 404 is null', async () => {
+      expect(await subject(respondWith(entry)).getById(entry.id)).toEqual(entry)
+      expect(await subject(respondWith({ error: 'registro não encontrado' }, 404)).getById(entry.id)).toBeNull()
     })
   })
 })

@@ -1,6 +1,6 @@
 import type { Entry } from './entry.js'
 import type { EntryFilter, EntryRepository } from './entry-repository.js'
-import { NotImplementedError } from './errors.js'
+import { EntryNotFoundError } from './errors.js'
 
 /**
  * The in-memory repository: production has one store (SQLite), and this exists
@@ -50,14 +50,18 @@ export const inMemoryEntryRepository = (seed: readonly Entry[] = []): EntryRepos
       )
     },
 
-    async update() {
-      throw new NotImplementedError('update')
+    async update(id, patch) {
+      const current = entries.get(id)
+      if (!current) throw new EntryNotFoundError()
+      const updated: Entry = { ...current, ...patch }
+      entries.set(id, updated)
+      return updated
     },
-    async delete() {
-      throw new NotImplementedError('delete')
+    async delete(id) {
+      if (!entries.delete(id)) throw new EntryNotFoundError()
     },
-    async getById() {
-      throw new NotImplementedError('getById')
+    async getById(id) {
+      return entries.get(id) ?? null
     },
   }
 }

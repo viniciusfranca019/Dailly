@@ -1,6 +1,6 @@
-import { NotImplementedError, type EntryRepository } from '@dailly/domain'
+import { EntryNotFoundError, NotImplementedError, type EntryRepository } from '@dailly/domain'
 import type { FastifyInstance } from 'fastify'
-import { validateEntry, validateRange } from './validate.js'
+import { validateEntry, validatePatch, validateRange } from './validate.js'
 
 /**
  * As rotas do Daily Log: o outro lado do `EntryRepository`.
@@ -37,5 +37,35 @@ export function registerEntryRoutes(app: FastifyInstance, entries: EntryReposito
 
     const created = await entries.create(validated.entry)
     return reply.code(201).send(created)
+  })
+
+  // One entry: read, correct, delete (card #33). Only day logs answer; the
+  // Entry of a task is a 404 here (PRD RN6), as an unknown id is.
+  const notFound = { error: new EntryNotFoundError().message }
+
+  app.get<{ Params: { id: string } }>('/entries/:id', async (request, reply) => {
+    const found = await entries.getById(request.params.id)
+    return found ?? reply.code(404).send(notFound)
+  })
+
+  app.patch<{ Params: { id: string } }>('/entries/:id', async (request, reply) => {
+    const validated = validatePatch(request.body)
+    if ('errors' in validated) return reply.code(400).send({ errors: validated.errors })
+    try {
+      return await entries.update(request.params.id, validated.patch)
+    } catch (error) {
+      if (error instanceof EntryNotFoundError) return reply.code(404).send(notFound)
+      throw error
+    }
+  })
+
+  app.delete<{ Params: { id: string } }>('/entries/:id', async (request, reply) => {
+    try {
+      await entries.delete(request.params.id)
+      return reply.code(204).send()
+    } catch (error) {
+      if (error instanceof EntryNotFoundError) return reply.code(404).send(notFound)
+      throw error
+    }
   })
 }

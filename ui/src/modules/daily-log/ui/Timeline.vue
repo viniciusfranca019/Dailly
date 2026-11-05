@@ -10,7 +10,11 @@ const props = defineProps<{
   zone: TimeZone
   now: string
   loading: boolean
+  /** The entry open in the editor, marked on its card. */
+  editingId?: string | null
 }>()
+
+const emit = defineEmits<{ open: [entry: Entry] }>()
 
 const search = ref('')
 
@@ -93,7 +97,9 @@ function headingFor(day: string): string {
             :key="entry.id"
             :entry="entry"
             :zone="props.zone"
+            :editing="entry.id === props.editingId"
             class="mb-4 last:mb-0"
+            @open="emit('open', $event)"
           />
         </ul>
       </section>

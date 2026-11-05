@@ -1,8 +1,10 @@
 import {
   createEntry,
+  deleteEntry,
   inMemoryEntryRepository,
   queryEntries,
   sequentialIds,
+  updateEntry,
   type Clock,
   type Entry,
 } from '@dailly/domain'
@@ -61,6 +63,8 @@ export function testEntryDeps(options: { seed?: readonly Entry[]; now?: string }
   return {
     createEntry: createEntry({ entries, clock, ids: sequentialIds() }),
     queryEntries: queryEntries({ entries }),
+    updateEntry: updateEntry({ entries, clock }),
+    deleteEntry: deleteEntry({ entries }),
   }
 }
 

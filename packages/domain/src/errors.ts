@@ -11,6 +11,14 @@ export class EmptyBodyError extends Error {
   }
 }
 
+/** Thrown when the entry asked for is gone: never written, or deleted elsewhere. */
+export class EntryNotFoundError extends Error {
+  override readonly name = 'EntryNotFoundError'
+  constructor() {
+    super('registro não encontrado')
+  }
+}
+
 /**
  * A port method that Phase 1 does not implement yet.
  *

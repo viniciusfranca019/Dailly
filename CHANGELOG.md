@@ -1,4 +1,4 @@
-version: 0.1.9
+version: 0.1.10
 
-- PRD do Daily Log, Fase 2 (`docs/prd/daily-log-fase-2.md`): editar e apagar registro, labels globais, propriedades tipadas e filtros na timeline, em quatro fatias. Fecha as duas perguntas que a arquitetura deixou para a decomposição: o filtro é OU nas labels e E entre dimensões, e excluir uma definição de propriedade fica para depois.
-- A F8 do Tasks (labels nas tarefas) passa a depender da F2 da Fase 2, que cria a label.
+- Daily Log, Fase 2, F1 (#33): clicar num registro da timeline o abre no editor para corrigir o corpo e o dia, ou apagar com confirmação. Registro apagado em outra aba diz "registro não encontrado" e relê a timeline.
+- `GET`, `PATCH` e `DELETE /entries/:id`, só para registros do dia (a Entry de uma tarefa é 404). O `EntryRepository` implementa `getById`, `update` e `delete`, e o domínio ganha `updateEntry`, `deleteEntry` e `EntryNotFoundError`.
