@@ -62,10 +62,10 @@ describe('Tasks, end to end', () => {
     await tasks.create({ title: 'dois', statusId: 'done' })
 
     const before = await tasks.board()
-    const moved = await tasks.move(1, placeAt(before, 1, 'done', 2))
+    const moved = await tasks.update(1, { placement: placeAt(before, 1, 'done', 2) })
 
     const after = await tasks.board()
-    expect(moved.completedAt).toEqual(expect.any(String))
+    expect(moved?.completedAt).toEqual(expect.any(String))
     expect(after.tasks.filter((task) => task.statusId === 'done').map((task) => task.key)).toEqual([1, 2])
   })
 })

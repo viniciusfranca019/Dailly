@@ -68,7 +68,10 @@ async function drop(statusId: string, beforeKey: number | null): Promise<void> {
   if (key === null || key === beforeKey || read.value.state !== 'ready') return
   moveError.value = null
   try {
-    await props.deps.tasks.move(key, placeAt(read.value.board, key, statusId, beforeKey))
+    const moved = await props.deps.tasks.update(key, {
+      placement: placeAt(read.value.board, key, statusId, beforeKey),
+    })
+    if (!moved) moveError.value = 'tarefa não encontrada'
   } catch (cause) {
     moveError.value = message(cause, 'não consegui mover a tarefa')
   }

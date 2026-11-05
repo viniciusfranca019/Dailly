@@ -45,7 +45,8 @@ const parseTask = (value: unknown): Task => {
     !PRIORITIES.includes(value['priority'] as number) ||
     typeof value['rank'] !== 'string' ||
     (value['completedAt'] !== null && typeof value['completedAt'] !== 'string') ||
-    typeof value['createdAt'] !== 'string'
+    typeof value['createdAt'] !== 'string' ||
+    typeof value['body'] !== 'string'
   ) {
     throw wrongShape('uma tarefa')
   }
@@ -58,6 +59,7 @@ const parseTask = (value: unknown): Task => {
     rank: value['rank'],
     completedAt: value['completedAt'],
     createdAt: value['createdAt'],
+    body: value['body'],
   }
 }
 
@@ -83,13 +85,32 @@ export function httpTasksClient(deps: HttpTasksClientDeps): TasksPort {
         }),
       )
     },
-    async move(key, placement) {
-      return parseTask(
-        await call(`/tasks/${formatKey(key)}`, {
-          method: 'PATCH',
-          body: JSON.stringify({ statusId: placement.statusId, rank: placement.rank }),
-        }),
-      )
+    async update(key, patch) {
+      try {
+        return parseTask(
+          await call(`/tasks/${formatKey(key)}`, {
+            method: 'PATCH',
+            body: JSON.stringify({
+              ...(patch.title !== undefined ? { title: patch.title } : {}),
+              ...(patch.priority !== undefined ? { priority: patch.priority } : {}),
+              ...(patch.body !== undefined ? { body: patch.body } : {}),
+              ...(patch.placement ? { statusId: patch.placement.statusId, rank: patch.placement.rank } : {}),
+            }),
+          }),
+        )
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404) return null
+        throw error
+      }
+    },
+    async delete(key) {
+      try {
+        await call(`/tasks/${formatKey(key)}`, { method: 'DELETE' })
+        return true
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404) return false
+        throw error
+      }
     },
   }
 }
