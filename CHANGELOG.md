@@ -1,3 +1,4 @@
-version: 0.1.6
+version: 0.1.8
 
-- PRD do Tasks, v2: vários boards com prefixo próprio, status configuráveis com cor, painel redimensionável, comentários, labels, busca com Ctrl+K e criação rápida com C, em sete fatias (F4 a F10). A P4, onde mora o comentário, está aberta.
+- Daily Log na convenção de Módulos (#29): o repositório SQLite de entries nasce no `provide` do módulo, e o `ServerModuleDeps` fica só com a zona. Um manifest sem o entries sobe. A regra pura da tela (`timeline`, `entry-date`) foi para `ui/src/modules/daily-log/model/`.
+- `@dailly/server` não exporta mais `sqliteEntryRepository`, que ninguém fora do módulo usava.

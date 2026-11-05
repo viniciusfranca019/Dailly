@@ -1,6 +1,6 @@
 import { NotImplementedError } from '@dailly/domain'
 import type { FastifyInstance } from 'fastify'
-import type { ServerModuleDeps } from '../../shell/module.js'
+import type { EntryRepository } from '@dailly/domain'
 import { validateEntry, validateRange } from './validate.js'
 
 /**
@@ -11,7 +11,7 @@ import { validateEntry, validateRange } from './validate.js'
  * rota começar a querer uma decisão, essa decisão pertence ao `@dailly/domain`,
  * onde os dois lados a enxergam.
  */
-export function registerEntryRoutes(app: FastifyInstance, { entries }: ServerModuleDeps): void {
+export function registerEntryRoutes(app: FastifyInstance, entries: EntryRepository): void {
   app.get('/entries', async (request, reply) => {
     const query = request.query as { from?: unknown; to?: unknown }
     const errors = validateRange(query)

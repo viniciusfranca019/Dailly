@@ -1,4 +1,3 @@
-import { inMemoryEntryRepository } from '@dailly/domain'
 import { UTC } from '@dailly/periods'
 import { randomBytes } from 'node:crypto'
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
@@ -14,7 +13,7 @@ const SECRET_KEY = randomBytes(32).toString('base64')
 
 /** `null` é "sem .env" — `undefined` cairia no padrão. */
 const appWith = (db = openDatabase(':memory:'), secretKey: string | null = SECRET_KEY) =>
-  buildApp({ entries: inMemoryEntryRepository(), zone: UTC, db, kdf: FAST, ...(secretKey ? { secretKey } : {}) })
+  buildApp({ zone: UTC, db, kdf: FAST, ...(secretKey ? { secretKey } : {}) })
 
 const call = (app: FastifyInstance, method: 'GET' | 'POST' | 'PUT' | 'DELETE', url: string, payload?: object) =>
   app.inject({ method, url, ...(payload ? { payload } : {}) })

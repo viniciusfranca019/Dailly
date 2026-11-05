@@ -86,17 +86,17 @@ história de backup da [ADR 0005](../../../docs/conventions/architecture.md).
 ```ts
 ServerModule<TOwn> = {
   id, migrations,
-  provide?(ctx: { db, zone }): TOwn        // a dependência que é só deste módulo
-  register(app, deps: { entries, zone }, own: TOwn): void
+  provide?(ctx: { db, zone, vault }): TOwn // a dependência que é só deste módulo
+  register(app, deps: { zone }, own: TOwn): void
 }
 ```
 
 - **`provide`** existe para que um módulo novo não faça o saco comum
   (`ServerModuleDeps`) crescer um campo. O Requests constrói o próprio
-  `RequestStore` por aqui.
-- O **entries fica fora do `provide` de propósito**: o repositório dele é
-  construído no composition root, porque o teste do 501 injeta um diferente a
-  cada `buildApp`.
+  `RequestStore` por aqui, o entries o `EntryRepository` SQLite (card #29) e o
+  Tasks o `TaskStore`. O saco comum ficou só com a zona.
+- **O manifest decide a composição sozinho.** Nenhum módulo é construído fora do
+  laço, então um manifest sem o entries sobe (sem `no such table: entries`).
 - **`defineModule`** é a única porta para o manifest. `ServerModule<T>` é o tipo
   de *autoria* (amarra "declara `TOwn`" a "tem `provide`"); `AnyServerModule` é
   o tipo de *armazenamento*, alargado, e só `defineModule` produz a marca que
@@ -114,14 +114,16 @@ desligada não custa nada a ninguém.
 | `GET /entries?from&to` | lista, mais novo primeiro; `from`/`to` são dias `YYYY-MM-DD` | 400 período inválido · 501 filtro da Fase 2 |
 | `POST /entries` | grava uma `Entry` **já pronta** | 400 nomeando o campo |
 
-O `SqliteEntryRepository` (`adapters/`) não normaliza nem carimba nada: o
+O `sqliteEntryRepository` (`modules/entries/`) não normaliza nem carimba nada: o
 corpo chega normalizado e o id chega gerado, porque `createEntry` rodou no
 renderer. O que ele faz é traduzir o filtro de dias em limites de instante com
 `rangeBounds` do `@dailly/periods`, no fuso do processo.
 
-Ele mora em `adapters/` e não em `modules/entries/` porque implementa uma port
-do **pacote** `@dailly/domain`, não do módulo — o mesmo critério que põe o
-`http-entry-repository.ts` em `ui/src/adapters/`.
+Ele mora em `modules/entries/`, construído no `provide` do módulo, como o
+`sqliteRequestStore` e o `sqliteTaskStore`. Morava em `adapters/` e era montado
+no composition root porque o teste do 501 injetava outro a cada `buildApp`;
+esse teste agora monta as rotas sobre o repositório que recusa
+(`modules/entries/routes.test.ts`).
 
 ### `requests` — o cliente de API
 

@@ -3,8 +3,8 @@ import { WhiteboardDocument } from '@dailly/whiteboard-core'
 import { TEXT_ATTR, mountWhiteboard, type WhiteboardHandle } from '@capabilities/whiteboard/dom'
 import type { CalendarDay } from '@dailly/periods'
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
-import { formatDay } from './timeline.js'
-import { isLoggable } from './entry-date.js'
+import { formatDay } from '../model/timeline.js'
+import { isLoggable } from '../model/entry-date.js'
 
 /**
  * The editor card: a title, a toolbar, the whiteboard, and two buttons.

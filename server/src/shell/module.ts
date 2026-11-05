@@ -10,7 +10,6 @@
  * causa escrita na Emenda 2, e só lá, para não derivarem em três cópias.
  */
 
-import type { EntryRepository } from '@dailly/domain'
 import type { TimeZone } from '@dailly/periods'
 import type { Database } from 'better-sqlite3'
 import type { FastifyInstance } from 'fastify'
@@ -52,7 +51,6 @@ export interface Migration {
 }
 
 export interface ServerModuleDeps {
-  readonly entries: EntryRepository
   readonly zone: TimeZone
 }
 
@@ -100,11 +98,6 @@ export type ServerModule<TOwn = void> = [TOwn] extends [void]
    * adiou com gatilho nomeado, e o gatilho é o módulo Requests. Sem ela, cada
    * módulo novo acrescentaria um campo ao `ServerModuleDeps` — o tell da Lei 4
    * — e o entries passaria a enxergar o store de requests sem precisar dele.
-   *
-       * **Ausente no entries de propósito:** o repositório dele é construído
-       * pelo composition root e entregue no saco, porque o teste do 501 injeta
-       * um `entries` diferente a cada `buildApp` e isso precisa continuar
-       * possível.
        */
       provide(context: ProvideContext): TOwn
       register(app: FastifyInstance, deps: ServerModuleDeps, own: TOwn): void

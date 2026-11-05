@@ -3,7 +3,7 @@ import type { Entry } from '@dailly/domain'
 import { dayOf, type TimeZone } from '@dailly/periods'
 import { computed, ref } from 'vue'
 import TimelineEntry from './TimelineEntry.vue'
-import { formatDay, groupByDay, titleOf } from './timeline.js'
+import { formatDay, groupByDay, titleOf } from '../model/timeline.js'
 
 const props = defineProps<{
   entries: readonly Entry[]

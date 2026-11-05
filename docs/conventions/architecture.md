@@ -70,7 +70,7 @@ do outro.
 | `packages/periods` | instante + fuso → dia, semana, mês, quadrimestre, e de volta; o único ponto de conversão de fuso |
 | `packages/whiteboard-core` | o modelo do editor de blocos: blocos, parser e serializer de markdown, edições estruturais; sem DOM |
 | `packages/requests-core` | o modelo do Requests: `RequestSpec`, `ProtocolRegistry`, import de curl, `resolve(spec, env)`, a port `RequestStore`; sem rede |
-| `server/src` | `shell/` (config, banco, migrations, cofre, guarda de Host e Origin, `/health`), `modules/` (`entries`, `requests`, `vault`), `adapters/` (`SqliteEntryRepository`) |
+| `server/src` | `shell/` (config, banco, migrations, cofre, guarda de Host e Origin, `/health`), `modules/` (`entries`, `requests`, `vault`, `tasks`), cada um com o próprio store construído no `provide` |
 | `ui/src` | `shell/` (composition root, manifest com flags, rotas), `shared/` (contratos e ports), `adapters/` (HTTP), `capabilities/whiteboard` (o adapter DOM), `modules/` (`daily-log`, `requests`, `analyse`), `playground/` |
 
 ## Os módulos
