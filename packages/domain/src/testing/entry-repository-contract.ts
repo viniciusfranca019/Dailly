@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Entry } from '../entry.js'
 import type { EntryRepository } from '../entry-repository.js'
+import { EntryNotFoundError } from '../errors.js'
 
 /**
  * The contract every `EntryRepository` owes, as an executable suite.
@@ -11,8 +12,8 @@ import type { EntryRepository } from '../entry-repository.js'
  * these is substitutable; one that does not is a different port wearing the
  * same type.
  *
- * It covers only what Phase 1 implements — `create` and `list`. `update`,
- * `delete` and `getById` join when the Phase 2 use-cases that call them do.
+ * `update`, `delete` and `getById` joined with the Fase 2 use-cases that call
+ * them (`updateEntry`, `deleteEntry`, card #33).
  */
 
 export interface ContractOptions {
@@ -115,6 +116,56 @@ export function entryRepositoryContract(name: string, { make }: ContractOptions)
       const [found] = await entries.list({})
 
       expect(found?.body).toBe(body)
+    })
+
+    it('finds an entry by id, and answers null for an unknown one', async () => {
+      const entries = await make()
+      const written = entry('achada', '2026-07-24T10:00:00.000Z')
+      await entries.create(written)
+
+      expect(await entries.getById(written.id)).toEqual(written)
+      expect(await entries.getById(uuid())).toBeNull()
+    })
+
+    it('updates the body, the instant and the update stamp, and keeps the rest', async () => {
+      const entries = await make()
+      const written = entry('antes', '2026-07-24T10:00:00.000Z')
+      await entries.create(written)
+
+      const updated = await entries.update(written.id, {
+        body: 'corpo de depois',
+        occurredAt: '2026-07-23T12:00:00.000Z',
+        updatedAt: '2026-07-24T11:00:00.000Z',
+      })
+
+      const expected = {
+        ...written,
+        body: 'corpo de depois',
+        occurredAt: '2026-07-23T12:00:00.000Z',
+        updatedAt: '2026-07-24T11:00:00.000Z',
+      }
+      expect(updated).toEqual(expected)
+      expect(await entries.list({})).toEqual([expected])
+    })
+
+    it('refuses to update an entry that does not exist', async () => {
+      const entries = await make()
+      await expect(
+        entries.update(uuid(), { body: 'x', updatedAt: '2026-07-24T11:00:00.000Z' }),
+      ).rejects.toBeInstanceOf(EntryNotFoundError)
+    })
+
+    it('deletes an entry, and refuses one that does not exist', async () => {
+      const entries = await make()
+      const kept = entry('fica', '2026-07-24T10:00:00.000Z')
+      const gone = entry('sai', '2026-07-24T11:00:00.000Z')
+      await entries.create(kept)
+      await entries.create(gone)
+
+      await entries.delete(gone.id)
+
+      expect(await entries.list({})).toEqual([kept])
+      await expect(entries.delete(gone.id)).rejects.toBeInstanceOf(EntryNotFoundError)
     })
   })
 }

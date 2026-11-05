@@ -20,6 +20,17 @@ export interface EntryFilter {
 }
 
 /**
+ * What an update may change. `id` and `createdAt` are not in it: an entry
+ * corrected is the same entry (PRD RN5). `labelIds` and `props` join with the
+ * slices that edit them.
+ */
+export interface EntryPatch {
+  readonly body?: string
+  readonly occurredAt?: string
+  readonly updatedAt: string
+}
+
+/**
  * The port. Per [ADR 0002 §1] the repository interface — not the SQL table — is
  * the source of truth, and in production there is exactly one implementation.
  *
@@ -44,9 +55,12 @@ export interface EntryRepository {
   create(entry: Entry): Promise<Entry>
   list(filter: EntryFilter): Promise<Entry[]>
 
-  // Declared because the port is declared whole; implemented in Phase 2, when
-  // the use-cases that call them exist (`updateEntry`, `deleteEntry`).
-  update(id: string, patch: Partial<Entry>): Promise<Entry>
+  /**
+   * Called by `updateEntry` and `deleteEntry` (Fase 2, card #33). An unknown id
+   * is `EntryNotFoundError` on `update` and `delete`, and `null` on `getById`:
+   * asking whether something exists is not a failure, writing to nothing is.
+   */
+  update(id: string, patch: EntryPatch): Promise<Entry>
   delete(id: string): Promise<void>
   getById(id: string): Promise<Entry | null>
 }

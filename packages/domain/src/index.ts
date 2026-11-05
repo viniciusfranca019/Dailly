@@ -18,8 +18,8 @@
  */
 
 export type { Entry, NewEntry } from './entry.js'
-export type { EntryFilter, EntryRepository } from './entry-repository.js'
-export { EmptyBodyError, NotImplementedError } from './errors.js'
+export type { EntryFilter, EntryPatch, EntryRepository } from './entry-repository.js'
+export { EmptyBodyError, EntryNotFoundError, NotImplementedError } from './errors.js'
 
 export type { Clock, ISODateTime } from './time.js'
 export { fixedClock, systemClock } from './time.js'
@@ -33,3 +33,7 @@ export { createEntry } from './create-entry.js'
 export type { CreateEntryDeps } from './create-entry.js'
 export { queryEntries } from './query-entries.js'
 export type { QueryEntriesDeps } from './query-entries.js'
+export { updateEntry } from './update-entry.js'
+export type { EntryCorrection, UpdateEntryDeps } from './update-entry.js'
+export { deleteEntry } from './delete-entry.js'
+export type { DeleteEntryDeps } from './delete-entry.js'
