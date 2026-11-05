@@ -188,7 +188,7 @@ F4: Vários boards          — cobre J5.1, J5.1a, J5.1b, J5.2, J5.3, J5.4, RN5,
 F5: Status do board        — cobre J6.1, J6.1a, J6.2, J6.3, J6.3a, J6.4, J6.4a, RN2, RN11, RN12 — depende de F4     → a criar
 F6: Painel redimensionável — cobre J7.1, J7.1a                                                    — depende de F3     → a criar
 F7: Comentários            — cobre J8.1, J8.1a, J8.1b, J8.2, RN14                                — depende de F3     → a criar
-F8: Labels                 — cobre J9.1, J9.2, J9.2a, J9.3, RN13                                 — depende de F3     → a criar
+F8: Labels                 — cobre J9.1, J9.2, J9.2a, J9.3, RN13                                 — depende de F3 e da F2 do Daily Log, Fase 2 → a criar
 F9: Busca com Ctrl+K       — cobre J10.1, J10.1a, J10.2, J10.2a, J10.3, RN15                     — depende de F4     → a criar
 F10: Criar rápido          — cobre J11.1, J11.1a, J11.2, J11.2a, J11.2b, RN15                    — depende de F4     → a criar
 ```

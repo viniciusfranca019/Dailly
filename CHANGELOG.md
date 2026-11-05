@@ -1,3 +1,4 @@
-version: 0.1.6
+version: 0.1.9
 
-- PRD do Tasks, v2: vários boards com prefixo próprio, status configuráveis com cor, painel redimensionável, comentários, labels, busca com Ctrl+K e criação rápida com C, em sete fatias (F4 a F10). A P4, onde mora o comentário, está aberta.
+- PRD do Daily Log, Fase 2 (`docs/prd/daily-log-fase-2.md`): editar e apagar registro, labels globais, propriedades tipadas e filtros na timeline, em quatro fatias. Fecha as duas perguntas que a arquitetura deixou para a decomposição: o filtro é OU nas labels e E entre dimensões, e excluir uma definição de propriedade fica para depois.
+- A F8 do Tasks (labels nas tarefas) passa a depender da F2 da Fase 2, que cria a label.
