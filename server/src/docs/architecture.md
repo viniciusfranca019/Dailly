@@ -24,10 +24,10 @@ server/src/
     module.ts           o contrato de módulo: ServerModule · defineModule · assertManifest
     app.ts              buildApp: token, /health e o laço que registra os módulos
   modules/
-    entries/            Daily Log: routes · validate · migrations · index
+    entries/            Daily Log: routes · validate · migrations · rows · sqlite-entry-repository · index
     requests/           Requests: routes · validate · migrations · execute · sqlite-request-store · index
-  adapters/
-    sqlite-entry-repository.ts   EntryRepository sobre SQLite
+    vault/              o cofre: rotas de criar, destravar e trancar
+    tasks/              Tasks: routes · migrations · sqlite-task-store · index
   __fixtures__/v1.sqlite         um banco real da versão 1, versionado de propósito
 ```
 
@@ -177,9 +177,11 @@ As outras suítes do projeto:
 
 | Arquivo | Prova |
 |---|---|
-| `app.test.ts` | a superfície HTTP do entries, as recusas e o token |
+| `app.test.ts` | a superfície HTTP do entries, o 400 de validação e o token |
+| `entries-provide.test.ts` | o repositório do entries nasce no `provide`, e um manifest sem o entries sobe |
 | `composition.test.ts` | módulo entra pelo manifest, sua migration é a que roda, `/health` isento pela rota, `provide` |
 | `requests.test.ts` | a execução ponta a ponta contra um alvo local, e as pastas pela API |
 | `existing-database.test.ts` | o `v1.sqlite` sobe de versão sem reaplicar o que já rodou |
 | `boots-without-electron.test.ts` | `createServer` com socket de verdade, sem Electron |
-| `adapters/*.test.ts` · `modules/requests/*.test.ts` | os stores SQLite contra o contract test do pacote |
+| `modules/*/sqlite-*.test.ts` | os stores SQLite contra o contract test do pacote |
+| `modules/entries/routes.test.ts` | o 501 da Fase 2, com as rotas sobre um repositório que recusa |

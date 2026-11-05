@@ -55,7 +55,7 @@ do outro.
                       │                         │
      ui/ (Vue, navegador) ─── HTTP /api ───► server/ (Fastify + SQLite)
         shell → manifest → modules/             shell → manifest → modules/
-        shared/ · adapters/ · capabilities/      adapters/ · shell/vault
+        shared/ · adapters/ · capabilities/      shell/vault
 ```
 
 - `packages/` não importa `ui/` nem `server/`; `ui/` e `server/` importam

@@ -202,10 +202,9 @@ describe('o módulo traz a própria dependência, em vez de o contrato crescer u
    * requests, e vice-versa. É o tell da Lei 4: acrescentar um caso obriga a
    * editar algo que já funciona.
    *
-   * `provide` é opcional de propósito. O entries não tem: o repositório dele é
-   * construído pelo composition root e entregue no saco, porque o teste do 501
-   * em `app.test.ts` injeta um `entries` diferente a cada chamada e isso
-   * precisa continuar possível.
+   * `provide` é opcional de propósito: um módulo sem dependência própria (o
+   * fake deste arquivo) não precisa declarar um. Os quatro módulos de verdade
+   * declaram, o entries inclusive desde o card #29.
    */
   it('entrega ao módulo o que o provide dele devolveu', async () => {
     const proprio = { marca: 'só deste módulo' }
