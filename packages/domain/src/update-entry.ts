@@ -13,6 +13,8 @@ export interface EntryCorrection {
   readonly body: string
   /** Absent when the day did not change: the entry keeps its instant. */
   readonly occurredAt?: ISODateTime
+  /** The labels it carries now; absent keeps them (card #34). */
+  readonly labelIds?: readonly string[]
 }
 
 /**
@@ -29,6 +31,7 @@ export const updateEntry =
     return entries.update(id, {
       body,
       ...(correction.occurredAt ? { occurredAt: correction.occurredAt } : {}),
+      ...(correction.labelIds ? { labelIds: correction.labelIds } : {}),
       updatedAt: clock.now(),
     })
   }

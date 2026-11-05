@@ -39,4 +39,27 @@ export const ENTRIES_MIGRATIONS: readonly Migration[] = [
         ADD COLUMN kind TEXT NOT NULL DEFAULT 'log' CHECK (kind IN ('log', 'task'));
     `,
   },
+  {
+    // Labels (PRD Fase 2, RN1, card #34): global, so they live with the Entry
+    // and not with a product. `name_key` is the case-folded name the domain
+    // computes (`labelKey`), because SQLite's lower() folds ASCII only and
+    // "Saúde" and "SAÚDE" must collide. Both foreign keys cascade: deleting a
+    // label takes it off every entry and task (RN2), deleting an entry takes
+    // its labels off it.
+    version: 6,
+    up: `
+      CREATE TABLE labels (
+        id       TEXT PRIMARY KEY,
+        name     TEXT NOT NULL,
+        name_key TEXT NOT NULL UNIQUE,
+        color    TEXT NOT NULL
+      );
+      CREATE TABLE entry_labels (
+        entry_id TEXT NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
+        label_id TEXT NOT NULL REFERENCES labels(id) ON DELETE CASCADE,
+        PRIMARY KEY (entry_id, label_id)
+      );
+      CREATE INDEX idx_entry_labels_label ON entry_labels(label_id);
+    `,
+  },
 ]

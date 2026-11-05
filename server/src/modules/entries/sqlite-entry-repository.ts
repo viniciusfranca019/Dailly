@@ -20,6 +20,8 @@ interface EntryRow {
   readonly created_at: string
   readonly updated_at: string
   readonly props: string
+  /** `group_concat` of the label ids, `null` when it has none. UUIDs hold no comma. */
+  readonly label_ids: string | null
 }
 
 const toEntry = (row: EntryRow): Entry => ({
@@ -28,12 +30,12 @@ const toEntry = (row: EntryRow): Entry => ({
   occurredAt: row.occurred_at,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
-  // Fase 1 has no `entry_labels` table, so labels are always empty here rather
-  // than absent: the field is part of `Entry`, and a reader should not have to
-  // know which phase it is looking at.
-  labelIds: [],
+  labelIds: row.label_ids ? row.label_ids.split(',') : [],
   props: JSON.parse(row.props) as Record<string, unknown>,
 })
+
+/** The labels of each row, read in the same statement (card #34). */
+const LABEL_IDS = `(SELECT group_concat(label_id) FROM entry_labels WHERE entry_id = entries.id) AS label_ids`
 
 export interface SqliteEntryRepositoryDeps {
   readonly db: Database
@@ -50,23 +52,36 @@ export const sqliteEntryRepository = ({ db, zone }: SqliteEntryRepositoryDeps): 
   const getById = async (id: string): Promise<Entry | null> => {
     const row = db
       .prepare(
-        `SELECT id, body, occurred_at, created_at, updated_at, props
+        `SELECT id, body, occurred_at, created_at, updated_at, props, ${LABEL_IDS}
            FROM entries WHERE id = ? AND kind = 'log'`,
       )
       .get(id) as EntryRow | undefined
     return row ? toEntry(row) : null
   }
 
+  const tag = db.prepare<[string, string]>('INSERT INTO entry_labels (entry_id, label_id) VALUES (?, ?)')
+  const untag = db.prepare<[string]>('DELETE FROM entry_labels WHERE entry_id = ?')
+  /** The set an entry carries, replaced whole: what the patch says is what it has. */
+  const label = (id: string, labelIds: readonly string[]) => {
+    untag.run(id)
+    for (const labelId of new Set(labelIds)) tag.run(id, labelId)
+  }
+
+  const create = db.transaction((entry: Entry) => {
+    insert.run(
+      entry.id,
+      entry.body,
+      entry.occurredAt,
+      entry.createdAt,
+      entry.updatedAt,
+      JSON.stringify(entry.props),
+    )
+    label(entry.id, entry.labelIds)
+  })
+
   return {
     async create(entry) {
-      insert.run(
-        entry.id,
-        entry.body,
-        entry.occurredAt,
-        entry.createdAt,
-        entry.updatedAt,
-        JSON.stringify(entry.props),
-      )
+      create(entry)
       return entry
     },
 
@@ -107,7 +122,7 @@ export const sqliteEntryRepository = ({ db, zone }: SqliteEntryRepositoryDeps): 
 
       const rows = db
         .prepare(
-          `SELECT id, body, occurred_at, created_at, updated_at, props
+          `SELECT id, body, occurred_at, created_at, updated_at, props, ${LABEL_IDS}
              FROM entries
             WHERE ${where.join(' AND ')}
             ORDER BY occurred_at DESC, created_at DESC`,
@@ -123,16 +138,19 @@ export const sqliteEntryRepository = ({ db, zone }: SqliteEntryRepositoryDeps): 
     getById,
 
     async update(id, patch) {
-      const changed = db
-        .prepare(
-          `UPDATE entries
-              SET body = coalesce(?, body),
-                  occurred_at = coalesce(?, occurred_at),
-                  updated_at = ?
-            WHERE id = ? AND kind = 'log'`,
-        )
-        .run(patch.body ?? null, patch.occurredAt ?? null, patch.updatedAt, id)
-      if (changed.changes === 0) throw new EntryNotFoundError()
+      db.transaction(() => {
+        const changed = db
+          .prepare(
+            `UPDATE entries
+                SET body = coalesce(?, body),
+                    occurred_at = coalesce(?, occurred_at),
+                    updated_at = ?
+              WHERE id = ? AND kind = 'log'`,
+          )
+          .run(patch.body ?? null, patch.occurredAt ?? null, patch.updatedAt, id)
+        if (changed.changes === 0) throw new EntryNotFoundError()
+        if (patch.labelIds) label(id, patch.labelIds)
+      })()
       return (await getById(id))!
     },
 

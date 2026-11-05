@@ -19,6 +19,12 @@ import { EntryNotFoundError } from '../errors.js'
 export interface ContractOptions {
   /** A fresh, empty repository per test. */
   readonly make: () => EntryRepository | Promise<EntryRepository>
+  /**
+   * Makes a label exist and answers its id (card #34). A store that checks
+   * labels (SQLite's foreign key) needs one before an entry can carry it; the
+   * in-memory fake does not, and answers the name.
+   */
+  readonly label: (repository: EntryRepository, name: string) => Promise<string>
 }
 
 /**
@@ -48,7 +54,7 @@ const entry = (name: string, occurredAt: string, over: Partial<Entry> = {}): Ent
 /** What the assertions compare on, now that ids are opaque. */
 const bodies = (entries: readonly Entry[]): string[] => entries.map((entry) => entry.body)
 
-export function entryRepositoryContract(name: string, { make }: ContractOptions): void {
+export function entryRepositoryContract(name: string, { make, label }: ContractOptions): void {
   describe(`${name} honours the EntryRepository contract`, () => {
     it('stores an entry and gives it back', async () => {
       const entries = await make()
@@ -116,6 +122,33 @@ export function entryRepositoryContract(name: string, { make }: ContractOptions)
       const [found] = await entries.list({})
 
       expect(found?.body).toBe(body)
+    })
+
+    it('stores the labels of an entry and gives them back (card #34)', async () => {
+      const entries = await make()
+      const work = await label(entries, 'trabalho')
+      const health = await label(entries, 'saúde')
+      const written = entry('rotulada', '2026-07-24T10:00:00.000Z', { labelIds: [work, health] })
+
+      await entries.create(written)
+
+      const [found] = await entries.list({})
+      expect([...(found?.labelIds ?? [])].sort()).toEqual([work, health].sort())
+      expect([...((await entries.getById(written.id))?.labelIds ?? [])].sort()).toEqual([work, health].sort())
+    })
+
+    it('replaces the labels on update, and keeps them when the patch has none', async () => {
+      const entries = await make()
+      const work = await label(entries, 'trabalho')
+      const health = await label(entries, 'saúde')
+      const written = entry('rotulada', '2026-07-24T10:00:00.000Z', { labelIds: [work] })
+      await entries.create(written)
+
+      await entries.update(written.id, { body: 'outro corpo', updatedAt: '2026-07-24T11:00:00.000Z' })
+      expect((await entries.getById(written.id))?.labelIds).toEqual([work])
+
+      await entries.update(written.id, { labelIds: [health], updatedAt: '2026-07-24T12:00:00.000Z' })
+      expect((await entries.getById(written.id))?.labelIds).toEqual([health])
     })
 
     it('finds an entry by id, and answers null for an unknown one', async () => {

@@ -10,6 +10,14 @@ import { validateEntry, validatePatch, validateRange } from './validate.js'
  * rota começar a querer uma decisão, essa decisão pertence ao `@dailly/domain`,
  * onde os dois lados a enxergam.
  */
+/**
+ * A label id that is not in `labels` fails the foreign key of `entry_labels`
+ * (card #34). It is the client's mistake, so a 400 naming the field, not a 500.
+ */
+const UNKNOWN_LABEL = { field: 'labelIds', message: 'contém uma label que não existe' }
+const isUnknownLabel = (error: unknown): boolean =>
+  typeof error === 'object' && error !== null && (error as { code?: unknown }).code === 'SQLITE_CONSTRAINT_FOREIGNKEY'
+
 export function registerEntryRoutes(app: FastifyInstance, entries: EntryRepository): void {
   app.get('/entries', async (request, reply) => {
     const query = request.query as { from?: unknown; to?: unknown }
@@ -35,8 +43,13 @@ export function registerEntryRoutes(app: FastifyInstance, entries: EntryReposito
     const validated = validateEntry(request.body)
     if ('errors' in validated) return reply.code(400).send({ errors: validated.errors })
 
-    const created = await entries.create(validated.entry)
-    return reply.code(201).send(created)
+    try {
+      const created = await entries.create(validated.entry)
+      return reply.code(201).send(created)
+    } catch (error) {
+      if (isUnknownLabel(error)) return reply.code(400).send({ errors: [UNKNOWN_LABEL] })
+      throw error
+    }
   })
 
   // One entry: read, correct, delete (card #33). Only day logs answer; the
@@ -55,6 +68,7 @@ export function registerEntryRoutes(app: FastifyInstance, entries: EntryReposito
       return await entries.update(request.params.id, validated.patch)
     } catch (error) {
       if (error instanceof EntryNotFoundError) return reply.code(404).send(notFound)
+      if (isUnknownLabel(error)) return reply.code(400).send({ errors: [UNKNOWN_LABEL] })
       throw error
     }
   })

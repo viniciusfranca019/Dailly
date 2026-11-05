@@ -1,8 +1,11 @@
+import { randomUUID } from 'node:crypto'
 import type { EntryRepository } from '@dailly/domain'
 import type { ServerModule } from '../../shell/module.js'
+import { registerLabelRoutes } from './label-routes.js'
 import { ENTRIES_MIGRATIONS } from './migrations.js'
 import { registerEntryRoutes } from './routes.js'
 import { sqliteEntryRepository } from './sqlite-entry-repository.js'
+import { sqliteLabelStore, type LabelStore } from './sqlite-label-store.js'
 
 /**
  * Entries — superfície pública do módulo no servidor.
@@ -16,11 +19,19 @@ import { sqliteEntryRepository } from './sqlite-entry-repository.js'
  * 501 injetava outro a cada `buildApp`; esse teste agora monta as rotas sobre
  * o repositório que recusa (`routes.test.ts`), sem o shell no meio.
  */
-export const entriesModule: ServerModule<EntryRepository> = {
+export const entriesModule: ServerModule<{ entries: EntryRepository; labels: LabelStore }> = {
   id: 'entries',
   migrations: ENTRIES_MIGRATIONS,
-  provide: ({ db, zone }) => sqliteEntryRepository({ db, zone }),
-  register: (app, _deps, entries) => registerEntryRoutes(app, entries),
+  // Labels live here because they are global (PRD Fase 2, RN1): an Entry
+  // carries them, whatever product made the Entry.
+  provide: ({ db, zone }) => ({
+    entries: sqliteEntryRepository({ db, zone }),
+    labels: sqliteLabelStore({ db, newId: randomUUID }),
+  }),
+  register: (app, _deps, { entries, labels }) => {
+    registerEntryRoutes(app, entries)
+    registerLabelRoutes(app, labels)
+  },
 }
 
 export { validateEntry, validateRange } from './validate.js'
