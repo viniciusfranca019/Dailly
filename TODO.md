@@ -16,7 +16,7 @@ faltam. O que já foi feito está em [`docs/features/`](docs/features/index.md).
 Fatia vertical primeiro, largura depois: cada fase entrega algo observável de
 ponta a ponta.
 
-- [ ] **Fase 2: Daily Log completo.** Labels, propriedades (tipadas em
+- [ ] **Fase 2: Daily Log completo** ([PRD](docs/prd/daily-log-fase-2.md)). Labels, propriedades (tipadas em
       `property_defs` ou ad-hoc na coluna `props`), editar e apagar entrada, e
       filtros na timeline combinando label e propriedade. Pronta quando uma
       entrada com label e propriedade é criada, editada, apagada, e recuperada

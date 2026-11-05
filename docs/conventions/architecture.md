@@ -369,7 +369,7 @@ entradas do diário continuam em texto puro.
 | O quê | Decidido em | Gatilho |
 |-------|-------------|---------|
 | Labels, propriedades, edição, exclusão e filtros do Daily Log | dados (era a ADR 0002) | Fase 2; as rotas que dependem deles respondem 501 |
-| Em aberto: o que excluir uma `PropertyDef` faz com os valores já gravados, e se o `EntryFilter` combina período, labels e propriedades por AND | ninguém ainda | decidir na decomposição da Fase 2 |
+| O `EntryFilter` combina labels por OU e as dimensões (período, labels, propriedades) por E; excluir uma `PropertyDef` fica fora da Fase 2 | o [PRD da Fase 2](/prd/daily-log-fase-2.md) (RN4, Fora de escopo) | decidido na decomposição da Fase 2; a exclusão, quando o uso pedir |
 | Em aberto: reexecutar a análise do mesmo período (nova, substitui ou recusa), e se o `Processor` é port formal ou só convenção de use-case | ninguém ainda | decidir antes da Fase 4 |
 | `Processor`, `Materialization`, `Summarizer` e Settings com BYOK | local-first (era a ADR 0001), IA (era a ADR 0004) | Fases 3 a 5 |
 | Backup em nuvem (`StorageProvider`) | backup (era a ADR 0005) | pós-MVP |

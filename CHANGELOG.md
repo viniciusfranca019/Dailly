@@ -1,4 +1,4 @@
-version: 0.1.8
+version: 0.1.9
 
-- Daily Log na convenção de Módulos (#29): o repositório SQLite de entries nasce no `provide` do módulo, e o `ServerModuleDeps` fica só com a zona. Um manifest sem o entries sobe. A regra pura da tela (`timeline`, `entry-date`) foi para `ui/src/modules/daily-log/model/`.
-- `@dailly/server` não exporta mais `sqliteEntryRepository`, que ninguém fora do módulo usava.
+- PRD do Daily Log, Fase 2 (`docs/prd/daily-log-fase-2.md`): editar e apagar registro, labels globais, propriedades tipadas e filtros na timeline, em quatro fatias. Fecha as duas perguntas que a arquitetura deixou para a decomposição: o filtro é OU nas labels e E entre dimensões, e excluir uma definição de propriedade fica para depois.
+- A F8 do Tasks (labels nas tarefas) passa a depender da F2 da Fase 2, que cria a label.
