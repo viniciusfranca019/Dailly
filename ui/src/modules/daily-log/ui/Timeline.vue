@@ -82,7 +82,7 @@ function headingFor(day: string): string {
         class="text-sm text-[#747e8f]"
         data-testid="timeline-status"
       >
-        <template v-if="props.filtered">
+        <template v-if="props.filtered && !search">
           nenhum registro com esse filtro.
           <button type="button" class="underline hover:text-gray-200" data-testid="filter-clear-empty" @click="emit('clear')">
             Limpar filtro

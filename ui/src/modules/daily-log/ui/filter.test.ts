@@ -14,6 +14,7 @@ import {
   type PropertyDef,
 } from '@dailly/domain'
 import { testLabelsPort, testPropertiesPort, testSharedDeps } from '@shared/testing.js'
+import type { EntryFilter } from '@dailly/domain'
 import DailyLog from './DailyLog.vue'
 
 /** Card #36: cutting the timeline by labels (OR) and properties (AND, RN4). */
@@ -41,15 +42,16 @@ afterEach(() => {
   document.body.replaceChildren()
 })
 
-async function mount() {
+async function mount(wrap?: (query: (filter?: EntryFilter) => Promise<Entry[]>) => (filter?: EntryFilter) => Promise<Entry[]>) {
   const entries = inMemoryEntryRepository(SEED)
+  const query = queryEntries({ entries })
   const host = document.createElement('div')
   document.body.append(host)
   const app = createApp(DailyLog, {
     deps: {
       ...testSharedDeps({ now: NOW }),
       createEntry: createEntry({ entries, clock: fixedClock(NOW), ids: sequentialIds() }),
-      queryEntries: queryEntries({ entries }),
+      queryEntries: wrap ? wrap(query) : query,
       updateEntry: updateEntry({ entries, clock: fixedClock(NOW) }),
       deleteEntry: deleteEntry({ entries }),
       labels: testLabelsPort([work, health]),
@@ -131,5 +133,38 @@ describe('the timeline filter (card #36)', () => {
     await filterProp(mounted, 'humor', '   ')
     expect(at(mounted, 'error')?.textContent).toContain('humor precisa de um valor')
     expect(titles(mounted)).toHaveLength(4)
+  })
+})
+
+describe('gate findings (iteration 1)', () => {
+  it('C2: an older answer never overwrites the latest filter', async () => {
+    // The first filtered read answers after the second one.
+    let calls = 0
+    const host = await mount((query) => async (filter) => {
+      const call = ++calls
+      const answer = await query(filter)
+      if (call === 2) await new Promise((resolve) => setTimeout(resolve, 30))
+      return answer
+    })
+    all(host, 'filter-label').find((el) => el.textContent?.trim() === 'trabalho')!.click()
+    all(host, 'filter-label').find((el) => el.textContent?.trim() === 'saúde')!.click()
+    await new Promise((resolve) => setTimeout(resolve, 60))
+    await settle()
+
+    expect(titles(host)).toEqual(['trabalho bom', 'saúde ruim', 'saúde bom'])
+  })
+
+  it('deleting a label that is on in the filter takes it out of the filter', async () => {
+    const host = await mount()
+    await toggle(host, 'trabalho')
+
+    const row = all(host, 'label-row').find((el) => el.querySelector<HTMLInputElement>('[data-testid="label-name"]')!.value === 'trabalho')!
+    row.querySelector<HTMLButtonElement>('[data-testid="label-delete"]')!.click()
+    await settle()
+    at<HTMLButtonElement>(host, 'confirm-label-delete')!.click()
+    await settle()
+
+    expect(titles(host)).toHaveLength(4)
+    expect(at(host, 'filter-clear')).toBeNull()
   })
 })

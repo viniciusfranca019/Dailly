@@ -224,6 +224,8 @@ async function removeLabel(id: string): Promise<void> {
     // entry being corrected too: the cascade took it off the stored one, so
     // the board must not count its absence as an unsaved change (C8).
     dropLabel(id)
+    // Out of the filter too: a filter on a label with no chip is invisible.
+    filterLabels.value = filterLabels.value.filter((x) => x !== id)
     if (editing.value) {
       editing.value = { ...editing.value, labelIds: editing.value.labelIds.filter((x) => x !== id) }
     }
@@ -275,18 +277,26 @@ const filterLabels = ref<string[]>([])
 const filterProps = ref<Record<string, PropertyValue>>({})
 const filtered = computed(() => filterLabels.value.length > 0 || Object.keys(filterProps.value).length > 0)
 
+/**
+ * Which read owns the timeline. Filter clicks fire reads back to back, and an
+ * older answer arriving last must not show a filter the chips no longer say.
+ */
+let reading = 0
+
 async function load(): Promise<void> {
+  const ticket = ++reading
   loading.value = true
   error.value = null
   try {
-    entries.value = await props.deps.queryEntries({
+    const found = await props.deps.queryEntries({
       ...(filterLabels.value.length > 0 ? { labelIds: filterLabels.value } : {}),
       ...(Object.keys(filterProps.value).length > 0 ? { props: filterProps.value } : {}),
     })
+    if (ticket === reading) entries.value = found
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : 'não consegui carregar a timeline'
+    if (ticket === reading) error.value = cause instanceof Error ? cause.message : 'não consegui carregar a timeline'
   } finally {
-    loading.value = false
+    if (ticket === reading) loading.value = false
   }
 }
 
