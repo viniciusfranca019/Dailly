@@ -238,3 +238,75 @@ describe('C8: mudar o status pelo painel', () => {
     expect(keysIn(column(host, 'Fazendo'))).toEqual(['T-1', 'T-2'])
   })
 })
+
+describe('gate #22: o painel pelo teclado', () => {
+  it('o card e a linha têm um botão focável com o título, que abre o painel', async () => {
+    const host = await mount(portOver(await storeWith([['Comprar café', 'todo']])))
+
+    for (const view of ['Board', 'Lista']) {
+      viewButton(host, view).click()
+      await settle()
+      const opener = card(host, 'T-1')!.querySelector<HTMLButtonElement>('button')
+      expect(opener?.textContent).toContain('Comprar café')
+      opener!.click()
+      await settle()
+      expect(panel(host)?.getAttribute('aria-label')).toBe('T-1')
+      button(panel(host)!, 'Fechar').click()
+      await settle()
+    }
+  })
+
+  it('ao abrir, o foco vai para o título do painel', async () => {
+    const host = await mount(portOver(await storeWith([['Comprar café', 'todo']])))
+    await open(host, 'T-1')
+
+    expect(document.activeElement).toBe(field(host, 'Título'))
+  })
+
+  it('Ctrl+S salva e Esc fecha com o foco fora do painel', async () => {
+    const store = await storeWith([['Comprar café', 'todo']])
+    const host = await mount(portOver(store))
+    await open(host, 'T-1')
+    set(field<HTMLSelectElement>(host, 'Prioridade'), '2')
+    ;(document.activeElement as HTMLElement | null)?.blur()
+
+    const ctrlS = new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true, cancelable: true })
+    window.dispatchEvent(ctrlS)
+    await settle()
+    expect(ctrlS.defaultPrevented).toBe(true)
+    expect((await store.board()).tasks[0]?.priority).toBe(2)
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await settle()
+    expect(panel(host)).toBeNull()
+  })
+
+  it('Esc dentro do editor de blocos não fecha o painel', async () => {
+    const host = await mount(portOver(await storeWith([['Comprar café', 'todo']])))
+    await open(host, 'T-1')
+
+    const block = panel(host)!.querySelector<HTMLElement>(`[${TEXT_ATTR}]`)!
+    block.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await settle()
+
+    expect(panel(host)).not.toBeNull()
+  })
+})
+
+describe('C7, na lista também', () => {
+  it('a linha continua com a prioridade anterior depois da recusa', async () => {
+    localStorage.setItem('dailly.tasks.view', 'list')
+    const host = await mount(
+      portOver(await storeWith([['Comprar café', 'todo']]), {
+        update: async () => {
+          throw new Error('a API recusou a requisição')
+        },
+      }),
+    )
+    await open(host, 'T-1')
+    set(field<HTMLSelectElement>(host, 'Prioridade'), '2')
+    await save(host)
+
+    expect(card(host, 'T-1')?.textContent).toContain('Prioridade: sem')
+  })
+})

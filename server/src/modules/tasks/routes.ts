@@ -21,6 +21,8 @@ const REFUSALS: readonly (readonly [new (...args: never[]) => Error, string])[] 
   [InvalidRankError, 'rank'],
 ]
 
+const PATCHABLE: readonly string[] = ['title', 'priority', 'body', 'statusId', 'rank']
+
 interface Invalid {
   readonly field: string
   readonly message: string
@@ -30,6 +32,13 @@ interface Invalid {
 function parsePatch(body: unknown): { patch: TaskPatch } | { errors: Invalid[] } {
   if (!isRecord(body)) return { errors: [{ field: '', message: 'o corpo deve ser um objeto JSON' }] }
   const errors: Invalid[] = []
+  const keys = Object.keys(body)
+  // Anything the panel or the board does not send is refused, not ignored
+  // (the card's Latitude): a silent 200 would also move the Entry's updated_at.
+  for (const key of keys.filter((name) => !PATCHABLE.includes(name))) {
+    errors.push({ field: key, message: 'não é um campo que se edita' })
+  }
+  if (keys.length === 0) errors.push({ field: '', message: 'nenhum campo para salvar' })
   const { title, priority, body: text, statusId, rank } = body
   if (title !== undefined && typeof title !== 'string') errors.push({ field: 'title', message: 'deve ser texto' })
   if (priority !== undefined && typeof priority !== 'number') {

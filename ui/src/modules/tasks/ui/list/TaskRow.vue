@@ -12,7 +12,13 @@ const emit = defineEmits<{ open: [key: number] }>()
     @click="emit('open', task.key)"
   >
     <span class="w-12 shrink-0 font-mono text-xs text-[#747e8f]">{{ formatKey(task.key) }}</span>
-    <span class="min-w-0 flex-1 truncate text-gray-100">{{ task.title }}</span>
+    <button
+      type="button"
+      class="min-w-0 flex-1 truncate text-left text-gray-100"
+      @click.stop="emit('open', task.key)"
+    >
+      {{ task.title }}
+    </button>
     <span v-if="completion" class="shrink-0 text-xs text-emerald-300">{{ completion }}</span>
     <span class="shrink-0 text-xs text-[#747e8f]">Prioridade: {{ PRIORITY_LABELS[task.priority] }}</span>
   </li>

@@ -44,12 +44,24 @@ const boardHost = ref<HTMLElement | null>(null)
 const doc = shallowRef<WhiteboardDocument | null>(null)
 const board = shallowRef<WhiteboardHandle | null>(null)
 
+const titleField = ref<HTMLInputElement | null>(null)
+
+/**
+ * The shortcuts listen on `window`, as the Daily Log composer's do: the panel
+ * opens from a click, and wherever focus is while it is open, Ctrl+S must save
+ * rather than open the browser's "save page".
+ */
 onMounted(() => {
+  window.addEventListener('keydown', onKeydown)
+  titleField.value?.focus()
   if (!boardHost.value) return
   doc.value = new WhiteboardDocument(props.task.body)
   board.value = mountWhiteboard(boardHost.value, doc.value)
 })
-onBeforeUnmount(() => board.value?.destroy())
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeydown)
+  board.value?.destroy()
+})
 
 const PRIORITIES = [0, 1, 2, 3, 4] as const
 
@@ -94,11 +106,16 @@ async function confirmRemove(): Promise<void> {
   }
 }
 
+const insideEditor = (event: Event): boolean =>
+  event.target instanceof Node && (boardHost.value?.contains(event.target) ?? false)
+
 function onKeydown(event: KeyboardEvent): void {
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
     event.preventDefault()
     void submit()
-  } else if (event.key === 'Escape' && !confirming.value) {
+  } else if (event.key === 'Escape' && !confirming.value && !insideEditor(event)) {
+    // An Escape inside the block editor is the editor's (it clears a block
+    // selection); closing there would throw away the unsaved body.
     emit('close')
   }
 }
@@ -109,7 +126,6 @@ function onKeydown(event: KeyboardEvent): void {
     role="dialog"
     :aria-label="formatKey(task.key)"
     class="fixed inset-y-0 right-0 z-20 flex w-full max-w-xl flex-col gap-4 overflow-y-auto border-l border-[#1e2638] bg-[#0b1019] p-6 shadow-2xl"
-    @keydown="onKeydown"
   >
     <header class="flex items-center gap-2">
       <span class="font-mono text-xs text-[#747e8f]">{{ formatKey(task.key) }}</span>
@@ -127,6 +143,7 @@ function onKeydown(event: KeyboardEvent): void {
 
     <template v-else>
       <input
+        ref="titleField"
         v-model="title"
         type="text"
         aria-label="Título"

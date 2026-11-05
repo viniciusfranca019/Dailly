@@ -195,3 +195,17 @@ describe('PATCH /tasks/:key, from the panel (card #22)', () => {
     expect((await patch('T-1', { title: 'x' })).statusCode).toBe(404)
   })
 })
+
+describe('gate #22: PATCH recusa o que não conhece', () => {
+  it('answers 400 to an unknown field or an empty body, and touches nothing', async () => {
+    await create({ title: 'um', statusId: 'todo' })
+    const before = (await board()).tasks[0]
+
+    for (const payload of [{ completedAt: null }, { assignee: 'x' }, {}]) {
+      const response = await app.inject({ method: 'PATCH', url: '/tasks/T-1', payload })
+      expect(response.statusCode).toBe(400)
+    }
+    expect((await app.inject({ method: 'PATCH', url: '/tasks/T-1', payload: { assignee: 'x' } })).json().errors[0].field).toBe('assignee')
+    expect((await board()).tasks[0]).toEqual(before)
+  })
+})

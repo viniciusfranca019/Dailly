@@ -27,7 +27,10 @@ function start(event: DragEvent, key: number): void {
       <span class="font-mono text-xs text-[#747e8f]">{{ formatKey(task.key) }}</span>
       <span class="ml-auto text-xs text-[#747e8f]">Prioridade: {{ PRIORITY_LABELS[task.priority] }}</span>
     </div>
-    <p class="mt-1 text-gray-100">{{ task.title }}</p>
+    <!-- The keyboard's way in (Tab, Enter): the card itself is a drag handle. -->
+    <button type="button" class="mt-1 block w-full text-left text-gray-100" @click.stop="emit('open', task.key)">
+      {{ task.title }}
+    </button>
     <p v-if="completion" class="mt-1 text-xs text-emerald-300">{{ completion }}</p>
   </li>
 </template>
