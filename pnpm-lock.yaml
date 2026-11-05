@@ -11,6 +11,9 @@ importers:
       '@dailly/domain':
         specifier: workspace:*
         version: link:packages/domain
+      '@dailly/tasks-core':
+        specifier: workspace:*
+        version: link:packages/tasks-core
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
