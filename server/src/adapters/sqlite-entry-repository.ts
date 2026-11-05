@@ -82,7 +82,9 @@ export const sqliteEntryRepository = ({ db, zone }: SqliteEntryRepositoryDeps): 
         zone,
       )
 
-      const where: string[] = []
+      // The timeline is the record of the day (PRD RN6): a task is an Entry
+      // too, but not a fact of the day, so it never comes out of this port.
+      const where: string[] = ["kind = 'log'"]
       const params: string[] = []
       if (bounds.start) {
         where.push('occurred_at >= ?')
@@ -97,7 +99,7 @@ export const sqliteEntryRepository = ({ db, zone }: SqliteEntryRepositoryDeps): 
         .prepare(
           `SELECT id, body, occurred_at, created_at, updated_at, props
              FROM entries
-             ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+            WHERE ${where.join(' AND ')}
             ORDER BY occurred_at DESC, created_at DESC`,
         )
         .all(...params) as EntryRow[]

@@ -15,5 +15,8 @@ importam e onde mora no código. O Analyse ainda é só uma tela-esqueleto atrá
 * [Cofre de segredos](/features/cofre-de-segredos.md) - segredos cifrados no SQLite, abertos por senha + `.env`
 * [Colar um curl com credencial](/features/requests-colar-credencial.md) - a chave vai ao cofre e a request fica com `{{nome}}`
 
+## Tasks
+* [Tasks, capturar e listar](/features/tasks-capturar-e-listar.md) - a lista por status, a captura por título e a chave T-<n> que não se reaproveita
+
 ## O app
 * [App local](/features/app-local.md) - só web, só nesta máquina: os dois bancos, as portas e a guarda da API

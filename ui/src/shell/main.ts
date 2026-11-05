@@ -3,6 +3,7 @@ import { UTC } from '@dailly/periods'
 import { API_CONFIG } from '../adapters/api.js'
 import { httpEntryRepository } from '../adapters/http-entry-repository.js'
 import { httpRequestsClient } from '../adapters/http-requests-client.js'
+import { httpTasksClient } from '../adapters/http-tasks-client.js'
 import { httpVaultClient } from '../adapters/http-vault-client.js'
 import { mountShell } from './mount.js'
 import { MODULES } from './modules.js'
@@ -50,6 +51,7 @@ async function boot(): Promise<void> {
           ids: uuidIds,
           vault: httpVaultClient({ config }),
         },
+        tasks: { tasks: httpTasksClient({ config }) },
       },
     },
   })

@@ -29,4 +29,14 @@ export const ENTRIES_MIGRATIONS: readonly Migration[] = [
       CREATE INDEX idx_entries_occurred_at ON entries(occurred_at);
     `,
   },
+  {
+    // Tasks (PRD RN1): a task is an Entry with a facet, so the core learns one
+    // thing, what kind of entry it is. Every row already here is a day log,
+    // which is what the DEFAULT says. The timeline reads only 'log' (RN6).
+    version: 4,
+    up: `
+      ALTER TABLE entries
+        ADD COLUMN kind TEXT NOT NULL DEFAULT 'log' CHECK (kind IN ('log', 'task'));
+    `,
+  },
 ]

@@ -22,6 +22,7 @@
     "@dailly/domain": "workspace:*",
     "@dailly/periods": "workspace:*",
     "@dailly/requests-core": "workspace:*",
+    "@dailly/tasks-core": "workspace:*",
     "better-sqlite3": "^13.0.0",
     "fastify": "^5.6.0",
     "undici": "^7.0.0"
