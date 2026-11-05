@@ -21,6 +21,7 @@ import Timeline from './Timeline.vue'
 import LabelPicker from './LabelPicker.vue'
 import LabelManager from './LabelManager.vue'
 import PropertyEditor from './PropertyEditor.vue'
+import FilterBar from './FilterBar.vue'
 import { formatDay } from '../model/timeline.js'
 import { occurredAtFor } from '../model/entry-date.js'
 import { dayOf, type CalendarDay } from '@dailly/periods'
@@ -100,6 +101,38 @@ async function addProp(rawKey: string, type: PropertyType, raw: string): Promise
   }
   values.value = { ...values.value, [key]: parsed.value }
   propertyEditor.value?.reset()
+}
+
+async function toggleFilterLabel(id: string): Promise<void> {
+  filterLabels.value = filterLabels.value.includes(id)
+    ? filterLabels.value.filter((x) => x !== id)
+    : [...filterLabels.value, id]
+  await load()
+}
+
+/** A property filter is read by its key's type, as an added property is. */
+async function addFilterProp(key: string, raw: string): Promise<void> {
+  const def = defs.value.find((d) => d.key === key)
+  if (!def) return
+  const parsed = parsePropertyValue(key, def.type, raw)
+  if ('error' in parsed) {
+    error.value = parsed.error
+    return
+  }
+  filterProps.value = { ...filterProps.value, [key]: parsed.value }
+  await load()
+}
+
+async function dropFilterProp(key: string): Promise<void> {
+  const { [key]: _gone, ...rest } = filterProps.value
+  filterProps.value = rest
+  await load()
+}
+
+async function clearFilter(): Promise<void> {
+  filterLabels.value = []
+  filterProps.value = {}
+  await load()
 }
 
 function dropProp(key: string): void {
@@ -237,11 +270,19 @@ async function lost(): Promise<void> {
   error.value = new EntryNotFoundError().message
 }
 
+/** The timeline's cut (card #36): labels with OR, properties with AND (RN4). */
+const filterLabels = ref<string[]>([])
+const filterProps = ref<Record<string, PropertyValue>>({})
+const filtered = computed(() => filterLabels.value.length > 0 || Object.keys(filterProps.value).length > 0)
+
 async function load(): Promise<void> {
   loading.value = true
   error.value = null
   try {
-    entries.value = await props.deps.queryEntries()
+    entries.value = await props.deps.queryEntries({
+      ...(filterLabels.value.length > 0 ? { labelIds: filterLabels.value } : {}),
+      ...(Object.keys(filterProps.value).length > 0 ? { props: filterProps.value } : {}),
+    })
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : 'não consegui carregar a timeline'
   } finally {
@@ -377,6 +418,16 @@ onMounted(async () => {
       </div>
 
       <aside class="min-h-0 border-t border-[#1e2638] pt-6 xl:border-l xl:border-t-0 xl:pl-6 xl:pt-0">
+        <FilterBar
+          :labels="labels"
+          :defs="defs"
+          :label-ids="filterLabels"
+          :values="filterProps"
+          @toggle="toggleFilterLabel"
+          @add-prop="addFilterProp"
+          @drop-prop="dropFilterProp"
+          @clear="clearFilter"
+        />
         <Timeline
           :entries="entries"
           :zone="props.deps.zone"
@@ -384,6 +435,8 @@ onMounted(async () => {
           :loading="loading"
           :editing-id="editing?.id ?? null"
           :labels="labels"
+          :filtered="filtered"
+          @clear="clearFilter"
           @open="open"
         />
       </aside>

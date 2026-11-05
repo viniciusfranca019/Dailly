@@ -14,9 +14,11 @@ const props = defineProps<{
   editingId?: string | null
   /** The global labels, to show each entry's by name and color. */
   labels?: readonly Label[]
+  /** A label or property filter is on (card #36): an empty list says so. */
+  filtered?: boolean
 }>()
 
-const emit = defineEmits<{ open: [entry: Entry] }>()
+const emit = defineEmits<{ open: [entry: Entry]; clear: [] }>()
 
 const search = ref('')
 
@@ -80,7 +82,15 @@ function headingFor(day: string): string {
         class="text-sm text-[#747e8f]"
         data-testid="timeline-status"
       >
-        {{ search ? 'nada encontrado para essa busca.' : 'nada por aqui ainda. escreva ao lado e registre.' }}
+        <template v-if="props.filtered">
+          nenhum registro com esse filtro.
+          <button type="button" class="underline hover:text-gray-200" data-testid="filter-clear-empty" @click="emit('clear')">
+            Limpar filtro
+          </button>
+        </template>
+        <template v-else>
+          {{ search ? 'nada encontrado para essa busca.' : 'nada por aqui ainda. escreva ao lado e registre.' }}
+        </template>
       </p>
 
       <section v-for="day in days" :key="day.day" class="mb-6" data-testid="day">
