@@ -125,7 +125,11 @@ const root = ref<HTMLElement | null>(null)
 const dragging = ref<{ startX: number; startWidth: number } | null>(null)
 
 function startResize(event: PointerEvent): void {
-  dragging.value = { startX: event.clientX, startWidth: props.width }
+  // From the width on screen, not the stored one: in a window narrower than
+  // the stored width (C4) the panel is capped, and a drag from the stored
+  // value would stand still at first and then store a width never seen.
+  const rendered = root.value?.getBoundingClientRect().width ?? 0
+  dragging.value = { startX: event.clientX, startWidth: rendered > 0 ? rendered : props.width }
   const handle = event.currentTarget
   if (handle instanceof HTMLElement && 'pointerId' in event) handle.setPointerCapture?.(event.pointerId)
 }

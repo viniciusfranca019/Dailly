@@ -123,6 +123,18 @@ describe('Tasks, resizable panel (card #44)', () => {
     expect(localStorage.getItem('dailly.tasks.panelWidth')).toBe('960')
   })
 
+  it('C4: in a window narrower than the stored width, a drag starts from the width on screen', async () => {
+    localStorage.setItem('dailly.tasks.panelWidth', '960')
+    const host = await mount()
+    await open(host, 'T-1')
+    // the window caps the panel at 800 px; jsdom lays nothing out, so the box is given
+    panel(host)!.getBoundingClientRect = () => ({ width: 800 }) as DOMRect
+
+    await drag(host, 0, 100)
+    expect(width(host)).toBe('700px')
+    expect(localStorage.getItem('dailly.tasks.panelWidth')).toBe('700')
+  })
+
   it('C5: with the storage refused the width holds until the reload, with no error', async () => {
     const original = Object.getOwnPropertyDescriptor(window, 'localStorage')!
     const refusing = {
