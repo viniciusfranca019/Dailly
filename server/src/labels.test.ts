@@ -74,10 +74,15 @@ describe('labels on an entry', () => {
 })
 
 describe('PATCH /labels/:id', () => {
-  it('C6: renames and recolors; every entry shows the new label', async () => {
+  it('C6: renames and recolors, and the entries keep pointing at the same label', async () => {
     const work = (await createLabel({ name: 'trabalho', color: 'blue' })).json()
+    await app.inject({ method: 'POST', url: '/entries', payload: anEntry([work.id]) })
+
     const response = await app.inject({ method: 'PATCH', url: `/labels/${work.id}`, payload: { name: 'job', color: 'green' } })
+
     expect(response.json()).toEqual({ id: work.id, name: 'job', color: 'green' })
+    expect((await app.inject({ method: 'GET', url: '/entries' })).json()[0].labelIds).toEqual([work.id])
+    expect(await labels()).toEqual([{ id: work.id, name: 'job', color: 'green' }])
   })
 
   it('C7: refuses an empty name or one another label has, and keeps the label', async () => {

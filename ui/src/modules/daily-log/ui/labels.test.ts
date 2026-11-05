@@ -273,3 +273,19 @@ describe('C10: a refused write rereads (RN7)', () => {
     expect(all(host, 'label-row')).toHaveLength(1)
   })
 })
+
+describe('gate findings (iteration 1)', () => {
+  it('"Cancelar" on a new entry empties the labels too, and another entry opens', async () => {
+    const host = await mount(inMemoryEntryRepository([seed('e1', 'Reunião')]), testLabelsPort([work]))
+    type(host, 'rascunho')
+    await settle()
+    await addLabel(host, 'trabalho')
+
+    await click(host, 'cancel')
+    expect(all(host, 'chosen-label')).toEqual([])
+
+    at<HTMLButtonElement>(host, 'entry-open')!.click()
+    await settle()
+    expect(at(host, 'submit')!.textContent?.trim()).toBe('Salvar')
+  })
+})

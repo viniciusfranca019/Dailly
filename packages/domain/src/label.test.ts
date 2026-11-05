@@ -7,9 +7,11 @@ describe('label names', () => {
     expect(normalizeLabelName('  saúde ')).toBe('saúde')
   })
 
-  it('C4: the key ignores case, accents included (RN1)', () => {
+  it('C4: the key ignores case, accented letters included, and keeps the accents (RN1)', () => {
     expect(labelKey('Saúde')).toBe(labelKey('SAÚDE'))
     expect(labelKey('Trabalho')).toBe(labelKey('trabalho'))
+    // RN1 asks for case, not accents: "saude" is another name.
+    expect(labelKey('saúde')).not.toBe(labelKey('saude'))
   })
 
   it('C4: finds an existing label whatever the case', () => {

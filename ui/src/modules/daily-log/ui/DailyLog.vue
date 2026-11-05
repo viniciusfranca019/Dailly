@@ -146,7 +146,11 @@ function dirty(): boolean {
 /** "Cancelar edição" starts over; "Cancelar" on a new entry only empties it. */
 function cancel(): void {
   if (editing.value) startNew()
-  else composer.value?.clear()
+  else {
+    // The board and its labels, but not the day the person picked.
+    composer.value?.clear()
+    chosen.value = []
+  }
 }
 
 function open(entry: Entry): void {

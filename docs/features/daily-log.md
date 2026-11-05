@@ -60,8 +60,9 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-02T20:30:00-03:00 }
   tarefa responde 404, porque a tarefa se edita no Tasks e apagar a Entry dela levaria a
   tarefa junto.
 - Uma label é global, a mesma para registros e tarefas (o Tasks v2 vai usá-las), com nome
-  único sem diferenciar maiúsculas nem acentos (`labels.name_key`, a chave que o domínio
-  calcula) e uma cor da paleta. Fica no módulo entries: `GET`, `POST`, `PATCH` e
+  único sem diferenciar maiúsculas, inclusive as acentuadas ("Saúde" e "SAÚDE" colidem;
+  "saúde" e "saude" são duas labels), pela `labels.name_key`, a chave que o domínio
+  calcula, e uma cor da paleta. Fica no módulo entries: `GET`, `POST`, `PATCH` e
   `DELETE /labels`, e a migration 6 (`labels`, `entry_labels`, com cascade dos dois lados).
 - Um registro com uma label que não existe é 400 nomeando `labelIds`.
 - Um fuso só: `DAILLY_TZ` do processo da API (padrão UTC); um fuso inválido derruba o
