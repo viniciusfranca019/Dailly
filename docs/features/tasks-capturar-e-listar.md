@@ -53,4 +53,4 @@ No card #20 (F1 do [PRD do Tasks](/prd/tasks.md)), em 2026-11-05. Exige
 
 - Sem painel, edição ou apagar na tela; isso é o F3 (#22). A API já apaga
   (`DELETE /tasks/T-<n>`).
-- Prioridade e `completedAt` existem no dado, mas nada na tela os muda ainda.
+- A prioridade existe no dado, mas nada na tela a muda ainda; o `completedAt` muda pelo [board](/features/tasks-board.md).

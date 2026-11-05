@@ -3,7 +3,7 @@ import { PRIORITY_LABELS, formatKey, type Task } from '@dailly/tasks-core'
 
 /** One card of the board: key, title, priority and, when closed, the day. */
 defineProps<{ task: Task; completion: string | null }>()
-const emit = defineEmits<{ grab: [key: number]; drop: [beforeKey: number] }>()
+const emit = defineEmits<{ grab: [key: number]; release: []; drop: [beforeKey: number] }>()
 
 function start(event: DragEvent, key: number): void {
   // Firefox starts no drag without data; the key is also what a drop
@@ -18,6 +18,7 @@ function start(event: DragEvent, key: number): void {
     draggable="true"
     class="cursor-grab rounded-md border border-[#1e2638] bg-[#0f1522] px-3 py-2 text-sm active:cursor-grabbing"
     @dragstart="start($event as DragEvent, task.key)"
+    @dragend="emit('release')"
     @dragover.prevent
     @drop.prevent.stop="emit('drop', task.key)"
   >

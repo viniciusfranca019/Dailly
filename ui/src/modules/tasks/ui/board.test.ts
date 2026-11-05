@@ -187,3 +187,21 @@ describe('C7: vazio nas duas visualizações', () => {
     expect(host.textContent).toContain('Nenhuma tarefa ainda')
   })
 })
+
+describe('a cancelled drag', () => {
+  it('moves nothing when something else is dropped on a column afterwards', async () => {
+    const store = await storeWith([['um', 'todo']])
+    const host = await mount(portOver(store))
+
+    // Grab T-1 and let go outside every column: dragend, no drop.
+    card(host, 'T-1').dispatchEvent(new Event('dragstart', { bubbles: true }))
+    card(host, 'T-1').dispatchEvent(new Event('dragend', { bubbles: true }))
+    // Then some selected text is dropped on "Feito".
+    column(host, 'Feito')!.dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }))
+    await settle()
+
+    expect((await store.board()).tasks.map((task) => [task.key, task.statusId, task.completedAt])).toEqual([
+      [1, 'todo', null],
+    ])
+  })
+})

@@ -19,6 +19,7 @@ const emit = defineEmits<{
   compose: [statusId: string]
   cancel: []
   grab: [key: number]
+  release: []
   drop: [statusId: string, beforeKey: number | null]
 }>()
 
@@ -52,6 +53,7 @@ const createHere = (title: string) => props.create(props.group.status.id, title)
         :task="task"
         :completion="completionLabel(task.completedAt, zone)"
         @grab="emit('grab', $event)"
+        @release="emit('release')"
         @drop="emit('drop', group.status.id, $event)"
       />
     </ul>

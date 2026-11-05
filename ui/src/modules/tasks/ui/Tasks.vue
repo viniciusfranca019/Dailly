@@ -25,7 +25,11 @@ const read = ref<Read>({ state: 'loading' })
 const composing = ref<string | null>(null)
 /** The last refused move, shown above the board until the next one. */
 const moveError = ref<string | null>(null)
-/** The card being dragged; HTML5 drag carries no state the board can trust. */
+/**
+ * The card being dragged; HTML5 drag carries no state the board can trust.
+ * Cleared on the card's `dragend` too (it fires after the drop): a cancelled
+ * drag must not leave a key armed for the next thing dropped on a column.
+ */
 const grabbed = ref<number | null>(null)
 const { view, choose } = useTasksView()
 
@@ -135,6 +139,7 @@ async function drop(statusId: string, beforeKey: number | null): Promise<void> {
             @compose="composing = $event"
             @cancel="composing = null"
             @grab="grabbed = $event"
+            @release="grabbed = null"
             @drop="drop"
           />
         </div>
