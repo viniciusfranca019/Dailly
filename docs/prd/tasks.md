@@ -3,8 +3,8 @@ type: PRD
 title: Tasks
 description: O módulo de tarefas do dailly, board kanban ou lista como no Linear, com cada tarefa sendo uma Entry, o átomo que projetos, épicos e programas vão agregar depois.
 tags: [tasks, kanban, entries, prd]
-status: draft
-generated: { by: regulus/claude-opus-5-5, at: 2026-11-04T19:20:00-03:00 }
+status: stable
+generated: { by: regulus/claude-opus-5-5, at: 2026-11-04T20:05:00-03:00 }
 sources:
   - id: linear-concepts
     resource: https://linear.app/docs/conceptual-model
@@ -16,12 +16,11 @@ sources:
 
 # Tasks
 
-Rascunho escrito em modo delegado, com o dono fora: cada pergunta que a entrevista do
-`/generate-prd` faria virou um `P` em Refinamento, com opções e a recomendação. O
-contrato é o PRD do Regulus (Ficha, Jornadas, Regras, Fora de escopo, Latitude,
-Fatias, Refinamento). As Fatias entram como **proposta**, porque o dono pediu uma
-proposta inteira; o `/refine-prd` as confirma ou corta de novo. O desenho técnico que
-sustenta as recomendações está no anexo, abaixo do contrato.
+Refinado em modo delegado: o dono aceitou as recomendações do rascunho (P1 a P8), e a
+P9, a métrica, foi fechada pela recomendação que o refinamento achou. O contrato é o PRD
+do Regulus (Ficha, Jornadas, Regras, Fora de escopo, Latitude, Fatias); o desenho
+técnico que as decisões fixaram está no anexo, abaixo do contrato. Os cards de cada
+fatia nascem depois que este PRD estiver na `main`, para que o `Origem` deles abra.
 
 ## Ficha
 
@@ -29,8 +28,8 @@ sustenta as recomendações está no anexo, abaixo do contrato.
 Tipo: feature
 Dono: Vinicius
 Porquê: o Vinicius anota o que tem a fazer fora do dailly, longe do diário e do Analyse, e quer as tarefas ao lado do dia, como átomos que depois se agrupam em projetos
-Métrica: tarefas pessoais registradas no dailly hoje 0 → meta: todas as da semana em 30 dias (P9)
-Refinado: não
+Métrica: dias úteis por semana com ao menos uma tarefa criada ou concluída no dailly hoje 0 → meta 5 de 5 nas 4 semanas depois de F2 entregue
+Refinado: sim
 ```
 
 ## Jornadas
@@ -38,10 +37,10 @@ Refinado: não
 ```
 J1: Capturar uma tarefa
   J1.1 Pessoa abre Tasks                          → vê as tarefas agrupadas por status, na última visualização usada
-  J1.2 Pessoa digita um título no "+" de uma coluna e confirma → a tarefa aparece no topo daquela coluna com a chave T-<n>
+  J1.2 Pessoa digita um título no "+" de um status e confirma → a tarefa aparece no topo daquele status com a chave T-<n> e prioridade "sem"
   Desvios:
   J1.2a Título vazio                              → recusa com "o título é obrigatório", nada é gravado
-  J1.2b A API não responde                        → erro na coluna, o título digitado continua no campo
+  J1.2b A API não responde                        → erro junto do campo, o título digitado continua nele
   J1.1a Nenhuma tarefa ainda                      → estado vazio com o convite para criar a primeira
 
 J2: Andar com a tarefa no board
@@ -77,6 +76,7 @@ RN4: Board e lista são a mesma consulta, na mesma ordem; só a forma muda, porq
 RN5: A chave T-<n> é sequencial e nunca é reaproveitada depois de apagar, porque uma chave citada no Daily Log não pode passar a apontar outra tarefa
 RN6: A timeline do Daily Log mostra só as entries de registro, nunca as de tarefa, porque uma tarefa não é um fato do dia até ser concluída, e isso é decisão do Analyse
 RN7: Uma gravação recusada faz a tela reler e voltar ao que o servidor tem, porque é a regra que o Requests já usa (reler é voltar) e evita desfazer à mão
+RN8: A prioridade é um de cinco níveis (sem, urgente, alta, média, baixa) e toda tarefa nasce "sem", porque são os níveis do Linear e o Analyse lê um inteiro de 0 a 4
 ```
 
 ## Fora de escopo
@@ -84,11 +84,11 @@ RN7: Uma gravação recusada faz a tela reler e voltar ao que o servidor tem, po
 ```
 Não tem projeto, épico, programa, ciclo nem sub-tarefa, porque são agregados que vêm depois, e o átomo não carrega campo para nenhum deles (RN1)
 Não tem responsável nem time, porque o dailly é o diário de uma pessoa só
-Não cria, renomeia nem reordena status no v1, porque cinco status fixos cobrem o uso e o editor de workflow é o que mais pesa no Linear (P3)
+Não cria, renomeia nem reordena status no v1, porque cinco status fixos cobrem o uso e o editor de workflow é o que mais pesa no Linear; a tabela de status já nasce com a categoria, então editar depois é só tela
 Não tem filtros compostos nem visualizações salvas, porque dependem de labels e propriedades, que são a Fase 2 do Daily Log
-Não tem vencimento nem lembrete, porque lembrete pede notificação e o app só existe com a aba aberta (P5)
+Não tem vencimento nem lembrete, porque lembrete pede notificação e o app só existe com a aba aberta, e sem lembrete a data só pintaria o card
 Não sincroniza com o Linear nem com o Notion, porque o dailly é local-first (era a ADR 0001)
-Não mostra tarefa na timeline do Daily Log, porque RN6
+Não mostra tarefa na timeline do Daily Log, porque a timeline é o registro do dia (RN6)
 ```
 
 ## Latitude de produto
@@ -98,17 +98,16 @@ Quando escolher texto, ícone, cor, espaçamento e atalho de teclado → decido,
 Quando escolher o desenho do card (o que aparece nele além do título e da chave) → decido, seguindo o Linear
 Quando a escolha pedir uma dependência nova (drag-and-drop, lib de componentes) → paro e pergunto ao Dono
 Quando mudar uma regra RN → paro e pergunto ao Dono
-Quando mudar o núcleo da Entry além do que P1 decidir → paro e pergunto ao Dono
+Quando mudar o núcleo da Entry além da coluna `kind` → paro e pergunto ao Dono
+Quando o drag-and-drop nativo não der conta do uso → paro e pergunto ao Dono antes de trazer uma lib
 ```
 
 ## Fatias
 
-Proposta, a confirmar no `/refine-prd`.
-
 ```
 F1: Capturar e listar      — cobre J1.1, J1.1a, J1.2, J1.2a, J1.2b, RN1, RN2, RN5, RN6                — depende de —      → a criar
 F2: Board e a troca        — cobre J2.1, J2.1a, J2.2, J2.3, J3.1, J3.1a, J3.2, RN3, RN4, RN7    — depende de F1     → a criar
-F3: Painel da tarefa       — cobre J4.1, J4.1a, J4.2, J4.2a, J4.3, J4.3a                        — depende de F1     → a criar
+F3: Painel da tarefa       — cobre J4.1, J4.1a, J4.2, J4.2a, J4.3, J4.3a, RN7, RN8              — depende de F1     → a criar
 ```
 
 F1 entrega a lista antes do board de propósito: board e lista são a mesma consulta (RN4),
@@ -117,60 +116,23 @@ drag-and-drop; a troca entre as duas e o board como padrão chegam em F2. F2 e F
 em paralelo depois de F1. Labels nas tarefas não são fatia ainda: viram uma jornada
 quando a Fase 2 do Daily Log fixar o que é uma label, e a fatia delas depende dela.
 
-## Refinamento
-
-```
-P1: Como uma tarefa "é" uma Entry?
-  A) Núcleo + faceta: a Entry ganha `kind` (log | task); o que é só de tarefa (título, status, prioridade, ordem, chave, conclusão) mora numa tabela do módulo Tasks, uma linha por Entry
-  B) Mesma tabela, tudo em `props`: a tarefa é uma Entry com status e prioridade dentro do JSON
-  C) O Notion inteiro: coleções com schema de propriedades, e o board é uma view agrupada por uma propriedade select
-  D) Agregado próprio: uma tabela `tasks` independente, que só imita a forma da Entry
-  — recomendo A, porque mantém um átomo só (RN1: um projeto amanhã agrega tarefas e registros pelo mesmo id, como uma relation do Notion), tipa o que o board consulta e ordena (B faz `json_extract` em toda coluna e a categoria do status vira texto sem CHECK), cabe no corte por módulo (a faceta e a migration são do Tasks), e não constrói o motor de propriedades antes da Fase 2 dizer como ele é (C); D contradiz o pedido. O custo: criar tarefa grava em duas tabelas de dois módulos, e isso pede a costura do anexo
-
-P2: Onde mora o título da tarefa?
-  A) Na faceta, campo obrigatório; o corpo da Entry é a descrição
-  B) No núcleo da Entry, opcional para todo kind
-  C) Derivado da primeira linha do corpo, como o Daily Log faz
-  — recomendo A, porque o card precisa de título curto e editável sem abrir o editor de blocos (o Linear separa os dois), e o Daily Log já deriva o dele, então pôr no núcleo pediria uma migration no log sem ganho. Revisitar em B quando um agregado precisar listar membros de kinds diferentes pelo nome
-
-P3: Os status são fixos ou editáveis no v1?
-  A) Fixos, cinco linhas semeadas pela migration (Backlog, A fazer, Fazendo, Feito, Cancelado), uma por categoria
-  B) Editáveis: criar, renomear e reordenar colunas dentro das categorias
-  — recomendo A, porque a tabela de status já nasce com a categoria (RN2), então B depois é só tela, sem migration nem dado a converter
-
-P4: Prioridade entra no v1?
-  A) Sim, os cinco níveis do Linear (sem, urgente, alta, média, baixa), mostrada no card e na linha
-  B) Não, só status
-  — recomendo A, porque é um inteiro de 0 a 4 sem tabela, e é o segundo eixo que a lista ordena e o Analyse vai querer ler
-
-P5: Vencimento entra no v1?
-  A) Não
-  B) Sim, uma data sem hora, mostrada no card, sem lembrete
-  — recomendo A, porque sem lembrete ele só pinta o card, e entra como campo novo da faceta sem tocar no resto
-
-P6: Como o drag-and-drop é feito?
-  A) DnD nativo do HTML5, com a regra de ordem num `model/` puro que recebe "solto entre X e Y"
-  B) Uma lib (SortableJS ou vue-draggable-plus)
-  — recomendo A, porque dependência nova é `→ paro` na Latitude, e com a regra no model puro o teste cobre o que importa sem simular arrasto no jsdom; o custo é escrever à mão a área de soltura e o realce. Se a mão ficar ruim, B troca só a `ui/`
-
-P7: Onde fica lembrada a visualização (board ou lista)?
-  A) No `localStorage` do navegador, com try/catch e board como padrão
-  B) No servidor, como preferência gravada
-  — recomendo A, porque é preferência de quem olha, uma pessoa num navegador, e B nasce de verdade quando existir a visualização salva (Fora de escopo)
-
-P8: Em que ordem com a Fase 2 do Daily Log (labels, propriedades, filtros)?
-  A) Tasks F1 a F3 primeiro, a Fase 2 depois, e labels nas tarefas por último
-  B) Fase 2 primeiro, e Tasks já nasce com labels
-  — recomendo A, porque F1 a F3 não leem label nem propriedade, e a Fase 2 fica mais bem desenhada com dois consumidores (log e tarefa) na mesa do que com um
-
-P9: Onde as tarefas pessoais vivem hoje, e qual meta mede o Tasks? — aberta
-```
-
 ---
 
-# Anexo: o desenho por trás das recomendações
+# Anexo: o desenho que o refinamento fixou
 
-Fora do contrato. Vale enquanto P1 = A; se o dono escolher outra, este anexo é refeito.
+Fora do contrato. O que cada decisão do refinamento virou:
+
+| Decisão | Ficou | Descartado |
+|---------|-------|------------|
+| Como a tarefa é uma Entry | núcleo + faceta: `kind` na Entry, o resto numa tabela do Tasks | tudo em `props` (`json_extract` em toda coluna, categoria sem CHECK); o motor de propriedades do Notion antes da Fase 2; tabela `tasks` sem Entry |
+| Título | na faceta, obrigatório; o corpo da Entry é a descrição | no núcleo (migration no log sem ganho); primeira linha do corpo |
+| Status | cinco fixos, semeados (Backlog, A fazer, Fazendo, Feito, Cancelado) | editáveis no v1 |
+| Prioridade | entra, de 0 a 4 (RN8) | só status |
+| Vencimento | fica de fora | data sem lembrete |
+| Drag-and-drop | nativo do HTML5, a regra de ordem no `model/` puro | SortableJS ou vue-draggable-plus (dependência nova) |
+| Visualização lembrada | `localStorage`, com try/catch, board como padrão | preferência no servidor |
+| Ordem com a Fase 2 | F1 a F3 antes; labels nas tarefas depois da Fase 2 | Fase 2 antes |
+| Métrica | dias úteis com tarefa criada ou concluída, lida do próprio SQLite (`created_at` e `completed_at`) | fração das tarefas pessoais no dailly, que pede contar um lugar que o dailly não vê |
 
 ## O que veio de onde
 
@@ -178,7 +140,7 @@ Fora do contrato. Vale enquanto P1 = A; se o dono escolher outra, este anexo é 
 |-------|---------|------------|
 | Status com categoria fixa | Linear (workflow states) | RN2, tabela de status |
 | Chave legível ao lado do UUID | Linear (`ENG-123`) | RN5, `T-<n>` |
-| Prioridade de 0 a 4 | Linear | P4 |
+| Prioridade de 0 a 4 | Linear | RN8 |
 | Board e lista sobre a mesma consulta | Linear (display options) | RN4 |
 | Ordem manual dentro da coluna | Linear (ordenação manual) | J2.2, `rank` por índice fracionário |
 | A tarefa é uma página com corpo livre | Notion (página de database) | o corpo da Entry no editor de blocos |
@@ -222,7 +184,7 @@ As migrations pegam os próximos números livres do `user_version` quando forem 
 | Onde | O quê |
 |------|-------|
 | `entries` (módulo Entries) | coluna `kind TEXT NOT NULL DEFAULT 'log' CHECK (kind IN ('log','task'))`, e a timeline passa a filtrar `kind = 'log'` (RN6) |
-| `task_statuses` (Tasks) | `id`, `name`, `category` com CHECK nas cinco, `position`; semeada com os cinco de P3 |
+| `task_statuses` (Tasks) | `id`, `name`, `category` com CHECK nas cinco, `position`; semeada com os cinco status fixos |
 | `tasks` (Tasks) | `entry_id` PK e FK para `entries(id)` com `ON DELETE CASCADE`, `key INTEGER UNIQUE`, `title`, `status_id`, `priority` 0 a 4, `rank TEXT`, `completed_at`; índice `(status_id, rank)` para a coluna do board |
 | `task_counter` (Tasks) | uma linha com o último `key` dado, para RN5 sobreviver a apagar a maior |
 
