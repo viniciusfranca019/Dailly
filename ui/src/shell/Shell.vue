@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import type { Component } from 'vue'
+import { nextTick, ref, useTemplateRef, type Component } from 'vue'
 import type { ModuleDescriptor, SharedDeps, VueModule } from '@shared'
 import type { TimeZone } from '@dailly/periods'
+import { moveBy, moveOnto } from './nav-order.js'
 
 /**
  * The frame: sidebar, navigation, zone, and the outlet the current module
@@ -12,7 +13,7 @@ import type { TimeZone } from '@dailly/periods'
  * routing state in `mount.ts` where `ShellHandle` can expose it without
  * `defineExpose` gymnastics.
  */
-defineProps<{
+const props = defineProps<{
   modules: readonly ModuleDescriptor<VueModule>[]
   /** Shown in the frame; the frame reads nothing else of the deps. */
   zone: TimeZone
@@ -26,7 +27,41 @@ defineProps<{
   failed: { route: string; title: string } | null
 }>()
 
-const emit = defineEmits<{ navigate: [route: string] }>()
+const emit = defineEmits<{ navigate: [route: string]; reorder: [order: string[]] }>()
+
+/**
+ * Reordering is computed here and handed up whole, because the order on screen
+ * is `modules` and nothing else: the frame says what the new list is, and
+ * `mount.ts`, which owns the state, keeps it.
+ */
+const ids = () => props.modules.map((module) => module.id)
+
+/** The module being dragged; cleared on `dragend`, dropped or not. */
+const grabbed = ref<string | null>(null)
+
+function grab(event: DragEvent, id: string): void {
+  // Firefox starts no drag without data. jsdom has no DataTransfer, hence the guard.
+  event.dataTransfer?.setData('text/plain', id)
+  grabbed.value = id
+}
+
+function drop(target: string): void {
+  if (grabbed.value === null) return
+  emit('reorder', moveOnto(ids(), grabbed.value, target))
+  grabbed.value = null
+}
+
+const nav = useTemplateRef<HTMLElement>('nav')
+
+/** Alt+↑/↓: the keyboard path to the same reorder, focus kept on the moved button. */
+async function nudge(event: KeyboardEvent, id: string): Promise<void> {
+  if (!event.altKey || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return
+  event.preventDefault()
+  emit('reorder', moveBy(ids(), id, event.key === 'ArrowUp' ? -1 : 1))
+  await nextTick()
+  const buttons = nav.value?.querySelectorAll<HTMLButtonElement>('button') ?? []
+  ;[...buttons].find((button) => button.dataset.id === id)?.focus()
+}
 </script>
 
 <template>
@@ -54,18 +89,33 @@ const emit = defineEmits<{ navigate: [route: string] }>()
         nowhere would make a screenshot that lies about what the app does, and
         the flag mechanism exists precisely so what ships is what is built.
       -->
-      <nav class="flex flex-col gap-0.5" data-testid="nav" aria-label="Módulos">
+      <nav
+        ref="nav"
+        class="flex flex-col gap-0.5"
+        data-testid="nav"
+        aria-label="Módulos"
+        aria-describedby="nav-order-hint"
+      >
+        <span id="nav-order-hint" class="sr-only">Arraste, ou use Alt+↑ e Alt+↓, para mudar a ordem</span>
         <button
           v-for="module in modules"
           :key="module.id"
           type="button"
           :data-route="module.route"
+          :data-id="module.id"
+          draggable="true"
           :aria-current="module.route === current ? 'page' : undefined"
           class="rounded-md px-2 py-1.5 text-left text-sm font-medium transition-colors hover:bg-white/5 hover:text-gray-200"
-          :class="
-            module.route === current ? 'bg-white/5 text-gray-100' : 'text-[#747e8f]'
-          "
+          :class="[
+            module.route === current ? 'bg-white/5 text-gray-100' : 'text-[#747e8f]',
+            grabbed === module.id ? 'opacity-50' : '',
+          ]"
           @click="emit('navigate', module.route)"
+          @dragstart="grab($event, module.id)"
+          @dragover.prevent
+          @drop.prevent="drop(module.id)"
+          @dragend="grabbed = null"
+          @keydown="nudge($event, module.id)"
         >
           {{ module.title }}
         </button>
