@@ -1,6 +1,7 @@
 # Directory Update Log
 
 ## 2026-11-04
+* **Update**: as fatias do [Tasks](/prd/tasks.md) ganham os cards #20, #21 e #22.
 * **Creation**: o tipo `PRD` e a pasta [PRDs](/prd/index.md), com o primeiro rascunho: [Tasks](/prd/tasks.md), o board kanban ou lista em que cada tarefa é uma Entry.
 * **Update**: [Tasks](/prd/tasks.md) refinado (`Refinado: sim`), com as recomendações aceitas pelo dono e três fatias.
 
