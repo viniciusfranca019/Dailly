@@ -205,3 +205,28 @@ describe('a cancelled drag', () => {
     ])
   })
 })
+
+describe('a tie in the ranks, which two stale tabs can write', () => {
+  it('shows the refusal and rereads the board instead of failing in silence', async () => {
+    const store = await storeWith([['um', 'todo'], ['dois', 'todo'], ['três', 'todo']])
+    await store.move(1, { statusId: 'doing', rank: 'm' })
+    await store.move(2, { statusId: 'doing', rank: 'm' })
+    let reads = 0
+    const host = await mount(
+      portOver(store, {
+        board: async () => {
+          reads += 1
+          return store.board()
+        },
+      }),
+    )
+    const before = reads
+
+    // The lower of the two tied cards: its neighbour above has the same rank.
+    const lower = keysIn(column(host, 'Fazendo'))[1]!
+    await drag(card(host, 'T-3'), card(host, lower))
+
+    expect(host.querySelector('[role="alert"]')?.textContent).toBeTruthy()
+    expect(reads).toBeGreaterThan(before)
+  })
+})
