@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { placeAt } from '@dailly/tasks-core'
-import type { SharedDeps, Task, TaskBoard } from '@shared'
+import type { Board, SharedDeps, Task, TaskBoard, TaskKey } from '@shared'
 import { computed, onMounted, ref } from 'vue'
 import type { TasksDeps } from '../deps.js'
 import { firstToDo, groupByStatus } from '../model/list.js'
 import BoardColumn from './board/BoardColumn.vue'
 import type { Draft } from '../model/draft.js'
+import { useLastBoard } from './board-choice.js'
+import BoardForm from './boards/BoardForm.vue'
 import TaskPanel from './detail/TaskPanel.vue'
 import StatusGroup from './list/StatusGroup.vue'
 import { usePanelWidth } from './panel-width.js'
@@ -18,12 +20,30 @@ import { useTasksView } from './view.js'
  * After every write the screen reads the board again instead of patching it
  * by hand: the server owns the key, the rank and the RN3 stamp, and a refused
  * write then shows what the server has, which is RN7 (the Requests rule).
+ *
+ * The screen shows one board at a time (card #42): the boards are read first,
+ * the last one used is reopened (C5), and every read and write is scoped to
+ * it. Inside a board the number of a key is unique, so the screen keeps
+ * `key` as the card's identity and adds the prefix only when it calls the API.
  */
 const props = defineProps<{ deps: SharedDeps & TasksDeps }>()
 
 type Read = { state: 'loading' } | { state: 'failed'; message: string } | { state: 'ready'; board: TaskBoard }
 
 const read = ref<Read>({ state: 'loading' })
+const boards = ref<readonly Board[]>([])
+/** The board on the screen. */
+const current = ref<string | null>(null)
+const lastBoard = useLastBoard()
+/** Which board form is open, if any. */
+const editing = ref<'create' | 'edit' | null>(null)
+/**
+ * The board just created opens in its five columns (#42 C1), not in the
+ * invitation an empty board shows otherwise (#20 C2): the person made it to
+ * fill it, and the columns are where its tasks are born.
+ */
+const justCreated = ref<string | null>(null)
+const currentBoard = computed(() => boards.value.find((board) => board.id === current.value))
 /** The status whose capture is open, if any. */
 const composing = ref<string | null>(null)
 /** The last refused move, shown above the board until the next one. */
@@ -46,9 +66,22 @@ const opened = ref<number | null>(null)
 
 const message = (cause: unknown, fallback: string) => (cause instanceof Error ? cause.message : fallback)
 
+async function readBoards(): Promise<void> {
+  boards.value = await props.deps.tasks.boards()
+  if (!boards.value.some((board) => board.id === current.value)) current.value = lastBoard.pick(boards.value)
+}
+
 async function load(): Promise<void> {
   try {
-    read.value = { state: 'ready', board: await props.deps.tasks.board() }
+    if (current.value === null) await readBoards()
+    let board = current.value === null ? null : await props.deps.tasks.board(current.value)
+    if (!board) {
+      // The board went away between two reads: fall back to the first one.
+      await readBoards()
+      board = current.value === null ? null : await props.deps.tasks.board(current.value)
+    }
+    if (!board) throw new Error('board não encontrado')
+    read.value = { state: 'ready', board }
   } catch (cause) {
     read.value = { state: 'failed', message: message(cause, 'não consegui ler as tarefas') }
   }
@@ -56,9 +89,47 @@ async function load(): Promise<void> {
 
 onMounted(load)
 
+async function switchBoard(boardId: string): Promise<void> {
+  if (boardId === current.value) return
+  current.value = boardId
+  lastBoard.remember(boardId)
+  composing.value = null
+  moveError.value = null
+  close()
+  await load()
+}
+
+/** Throws on refusal, so the form keeps what was typed and shows why (C2, C3). */
+async function createBoard(input: { name: string; prefix: string }): Promise<void> {
+  const created = await props.deps.tasks.createBoard(input)
+  editing.value = null
+  justCreated.value = created.id
+  await readBoards()
+  await switchBoard(created.id)
+}
+
+async function updateBoard(input: { name: string; prefix: string }): Promise<void> {
+  if (current.value === null) return
+  const updated = await props.deps.tasks.updateBoard(current.value, input)
+  if (!updated) throw new Error('board não encontrado')
+  editing.value = null
+  await readBoards()
+}
+
+/** The whole key of a task on the screen: its frozen prefix and its number (RN5). */
+function keyOf(key: number): TaskKey | null {
+  if (read.value.state !== 'ready') return null
+  const task = read.value.board.tasks.find((candidate) => candidate.key === key) ?? lastOpened.value
+  return task && task.key === key ? { prefix: task.keyPrefix, key } : null
+}
+
 const groups = computed(() => (read.value.state === 'ready' ? groupByStatus(read.value.board) : []))
 const empty = computed(
-  () => read.value.state === 'ready' && read.value.board.tasks.length === 0 && composing.value === null,
+  () =>
+    read.value.state === 'ready' &&
+    read.value.board.tasks.length === 0 &&
+    composing.value === null &&
+    justCreated.value !== current.value,
 )
 
 function inviteFirst(): void {
@@ -68,7 +139,8 @@ function inviteFirst(): void {
 
 /** Throws on refusal, so the form keeps what was typed and shows why (C6 of #20). */
 async function create(statusId: string, title: string): Promise<void> {
-  await props.deps.tasks.create({ title, statusId })
+  if (current.value === null) throw new Error('board não encontrado')
+  await props.deps.tasks.create({ boardId: current.value, title, statusId })
   composing.value = null
   await load()
 }
@@ -100,8 +172,10 @@ async function save(key: number, draft: Draft): Promise<boolean> {
   const board = read.value.board
   const current = board.tasks.find((task) => task.key === key)
   const top = board.tasks.find((task) => task.statusId === draft.statusId && task.key !== key)?.key ?? null
+  const whole = keyOf(key)
+  if (!whole) return false
   try {
-    const saved = await props.deps.tasks.update(key, {
+    const saved = await props.deps.tasks.update(whole, {
       title: draft.title,
       priority: draft.priority,
       body: draft.body,
@@ -116,7 +190,8 @@ async function save(key: number, draft: Draft): Promise<boolean> {
 }
 
 async function remove(key: number): Promise<void> {
-  await props.deps.tasks.delete(key)
+  const whole = keyOf(key)
+  if (whole) await props.deps.tasks.delete(whole)
   close()
   await load()
 }
@@ -125,9 +200,11 @@ async function drop(statusId: string, beforeKey: number | null): Promise<void> {
   const key = grabbed.value
   grabbed.value = null
   if (key === null || key === beforeKey || read.value.state !== 'ready') return
+  const whole = keyOf(key)
+  if (!whole) return
   moveError.value = null
   try {
-    const moved = await props.deps.tasks.update(key, {
+    const moved = await props.deps.tasks.update(whole, {
       placement: placeAt(read.value.board, key, statusId, beforeKey),
     })
     if (!moved) moveError.value = 'tarefa não encontrada'
@@ -139,9 +216,39 @@ async function drop(statusId: string, beforeKey: number | null): Promise<void> {
 </script>
 
 <template>
-  <div class="flex h-full min-h-0 flex-col" data-testid="tasks">
+  <div class="relative flex h-full min-h-0 flex-col" data-testid="tasks">
     <nav class="flex items-center gap-2 px-6 py-4 text-sm text-[#747e8f]">
       <span>Tasks</span>
+      <span class="text-[#1e2638]">/</span>
+      <select
+        v-if="boards.length > 0"
+        aria-label="Board"
+        :value="current ?? undefined"
+        class="rounded-md border border-[#1e2638] bg-transparent px-1.5 py-0.5 text-sm text-gray-200 outline-none focus:border-[#3b82f6]"
+        @change="switchBoard(($event.target as HTMLSelectElement).value)"
+      >
+        <option v-for="board in boards" :key="board.id" :value="board.id" class="bg-[#0b101b]">{{ board.name }}</option>
+      </select>
+      <button
+        v-if="currentBoard"
+        type="button"
+        aria-label="Editar board"
+        :title="`Editar ${currentBoard.name} (prefixo ${currentBoard.prefix})`"
+        class="rounded px-1.5 text-xs text-[#747e8f] hover:bg-[#1e2638] hover:text-gray-100"
+        @click="editing = 'edit'"
+      >
+        {{ currentBoard.prefix }}
+      </button>
+      <button
+        v-if="boards.length > 0"
+        type="button"
+        aria-label="Novo board"
+        title="Novo board"
+        class="rounded px-1.5 text-[#747e8f] hover:bg-[#1e2638] hover:text-gray-100"
+        @click="editing = 'create'"
+      >
+        +
+      </button>
       <span class="text-[#1e2638]">/</span>
       <span class="text-gray-300">{{ view === 'board' ? 'Board' : 'Lista' }}</span>
       <div class="ml-auto flex rounded-md border border-[#1e2638] p-0.5" role="group" aria-label="Visualização">
@@ -158,6 +265,23 @@ async function drop(statusId: string, beforeKey: number | null): Promise<void> {
         </button>
       </div>
     </nav>
+
+    <BoardForm
+      v-if="editing === 'create'"
+      title="Novo board"
+      submit-label="Criar board"
+      :save="createBoard"
+      @cancel="editing = null"
+    />
+    <BoardForm
+      v-else-if="editing === 'edit' && currentBoard"
+      :key="currentBoard.id"
+      title="Editar board"
+      submit-label="Salvar"
+      :initial="{ name: currentBoard.name, prefix: currentBoard.prefix }"
+      :save="updateBoard"
+      @cancel="editing = null"
+    />
 
     <div class="min-h-0 flex-1 overflow-auto px-6 pb-6">
       <p v-if="read.state === 'loading'" class="text-sm text-[#747e8f]">Carregando as tarefas…</p>

@@ -11,7 +11,7 @@ const emit = defineEmits<{ open: [key: number] }>()
     class="flex cursor-pointer items-center gap-3 border-t border-[#1e2638] px-3 py-2 text-sm hover:bg-white/[0.03]"
     @click="emit('open', task.key)"
   >
-    <span class="w-12 shrink-0 font-mono text-xs text-[#747e8f]">{{ formatKey(task.key) }}</span>
+    <span class="w-16 shrink-0 font-mono text-xs text-[#747e8f]">{{ formatKey(task.keyPrefix, task.key) }}</span>
     <button
       type="button"
       class="min-w-0 flex-1 truncate text-left text-gray-100"

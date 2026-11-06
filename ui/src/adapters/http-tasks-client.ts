@@ -1,4 +1,13 @@
-import { formatKey, type Priority, type StatusCategory, type Task, type TaskBoard, type TaskStatus } from '@dailly/tasks-core'
+import {
+  formatKey,
+  type Board,
+  type Priority,
+  type StatusCategory,
+  type Task,
+  type TaskBoard,
+  type TaskKey,
+  type TaskStatus,
+} from '@dailly/tasks-core'
 import type { TasksPort } from '@shared'
 import type { ApiConfig } from './api.js'
 import { ApiError } from './errors.js'
@@ -39,7 +48,9 @@ const parseTask = (value: unknown): Task => {
   if (
     !isRecord(value) ||
     typeof value['id'] !== 'string' ||
+    typeof value['boardId'] !== 'string' ||
     typeof value['key'] !== 'number' ||
+    typeof value['keyPrefix'] !== 'string' ||
     typeof value['title'] !== 'string' ||
     typeof value['statusId'] !== 'string' ||
     !PRIORITIES.includes(value['priority'] as number) ||
@@ -52,7 +63,9 @@ const parseTask = (value: unknown): Task => {
   }
   return {
     id: value['id'],
+    boardId: value['boardId'],
     key: value['key'],
+    keyPrefix: value['keyPrefix'],
     title: value['title'],
     statusId: value['statusId'],
     priority: value['priority'] as Priority,
@@ -70,25 +83,74 @@ const parseBoard = (value: unknown): TaskBoard => {
   return { statuses: value['statuses'].map(parseStatus), tasks: value['tasks'].map(parseTask) }
 }
 
+const parseBoardInfo = (value: unknown): Board => {
+  if (
+    !isRecord(value) ||
+    typeof value['id'] !== 'string' ||
+    typeof value['name'] !== 'string' ||
+    typeof value['prefix'] !== 'string'
+  ) {
+    throw wrongShape('um board')
+  }
+  return { id: value['id'], name: value['name'], prefix: value['prefix'] }
+}
+
+const path = ({ prefix, key }: TaskKey) => `/tasks/${encodeURIComponent(formatKey(prefix, key))}`
+
+/** 404 is an answer here, not a failure: the thing is gone, and the caller says so. */
+async function orGone<T>(call: () => Promise<T>, gone: T): Promise<T> {
+  try {
+    return await call()
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return gone
+    throw error
+  }
+}
+
 /** The Tasks port over the local API, with the payload parsed at the boundary. */
 export function httpTasksClient(deps: HttpTasksClientDeps): TasksPort {
   const call = httpClient(deps)
   return {
-    async board() {
-      return parseBoard(await call('/tasks'))
+    async boards() {
+      const answer = await call('/boards')
+      if (!Array.isArray(answer)) throw wrongShape('os boards')
+      return answer.map(parseBoardInfo)
+    },
+    async createBoard(input) {
+      return parseBoardInfo(
+        await call('/boards', { method: 'POST', body: JSON.stringify({ name: input.name, prefix: input.prefix }) }),
+      )
+    },
+    async updateBoard(id, patch) {
+      return orGone(
+        async () =>
+          parseBoardInfo(
+            await call(`/boards/${encodeURIComponent(id)}`, {
+              method: 'PATCH',
+              body: JSON.stringify({
+                ...(patch.name !== undefined ? { name: patch.name } : {}),
+                ...(patch.prefix !== undefined ? { prefix: patch.prefix } : {}),
+              }),
+            }),
+          ),
+        null,
+      )
+    },
+    async board(boardId) {
+      return orGone(async () => parseBoard(await call(`/tasks?boardId=${encodeURIComponent(boardId)}`)), null)
     },
     async create(input) {
       return parseTask(
         await call('/tasks', {
           method: 'POST',
-          body: JSON.stringify({ title: input.title, statusId: input.statusId }),
+          body: JSON.stringify({ boardId: input.boardId, title: input.title, statusId: input.statusId }),
         }),
       )
     },
     async update(key, patch) {
       try {
         return parseTask(
-          await call(`/tasks/${formatKey(key)}`, {
+          await call(path(key), {
             method: 'PATCH',
             body: JSON.stringify({
               ...(patch.title !== undefined ? { title: patch.title } : {}),
@@ -105,7 +167,7 @@ export function httpTasksClient(deps: HttpTasksClientDeps): TasksPort {
     },
     async delete(key) {
       try {
-        await call(`/tasks/${formatKey(key)}`, { method: 'DELETE' })
+        await call(path(key), { method: 'DELETE' })
         return true
       } catch (error) {
         if (error instanceof ApiError && error.status === 404) return false

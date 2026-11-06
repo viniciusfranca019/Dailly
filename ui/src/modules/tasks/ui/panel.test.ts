@@ -23,12 +23,15 @@ afterEach(() => {
 const storeWith = async (seed: readonly [string, string][]): Promise<TaskStore> => {
   let n = 0
   const store = inMemoryTaskStore({ newId: () => `id-${(n += 1)}`, now: () => '2026-11-05T12:00:00.000Z' })
-  for (const [title, statusId] of seed) await store.create({ title, statusId })
+  for (const [title, statusId] of seed) await store.create({ boardId: 'tasks', title, statusId })
   return store
 }
 
 const portOver = (store: TaskStore, over: Partial<TasksPort> = {}): TasksPort => ({
-  board: () => store.board(),
+  boards: () => store.boards(),
+  createBoard: (input) => store.createBoard(input),
+  updateBoard: (id, patch) => store.updateBoard(id, patch),
+  board: (boardId) => store.board(boardId),
   create: (input) => store.create(input),
   update: (key, patch) => store.update(key, patch),
   delete: (key) => store.delete(key),
@@ -74,7 +77,7 @@ async function save(host: HTMLElement) {
 describe('C1: abrir o painel', () => {
   it('mostra título, status, prioridade e o corpo no editor de blocos', async () => {
     const store = await storeWith([['Comprar café', 'todo']])
-    await store.update(1, { body: 'moído fino' })
+    await store.update({ prefix: 'T', key: 1 }, { body: 'moído fino' })
     const host = await mount(portOver(store))
 
     await open(host, 'T-1')
@@ -124,7 +127,7 @@ describe('C2: editar e salvar', () => {
     button(panel(host)!, 'Salvar').click()
     await settle()
 
-    expect((await store.board()).tasks[0]?.body).toBe('moído fino')
+    expect((await store.board('tasks'))!.tasks[0]?.body).toBe('moído fino')
   })
 })
 
@@ -184,7 +187,7 @@ describe('C5: cancelar a confirmação não apaga', () => {
     expect(host.querySelector('[role="alertdialog"]')).toBeNull()
     expect(panel(host)).not.toBeNull()
     expect(keysIn(column(host, 'A fazer'))).toEqual(['T-1'])
-    expect((await store.board()).tasks).toHaveLength(1)
+    expect((await store.board('tasks'))!.tasks).toHaveLength(1)
   })
 })
 
@@ -193,7 +196,7 @@ describe('C6: tarefa que não existe mais', () => {
     const store = await storeWith([['Comprar café', 'todo']])
     const host = await mount(portOver(store))
     await open(host, 'T-1')
-    await store.delete(1)
+    await store.delete({ prefix: 'T', key: 1 })
 
     await save(host)
 
@@ -274,7 +277,7 @@ describe('gate #22: o painel pelo teclado', () => {
     window.dispatchEvent(ctrlS)
     await settle()
     expect(ctrlS.defaultPrevented).toBe(true)
-    expect((await store.board()).tasks[0]?.priority).toBe(2)
+    expect((await store.board('tasks'))!.tasks[0]?.priority).toBe(2)
 
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     await settle()

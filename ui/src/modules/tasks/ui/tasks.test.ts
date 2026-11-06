@@ -23,12 +23,15 @@ afterEach(() => {
 const storeWith = async (seed: readonly [string, string][] = []): Promise<TaskStore> => {
   let n = 0
   const store = inMemoryTaskStore({ newId: () => `id-${(n += 1)}`, now: () => '2026-11-05T12:00:00.000Z' })
-  for (const [title, statusId] of seed) await store.create({ title, statusId })
+  for (const [title, statusId] of seed) await store.create({ boardId: 'tasks', title, statusId })
   return store
 }
 
 const portOver = (store: TaskStore, over: Partial<TasksPort> = {}): TasksPort => ({
-  board: () => store.board(),
+  boards: () => store.boards(),
+  createBoard: (input) => store.createBoard(input),
+  updateBoard: (id, patch) => store.updateBoard(id, patch),
+  board: (boardId) => store.board(boardId),
   create: (input) => store.create(input),
   update: (key, patch) => store.update(key, patch),
   delete: (key) => store.delete(key),
@@ -108,7 +111,7 @@ describe('C3: criar uma tarefa por título', () => {
 describe('C4: a chave não é reaproveitada (RN5)', () => {
   it('dá T-3 depois de T-2 apagada pela API', async () => {
     const store = await storeWith([['um', 'todo'], ['dois', 'todo']])
-    await store.delete(2)
+    await store.delete({ prefix: 'T', key: 2 })
     const host = await mount(portOver(store))
 
     button(host, 'Nova tarefa em A fazer')!.click()
@@ -139,7 +142,7 @@ describe('C5: título vazio é recusado', () => {
       expect(host.querySelector('[role="alert"]')?.textContent).toContain('o título é obrigatório')
     }
     expect(calls).toBe(0)
-    expect((await store.board()).tasks).toEqual([])
+    expect((await store.board('tasks'))!.tasks).toEqual([])
   })
 })
 

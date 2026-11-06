@@ -26,12 +26,15 @@ const storeWith = async (seed: readonly [string, string][] = []): Promise<TaskSt
     newId: () => `id-${(n += 1)}`,
     now: () => new Date(Date.parse('2026-11-05T12:00:00.000Z') + (clock += 1) * 1000).toISOString(),
   })
-  for (const [title, statusId] of seed) await store.create({ title, statusId })
+  for (const [title, statusId] of seed) await store.create({ boardId: 'tasks', title, statusId })
   return store
 }
 
 const portOver = (store: TaskStore, over: Partial<TasksPort> = {}): TasksPort => ({
-  board: () => store.board(),
+  boards: () => store.boards(),
+  createBoard: (input) => store.createBoard(input),
+  updateBoard: (id, patch) => store.updateBoard(id, patch),
+  board: (boardId) => store.board(boardId),
   create: (input) => store.create(input),
   update: (key, patch) => store.update(key, patch),
   delete: (key) => store.delete(key),
@@ -197,7 +200,7 @@ describe('a cancelled drag', () => {
     column(host, 'Feito')!.dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }))
     await settle()
 
-    expect((await store.board()).tasks.map((task) => [task.key, task.statusId, task.completedAt])).toEqual([
+    expect((await store.board('tasks'))!.tasks.map((task) => [task.key, task.statusId, task.completedAt])).toEqual([
       [1, 'todo', null],
     ])
   })
@@ -206,14 +209,14 @@ describe('a cancelled drag', () => {
 describe('a tie in the ranks, which two stale tabs can write', () => {
   it('shows the refusal and rereads the board instead of failing in silence', async () => {
     const store = await storeWith([['um', 'todo'], ['dois', 'todo'], ['três', 'todo']])
-    await store.update(1, { placement: { statusId: 'doing', rank: 'm' } })
-    await store.update(2, { placement: { statusId: 'doing', rank: 'm' } })
+    await store.update({ prefix: 'T', key: 1 }, { placement: { statusId: 'doing', rank: 'm' } })
+    await store.update({ prefix: 'T', key: 2 }, { placement: { statusId: 'doing', rank: 'm' } })
     let reads = 0
     const host = await mount(
       portOver(store, {
-        board: async () => {
+        board: async (boardId) => {
           reads += 1
-          return store.board()
+          return store.board(boardId)
         },
       }),
     )
