@@ -15,6 +15,8 @@ export {
   normalizePrefix,
 } from './board.js'
 export type { Board, BoardPatch, NewBoard } from './board.js'
+export { CommentRequiredError, normalizeCommentBody } from './comment.js'
+export type { TaskComment } from './comment.js'
 export { rankBetween } from './rank.js'
 export { completionAfterMove, placeAt } from './move.js'
 export type { Placement } from './move.js'
@@ -32,4 +34,4 @@ export {
   parseKey,
 } from './task.js'
 export type { Priority, StatusCategory, Task, TaskKey, TaskStatus } from './task.js'
-export type { NewTask, TaskBoard, TaskPatch, TaskStore } from './task-store.js'
+export type { CommentDeletion, NewTask, TaskBoard, TaskPatch, TaskStore } from './task-store.js'
