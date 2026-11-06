@@ -1,6 +1,7 @@
 import type { Board, BoardPatch, NewBoard } from './board.js'
 import type { TaskComment } from './comment.js'
 import type { Placement } from './move.js'
+import type { NewStatus, StatusPatch } from './status.js'
 import type { Priority, Task, TaskKey, TaskStatus } from './task.js'
 
 export interface NewTask {
@@ -81,6 +82,23 @@ export interface TaskStore {
   addComment(key: TaskKey, body: string): Promise<TaskComment | null>
   /** A comment of another task is not found, as one that does not exist. */
   deleteComment(key: TaskKey, id: string): Promise<CommentDeletion>
+  /**
+   * A new status in the board, placed after the others of its category
+   * (card #43, RN11). `null` when no board has that id. Throws
+   * `NameRequiredError`, `StatusNameTakenError`, `InvalidCategoryError` or
+   * `InvalidColorError`; nothing is written then.
+   */
+  addStatus(boardId: string, input: NewStatus): Promise<TaskStatus | null>
+  /** Rename or recolor (J6.2); the tasks in it do not change. `null` when no status has that id. */
+  updateStatus(id: string, patch: StatusPatch): Promise<TaskStatus | null>
+  /**
+   * Delete a status (J6.3, J6.4). Its tasks go on top of `moveTo`, in their
+   * order, through RN3, in the same write (RN12). `false` when no status has
+   * that id. Throws `LastStatusError`, `StatusHasTasksError` (tasks and no
+   * `moveTo`) or `InvalidMoveToError` (itself, another board's, or none);
+   * nothing changes then.
+   */
+  deleteStatus(id: string, moveTo?: string): Promise<boolean>
 }
 
 export type CommentDeletion = 'deleted' | 'task-not-found' | 'comment-not-found'

@@ -18,10 +18,29 @@ export type { Board, BoardPatch, NewBoard } from './board.js'
 export { CommentRequiredError, normalizeCommentBody } from './comment.js'
 export type { TaskComment } from './comment.js'
 export { rankBetween } from './rank.js'
-export { completionAfterMove, placeAt } from './move.js'
+export { completionAfterMove, placeAt, ranksOnTop } from './move.js'
+export {
+  CATEGORY_ORDER,
+  InvalidCategoryError,
+  InvalidColorError,
+  InvalidMoveToError,
+  LastStatusError,
+  SEED_STATUS_IDS,
+  STATUS_COLORS,
+  STATUS_SEED,
+  StatusHasTasksError,
+  StatusNameTakenError,
+  isStatusCategory,
+  isStatusColor,
+  normalizeStatusName,
+  orderStatuses,
+  parseNewStatus,
+  sameStatusName,
+  seedStatusesFor,
+} from './status.js'
+export type { NewStatus, StatusColor, StatusPatch, StoredStatus } from './status.js'
 export type { Placement } from './move.js'
 export {
-  DEFAULT_STATUSES,
   InvalidPriorityError,
   InvalidRankError,
   PRIORITY_LABELS,
