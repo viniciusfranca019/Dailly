@@ -10,6 +10,7 @@ import type {
   TaskComment,
   TaskKey,
   TaskPatch,
+  TaskSearchResult,
   TaskStatus,
 } from '@dailly/tasks-core'
 
@@ -50,6 +51,8 @@ export interface TasksPort {
   updateStatus(id: string, patch: StatusPatch): Promise<TaskStatus | null>
   /** Its tasks go on top of `moveTo`; `false` when the status was gone; throws on a refusal. */
   deleteStatus(id: string, moveTo?: string): Promise<boolean>
+  /** Tasks of every board by key or part of the title (card #47); the API is not called for empty text. */
+  search(text: string): Promise<readonly TaskSearchResult[]>
 }
 
 export type {
@@ -66,5 +69,6 @@ export type {
   TaskComment,
   TaskKey,
   TaskPatch,
+  TaskSearchResult,
   TaskStatus,
 } from '@dailly/tasks-core'

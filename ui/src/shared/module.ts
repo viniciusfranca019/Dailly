@@ -10,6 +10,8 @@
  * whatever surface the shell of the day needs, so the manifest, the flags and
  * the lazy `load()` crossed the migration untouched.
  */
+import type { ModuleCommand } from './command.js'
+
 export interface ModuleDescriptor<TModule> {
   /** Stable identity, used in flags and diagnostics. */
   readonly id: string
@@ -17,6 +19,12 @@ export interface ModuleDescriptor<TModule> {
   readonly title: string
   /** Where the shell routes it. */
   readonly route: string
+  /**
+   * The shortcuts this module answers on any screen (cards #47, #48). Declared
+   * here, inside the module's flag branch, so a module left out of the build
+   * registers no shortcut; the component of each lives in the module's index.
+   */
+  readonly commands?: readonly ModuleCommand[]
   /**
    * Lazy entry point. Dynamic on purpose: a module left out of the manifest by
    * a build flag has no reachable `import()`, so its chunk is never emitted.

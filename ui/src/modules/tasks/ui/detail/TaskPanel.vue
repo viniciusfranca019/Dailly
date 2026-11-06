@@ -170,7 +170,8 @@ function onKeydown(event: KeyboardEvent): void {
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
     event.preventDefault()
     void submit()
-  } else if (event.key === 'Escape' && !confirming.value && escapeIsMine(event)) {
+  } else if (event.key === 'Escape' && !event.defaultPrevented && !confirming.value && escapeIsMine(event)) {
+    // An Esc someone already took (the search over the panel closed with it) is not the panel's.
     emit('close')
   }
 }

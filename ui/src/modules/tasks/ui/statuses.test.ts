@@ -49,6 +49,7 @@ const portOver = (store: TaskStore): TasksPort => ({
   addStatus: (boardId, input) => store.addStatus(boardId, input),
   updateStatus: (id, patch) => store.updateStatus(id, patch),
   deleteStatus: (id, moveTo) => store.deleteStatus(id, moveTo),
+  search: (text) => store.search(text),
 })
 
 async function mount(store: TaskStore) {

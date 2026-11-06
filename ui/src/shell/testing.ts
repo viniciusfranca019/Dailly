@@ -42,6 +42,7 @@ const tasksOver = (store: ReturnType<typeof inMemoryTaskStore>) => ({
   addStatus: (boardId: string, input: Parameters<typeof store.addStatus>[1]) => store.addStatus(boardId, input),
   updateStatus: (id: string, patch: Parameters<typeof store.updateStatus>[1]) => store.updateStatus(id, patch),
   deleteStatus: (id: string, moveTo?: string) => store.deleteStatus(id, moveTo),
+  search: (text: string) => store.search(text),
 })
 
 /** A storage in a Map, so no test sees another test's saved order. */

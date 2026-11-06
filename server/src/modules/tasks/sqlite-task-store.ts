@@ -13,6 +13,9 @@ import {
   sameStatusName,
   type StoredStatus,
   BoardNotFoundError,
+  SEARCH_LIMIT,
+  searchKey,
+  type TaskSearchResult,
   InvalidPriorityError,
   InvalidRankError,
   PrefixTakenError,
@@ -293,7 +296,37 @@ export function sqliteTaskStore({ db, newId, now }: SqliteTaskStoreDeps): TaskSt
     return true
   })
 
+  /** `%`, `_` and the escape itself are letters in the search, not wildcards. */
+  const likeLiteral = (text: string) => `%${text.replace(/[\\%_]/g, (char) => `\\${char}`)}%`
+
   return {
+    async search(text) {
+      const trimmed = text.trim()
+      if (trimmed === '') return []
+      const named = searchKey(trimmed)
+      // SQLite's LIKE folds A–Z only, the rule the fake follows (`matchesTitle`).
+      const rows = db
+        .prepare(
+          `SELECT t.key, t.key_prefix AS keyPrefix, t.title, t.board_id AS boardId, b.name AS boardName,
+                  (t.key_prefix = ? AND t.key = ?) AS exact
+             FROM tasks t
+             JOIN entries e ON e.id = t.entry_id
+             JOIN task_boards b ON b.id = t.board_id
+            WHERE (t.key_prefix = ? AND t.key = ?) OR t.title LIKE ? ESCAPE '\\'
+            ORDER BY exact DESC, e.created_at DESC, t.rowid DESC
+            LIMIT ?`,
+        )
+        .all(
+          named?.prefix ?? null,
+          named?.key ?? null,
+          named?.prefix ?? null,
+          named?.key ?? null,
+          likeLiteral(trimmed),
+          SEARCH_LIMIT,
+        ) as (TaskSearchResult & { exact: number | null })[]
+      return rows.map(({ exact: _exact, ...result }) => result)
+    },
+
     async addStatus(boardId, input) {
       return addStatus(boardId, input)
     },

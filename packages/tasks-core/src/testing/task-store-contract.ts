@@ -44,6 +44,54 @@ const seedBoard = async (store: TaskStore) => {
 
 export function taskStoreContract(label: string, { make }: { make: () => TaskStore }): void {
   describe(`${label} — contrato do TaskStore`, () => {
+    it('#47 C4: acha pela chave, em qualquer caixa, mesmo com o prefixo antigo do board (RN5)', async () => {
+      const store = make()
+      const casa = await store.createBoard({ name: 'Casa', prefix: 'CASA' })
+      const todo = await statusNamed(store, casa.id, 'A fazer')
+      for (const title of ['um', 'dois', 'Trocar a lâmpada']) await store.create({ boardId: casa.id, title, statusId: todo.id })
+      await store.updateBoard(casa.id, { prefix: 'LAR' })
+      for (const title of ['a', 'b', 'Pagar o condomínio']) await store.create({ boardId: IN, title, statusId: 'todo' })
+
+      expect(await store.search('casa-3')).toEqual([
+        { key: 3, keyPrefix: 'CASA', title: 'Trocar a lâmpada', boardId: casa.id, boardName: 'Casa' },
+      ])
+    })
+
+    it('#47 C5: acha por parte do título em todos os boards, a mais recente primeiro', async () => {
+      const store = make()
+      const casa = await store.createBoard({ name: 'Casa', prefix: 'CASA' })
+      await store.create({ boardId: IN, title: 'Comprar café', statusId: 'todo' })
+      await store.create({ boardId: casa.id, title: 'Café da manhã de domingo', statusId: (await statusNamed(store, casa.id, 'A fazer')).id })
+
+      const found = await store.search('café')
+
+      expect(found.map((result) => [`${result.keyPrefix}-${result.key}`, result.title, result.boardName])).toEqual([
+        ['CASA-1', 'Café da manhã de domingo', 'Casa'],
+        ['T-1', 'Comprar café', 'Tasks'],
+      ])
+    })
+
+    it('#47 C6: nada bate, e o texto vazio não acha nada', async () => {
+      const store = make()
+      await store.create({ boardId: IN, title: 'Comprar café', statusId: 'todo' })
+
+      expect(await store.search('orçamento')).toEqual([])
+      expect(await store.search('   ')).toEqual([])
+    })
+
+    it('#47: a chave exata vem antes dos títulos, % e _ são letras, e são no máximo 20', async () => {
+      const store = make()
+      await store.create({ boardId: IN, title: 'Ver o T-2 depois', statusId: 'todo' })
+      await store.create({ boardId: IN, title: 'Resposta', statusId: 'todo' })
+      await store.create({ boardId: IN, title: '100% pronto', statusId: 'todo' })
+      for (let n = 0; n < 25; n += 1) await store.create({ boardId: IN, title: `item ${n}`, statusId: 'todo' })
+
+      expect((await store.search('t-2')).map((result) => result.title)).toEqual(['Resposta', 'Ver o T-2 depois'])
+      expect((await store.search('%')).map((result) => result.title)).toEqual(['100% pronto'])
+      expect(await store.search('i_em')).toEqual([])
+      expect(await store.search('item')).toHaveLength(20)
+    })
+
     const names = async (store: TaskStore, boardId: string) =>
       (await store.board(boardId))?.statuses.map((status) => status.name)
     const statusNamed = async (store: TaskStore, boardId: string, name: string) => {

@@ -249,6 +249,13 @@ export function registerTaskRoutes(app: FastifyInstance, store: TaskStore): void
     }
   })
 
+  // Across boards (card #47); not `GET /tasks?q=`, which would mix the read of
+  // one board (RN4) with the search of all of them.
+  app.get('/tasks/search', async (request) => {
+    const { q } = request.query as { q?: unknown }
+    return { results: typeof q === 'string' ? await store.search(q) : [] }
+  })
+
   app.get('/tasks', async (request, reply) => {
     const { boardId } = request.query as { boardId?: unknown }
     if (typeof boardId !== 'string' || boardId === '') return reply.code(400).send(BOARD_REQUIRED)

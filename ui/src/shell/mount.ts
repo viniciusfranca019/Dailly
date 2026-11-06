@@ -1,4 +1,11 @@
-import { assertManifest, findByRoute, type ModuleDescriptor, type VueModule } from '@shared'
+import {
+  assertManifest,
+  blockedByFocus,
+  findByRoute,
+  matchesShortcut,
+  type ModuleDescriptor,
+  type VueModule,
+} from '@shared'
 import { createApp, h, nextTick, ref, shallowRef, type App, type Component } from 'vue'
 import { arrange, readOrder, writeOrder } from './nav-order.js'
 import { depsFor, type ShellDeps } from './own-deps.js'
@@ -105,7 +112,7 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
    * map after their awaits. A rejected entry is evicted, which is what lets a
    * failed module be retried by clicking it again.
    */
-  const loaded = new Map<string, Promise<Component>>()
+  const loaded = new Map<string, Promise<VueModule>>()
 
   /** The module that failed to load, so the outlet can say so. */
   const failed = shallowRef<{ route: string; title: string } | null>(null)
@@ -122,6 +129,19 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
    * `destroy` as well would be a second mechanism guarding the same thing, and
    * the one that guards less.
    */
+  /** The module behind a route, loaded once; a failed load is forgotten, so the next try loads again. */
+  function loadModule(descriptor: ModuleDescriptor<VueModule>): Promise<VueModule> {
+    let next = loaded.get(descriptor.route)
+    if (!next) {
+      next = descriptor.load()
+      loaded.set(descriptor.route, next)
+      // Evicted so the same click can be tried again; a cached rejection would
+      // make the failure permanent for the life of the window.
+      next.catch(() => loaded.delete(descriptor.route))
+    }
+    return next
+  }
+
   let navigation = 0
   let destroyed = false
 
@@ -147,16 +167,8 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
        * because "`go` never rejects" should be true of the code and not only
        * of the inputs it happens to get.
        */
-      let next = loaded.get(route)
-      if (!next) {
-        next = descriptor.load().then((module) => module.component)
-        loaded.set(route, next)
-      }
-      resolved = await next
+      resolved = (await loadModule(descriptor)).component
     } catch {
-      // Evicted so the same click can be tried again; a cached rejection would
-      // make the failure permanent for the life of the window.
-      loaded.delete(route)
       // Someone has moved on. Their navigation owns the screen, not this error.
       if (ticket !== navigation || destroyed) return
 
@@ -203,8 +215,77 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
    * component ref objects instead of values; reading `.value` inside `render`
    * is what registers the dependency.
    */
+  /**
+   * The command open over the screen, if any (cards #47, #48). The focus it
+   * took is given back on close (C3 of #47), and pressing its shortcut again
+   * only bumps `focusTick`, so the command takes the focus back.
+   */
+  const command = shallowRef<{ key: string; component: Component; moduleId: string; focusTick: number } | null>(null)
+  let returnFocus: HTMLElement | null = null
+  let opening = 0
+
+  function closeCommand(): void {
+    command.value = null
+    const target = returnFocus
+    returnFocus = null
+    if (target?.isConnected) target.focus()
+  }
+
+  async function openCommand(descriptor: ModuleDescriptor<VueModule>, id: string): Promise<void> {
+    const key = `${descriptor.id}:${id}`
+    if (command.value?.key === key) {
+      command.value = { ...command.value, focusTick: command.value.focusTick + 1 }
+      return
+    }
+    const ticket = ++opening
+    if (!command.value) returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    let module: VueModule
+    try {
+      module = await loadModule(descriptor)
+    } catch {
+      // The chunk did not arrive; the next press tries again (and `go` reports it).
+      return
+    }
+    const component = module.commands?.[id]
+    if (!component || ticket !== opening || destroyed) return
+    command.value = { key, component, moduleId: descriptor.id, focusTick: 0 }
+  }
+
+  let layer: HTMLElement | null = null
+
+  /**
+   * The layer is modal: a focus that leaves it is taken back, and Esc from
+   * anywhere, or a click on the backdrop, closes it (J10.1a).
+   */
+  function onFocusin(event: FocusEvent): void {
+    if (!command.value || !layer || !(event.target instanceof Node) || layer.contains(event.target)) return
+    layer.querySelector<HTMLElement>('input, button, select, textarea, [tabindex]')?.focus()
+  }
+  document.addEventListener('focusin', onFocusin)
+
+  /** One listener for every command; the Ctrl+S of the panel and the composer stay where they are. */
+  function onKeydown(event: KeyboardEvent): void {
+    if (command.value && event.key === 'Escape') {
+      // The command's Esc only: a screen under it (the task panel) must not take it too.
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      closeCommand()
+      return
+    }
+    for (const descriptor of modules) {
+      for (const declared of descriptor.commands ?? []) {
+        if (!matchesShortcut(event, declared.shortcut) || blockedByFocus(declared.shortcut, event.target)) continue
+        // Before the browser takes it (Ctrl+K is its address bar) or a field types it (C2).
+        event.preventDefault()
+        void openCommand(descriptor, declared.id)
+        return
+      }
+    }
+  }
+  window.addEventListener('keydown', onKeydown)
+
   const app = createApp({
-    render: () =>
+    render: () => [
       h(Shell, {
         modules: arrange(modules, order.value),
         zone: deps.shared.zone,
@@ -217,6 +298,28 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
         onNavigate: (route: string) => void go(route),
         onReorder: reorder,
       }),
+      command.value
+        ? h(
+            'div',
+            {
+              class: 'fixed inset-0 z-40 flex items-start justify-center bg-black/40 pt-[12vh]',
+              'data-testid': 'command',
+              ref: (element: unknown) => {
+                layer = element instanceof HTMLElement ? element : null
+              },
+              onClick: (event: MouseEvent) => {
+                if (event.target === event.currentTarget) closeCommand()
+              },
+            },
+            h(command.value.component, {
+              deps: moduleDeps(command.value.moduleId),
+              focusTick: command.value.focusTick,
+              navigate: (route: string) => void go(route),
+              close: closeCommand,
+            }),
+          )
+        : null,
+    ],
   })
 
   configure?.(app)
@@ -231,6 +334,9 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
     go,
     destroy() {
       destroyed = true
+      window.removeEventListener('keydown', onKeydown)
+      document.removeEventListener('focusin', onFocusin)
+      command.value = null
       app.unmount()
       current.value = ''
       requested = ''

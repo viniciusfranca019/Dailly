@@ -1,3 +1,4 @@
-version: 0.1.19
+version: 0.1.20
 
-- Tasks F5 (#43): cada board tem os seus status, com cor. Dá para adicionar um status numa categoria (ele entra depois dos dela), renomear e trocar a cor, e apagar, levando as tarefas para o topo de outro status com o "concluída em" ajustado. A migration 10 dá a cada board os seus cinco status, sem mexer nas tarefas. O convite de um board vazio passa a ficar acima das colunas.
+- Tasks F9 (#47): Ctrl+K, em qualquer tela, abre a busca de tarefas pela chave (mesmo com o prefixo antigo do board) ou por parte do título, em todos os boards; escolher leva ao Tasks, no board da tarefa, com o painel aberto. Nasce a costura de comandos do shell: um módulo declara atalhos no manifesto e um componente por atalho.
+- Os tipos de board, comentário e status passam a sair de `@shared`, que o `vue-tsc` cobrava do `Tasks.vue`.
