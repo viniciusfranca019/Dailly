@@ -2,9 +2,10 @@
 import { placeAt } from '@dailly/tasks-core'
 import type { Board, SharedDeps, StatusColor, Task, TaskBoard, TaskKey, TaskStatus } from '@shared'
 import type { StatusCategory } from '@dailly/tasks-core'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { TasksDeps } from '../deps.js'
 import { firstToDo, groupByStatus } from '../model/list.js'
+import { onOpenRequest, takeOpen } from '../model/open-request.js'
 import BoardColumn from './board/BoardColumn.vue'
 import type { Draft } from '../model/draft.js'
 import { useLastBoard } from './board-choice.js'
@@ -96,7 +97,37 @@ async function load(): Promise<void> {
   if (mine === ticket) read.value = next
 }
 
-onMounted(load)
+/**
+ * A task the search asked to open (card #47, C7): its board comes on the
+ * screen and its panel opens. Taken on mount, when the search navigated here,
+ * and on each request while the screen is already here.
+ */
+async function openRequested(): Promise<void> {
+  const request = takeOpen()
+  if (!request) return
+  if (request.boardId !== current.value) {
+    await readBoards()
+    if (boards.value.some((board) => board.id === request.boardId)) {
+      current.value = request.boardId
+      lastBoard.remember(request.boardId)
+      composing.value = null
+      moveError.value = null
+      close()
+    }
+  }
+  await load()
+  if (read.value.state === 'ready' && read.value.board.tasks.some((task) => task.key === request.key && task.keyPrefix === request.prefix)) {
+    open(request.key)
+  }
+}
+
+const stopListening = onOpenRequest(() => void openRequested())
+onBeforeUnmount(stopListening)
+
+onMounted(async () => {
+  await load()
+  await openRequested()
+})
 
 async function switchBoard(boardId: string): Promise<void> {
   if (boardId === current.value) return

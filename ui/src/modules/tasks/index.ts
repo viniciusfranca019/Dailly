@@ -6,4 +6,8 @@
  * capture (card #20), F2 brings the board (#21), F3 the panel (#22).
  */
 export { default as component } from './ui/Tasks.vue'
+import TaskSearch from './ui/search/TaskSearch.vue'
+
+/** The commands the manifest declares for Tasks (card #47): Ctrl+K, the search. */
+export const commands = { search: TaskSearch }
 export type { TasksDeps } from './deps.js'

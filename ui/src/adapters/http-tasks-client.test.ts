@@ -187,4 +187,23 @@ describe('httpTasksClient', () => {
       httpTasksClient({ config, fetch: answering(200, { statuses: [{ ...status, color: 'magenta' }], tasks: [] }) }).board('casa'),
     ).rejects.toThrow(ApiError)
   })
+
+  it('#47: searches with the text in the query, and asks nothing for an empty one', async () => {
+    const result = { key: 3, keyPrefix: 'CASA', title: 'Trocar a lâmpada', boardId: 'casa', boardName: 'Casa' }
+    const seen: { url?: string; init?: RequestInit } = {}
+    expect(await httpTasksClient({ config, fetch: answering(200, { results: [result] }, seen) }).search('casa 3')).toEqual([result])
+    expect(seen.url).toBe('/api/tasks/search?q=casa%203')
+
+    let called = false
+    const idle = httpTasksClient({
+      config,
+      fetch: (async () => {
+        called = true
+        return new Response('{}')
+      }) as unknown as typeof fetch,
+    })
+    expect(await idle.search('  ')).toEqual([])
+    expect(called).toBe(false)
+    await expect(httpTasksClient({ config, fetch: answering(200, { results: [{ ...result, key: '3' }] }) }).search('x')).rejects.toThrow(ApiError)
+  })
 })

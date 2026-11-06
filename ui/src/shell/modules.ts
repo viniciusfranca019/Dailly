@@ -47,6 +47,8 @@ export const MODULES: readonly ModuleDescriptor<VueModule>[] = [
           id: 'tasks',
           title: 'Tasks',
           route: '/tasks',
+          // Ctrl+K finds a task from any screen (card #47).
+          commands: [{ id: 'search', shortcut: { key: 'k', mod: true } }],
           load: () => import('@modules/tasks'),
         },
       ]

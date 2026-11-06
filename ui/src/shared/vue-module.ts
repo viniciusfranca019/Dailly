@@ -25,4 +25,9 @@ export interface VueModule {
    * the boundary rules in `architecture.test.ts`.
    */
   readonly component: Component
+  /**
+   * One component per command the manifest declares for this module, by id,
+   * shown by the shell over the screen with `CommandProps` (cards #47, #48).
+   */
+  readonly commands?: Readonly<Record<string, Component>>
 }

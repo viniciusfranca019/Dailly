@@ -38,6 +38,7 @@ async function mount(): Promise<HTMLElement> {
     addStatus: (boardId, input) => store.addStatus(boardId, input),
     updateStatus: (id, patch) => store.updateStatus(id, patch),
     deleteStatus: (id, moveTo) => store.deleteStatus(id, moveTo),
+    search: (text) => store.search(text),
   }
   const host = document.createElement('div')
   document.body.append(host)

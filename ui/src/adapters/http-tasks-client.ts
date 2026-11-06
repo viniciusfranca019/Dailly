@@ -9,6 +9,7 @@ import {
   type TaskBoard,
   type TaskComment,
   type TaskKey,
+  type TaskSearchResult,
   type TaskStatus,
 } from '@dailly/tasks-core'
 import type { TasksPort } from '@shared'
@@ -112,6 +113,26 @@ const parseComment = (value: unknown): TaskComment => {
     throw wrongShape('um comentário')
   }
   return { id: value['id'], body: value['body'], createdAt: value['createdAt'] }
+}
+
+const parseResult = (value: unknown): TaskSearchResult => {
+  if (
+    !isRecord(value) ||
+    typeof value['key'] !== 'number' ||
+    typeof value['keyPrefix'] !== 'string' ||
+    typeof value['title'] !== 'string' ||
+    typeof value['boardId'] !== 'string' ||
+    typeof value['boardName'] !== 'string'
+  ) {
+    throw wrongShape('um resultado da busca')
+  }
+  return {
+    key: value['key'],
+    keyPrefix: value['keyPrefix'],
+    title: value['title'],
+    boardId: value['boardId'],
+    boardName: value['boardName'],
+  }
 }
 
 const path = ({ prefix, key }: TaskKey) => `/tasks/${encodeURIComponent(formatKey(prefix, key))}`
@@ -245,6 +266,12 @@ export function httpTasksClient(deps: HttpTasksClientDeps): TasksPort {
         await call(`/statuses/${encodeURIComponent(id)}${query}`, { method: 'DELETE' })
         return true
       }, false)
+    },
+    async search(text) {
+      if (text.trim() === '') return []
+      const answer = await call(`/tasks/search?q=${encodeURIComponent(text)}`)
+      if (!isRecord(answer) || !Array.isArray(answer['results'])) throw wrongShape('a busca')
+      return answer['results'].map(parseResult)
     },
   }
 }
