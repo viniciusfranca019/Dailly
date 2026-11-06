@@ -129,6 +129,19 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
    * `destroy` as well would be a second mechanism guarding the same thing, and
    * the one that guards less.
    */
+  /** The module behind a route, loaded once; a failed load is forgotten, so the next try loads again. */
+  function loadModule(descriptor: ModuleDescriptor<VueModule>): Promise<VueModule> {
+    let next = loaded.get(descriptor.route)
+    if (!next) {
+      next = descriptor.load()
+      loaded.set(descriptor.route, next)
+      // Evicted so the same click can be tried again; a cached rejection would
+      // make the failure permanent for the life of the window.
+      next.catch(() => loaded.delete(descriptor.route))
+    }
+    return next
+  }
+
   let navigation = 0
   let destroyed = false
 
@@ -154,16 +167,8 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
        * because "`go` never rejects" should be true of the code and not only
        * of the inputs it happens to get.
        */
-      let next = loaded.get(route)
-      if (!next) {
-        next = descriptor.load()
-        loaded.set(route, next)
-      }
-      resolved = (await next).component
+      resolved = (await loadModule(descriptor)).component
     } catch {
-      // Evicted so the same click can be tried again; a cached rejection would
-      // make the failure permanent for the life of the window.
-      loaded.delete(route)
       // Someone has moved on. Their navigation owns the screen, not this error.
       if (ticket !== navigation || destroyed) return
 
@@ -236,14 +241,9 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
     if (!command.value) returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
     let module: VueModule
     try {
-      let next = loaded.get(descriptor.route)
-      if (!next) {
-        next = descriptor.load()
-        loaded.set(descriptor.route, next)
-      }
-      module = await next
+      module = await loadModule(descriptor)
     } catch {
-      loaded.delete(descriptor.route)
+      // The chunk did not arrive; the next press tries again (and `go` reports it).
       return
     }
     const component = module.commands?.[id]
@@ -251,8 +251,25 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
     command.value = { key, component, moduleId: descriptor.id, focusTick: 0 }
   }
 
+  let layer: HTMLElement | null = null
+
+  /**
+   * The layer is modal: a focus that leaves it is taken back, and Esc from
+   * anywhere, or a click on the backdrop, closes it (J10.1a).
+   */
+  function onFocusin(event: FocusEvent): void {
+    if (!command.value || !layer || !(event.target instanceof Node) || layer.contains(event.target)) return
+    layer.querySelector<HTMLElement>('input, button, select, textarea, [tabindex]')?.focus()
+  }
+  document.addEventListener('focusin', onFocusin)
+
   /** One listener for every command; the Ctrl+S of the panel and the composer stay where they are. */
   function onKeydown(event: KeyboardEvent): void {
+    if (command.value && event.key === 'Escape') {
+      event.preventDefault()
+      closeCommand()
+      return
+    }
     for (const descriptor of modules) {
       for (const declared of descriptor.commands ?? []) {
         if (!matchesShortcut(event, declared.shortcut) || blockedByFocus(declared.shortcut, event.target)) continue
@@ -282,7 +299,16 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
       command.value
         ? h(
             'div',
-            { class: 'fixed inset-0 z-40 flex items-start justify-center bg-black/40 pt-[12vh]', 'data-testid': 'command' },
+            {
+              class: 'fixed inset-0 z-40 flex items-start justify-center bg-black/40 pt-[12vh]',
+              'data-testid': 'command',
+              ref: (element: unknown) => {
+                layer = element instanceof HTMLElement ? element : null
+              },
+              onClick: (event: MouseEvent) => {
+                if (event.target === event.currentTarget) closeCommand()
+              },
+            },
             h(command.value.component, {
               deps: moduleDeps(command.value.moduleId),
               focusTick: command.value.focusTick,
@@ -307,6 +333,7 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
     destroy() {
       destroyed = true
       window.removeEventListener('keydown', onKeydown)
+      document.removeEventListener('focusin', onFocusin)
       command.value = null
       app.unmount()
       current.value = ''

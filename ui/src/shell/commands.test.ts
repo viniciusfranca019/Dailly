@@ -157,3 +157,43 @@ describe('the command reaches another module', () => {
     expect(dialog()).toBeNull()
   })
 })
+
+describe('gate #47: the layer keeps the focus and closes from anywhere', () => {
+  it('takes back the focus that leaves it, and Esc or a click outside closes it', async () => {
+    shell = await mountShell(host, { modules: modules(), deps: testShellDeps() })
+    const composer = host.querySelector<HTMLTextAreaElement>('textarea')!
+    composer.focus()
+    ctrlK(composer)
+    await settle()
+
+    composer.focus()
+    await settle()
+    expect(document.activeElement?.getAttribute('aria-label')).toBe('Buscar')
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await settle()
+    expect(dialog()).toBeNull()
+    expect(document.activeElement).toBe(composer)
+
+    ctrlK(composer)
+    await settle()
+    host.querySelector<HTMLElement>('[data-testid="command"]')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await settle()
+    expect(dialog()).toBeNull()
+  })
+
+  it('a click inside the command does not close it, and Ctrl+Shift+K is not Ctrl+K', async () => {
+    shell = await mountShell(host, { modules: modules(), deps: testShellDeps() })
+    const shifted = new KeyboardEvent('keydown', { key: 'K', ctrlKey: true, shiftKey: true, cancelable: true })
+    window.dispatchEvent(shifted)
+    await settle()
+    expect(shifted.defaultPrevented).toBe(false)
+    expect(dialog()).toBeNull()
+
+    ctrlK()
+    await settle()
+    dialog()!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await settle()
+    expect(dialog()).not.toBeNull()
+  })
+})

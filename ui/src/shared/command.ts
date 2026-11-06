@@ -30,7 +30,8 @@ export interface CommandProps<TDeps> {
 
 export function matchesShortcut(event: KeyboardEvent, shortcut: Shortcut): boolean {
   const mod = event.ctrlKey || event.metaKey
-  return event.key.toLowerCase() === shortcut.key && !event.altKey && mod === (shortcut.mod ?? false)
+  // Shift too: Ctrl+Shift+K is the browser's, not this shortcut.
+  return event.key.toLowerCase() === shortcut.key && !event.altKey && !event.shiftKey && mod === (shortcut.mod ?? false)
 }
 
 /** RN15: a shortcut without Ctrl/Meta would be typed into a field, so it waits outside one. */

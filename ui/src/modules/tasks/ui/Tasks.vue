@@ -106,7 +106,13 @@ async function openRequested(): Promise<void> {
   const request = takeOpen()
   if (!request) return
   if (request.boardId !== current.value) {
-    await readBoards()
+    try {
+      await readBoards()
+    } catch (cause) {
+      // Said on the screen, as a failed read is: the request is not lost in silence.
+      read.value = { state: 'failed', message: message(cause, 'não consegui ler os boards') }
+      return
+    }
     if (boards.value.some((board) => board.id === request.boardId)) {
       current.value = request.boardId
       lastBoard.remember(request.boardId)

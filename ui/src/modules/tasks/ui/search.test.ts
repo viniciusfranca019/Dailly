@@ -5,7 +5,9 @@ import type { TasksPort } from '@shared'
 import { testSharedDeps } from '@shared/testing.js'
 import { afterEach, describe, expect, it } from 'vitest'
 import { createApp, type App } from 'vue'
+import { requestOpen, takeOpen } from '../model/open-request.js'
 import TaskSearch from './search/TaskSearch.vue'
+import Tasks from './Tasks.vue'
 
 /**
  * Card #47 (F9), the search itself: C4 to C6, and choosing a result. C1 to C3
@@ -20,6 +22,8 @@ const settle = async () => {
 
 let app: App | undefined
 afterEach(() => {
+  // A choice leaves a request for a Tasks screen that this file may not mount.
+  takeOpen()
   localStorage.clear()
   app?.unmount()
   document.body.innerHTML = ''
@@ -161,5 +165,36 @@ describe('#47: o que a busca faz enquanto se digita', () => {
     const { host, calls } = mountSearch({ search: async () => [] })
     field(host).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     expect(calls.closed).toBe(1)
+  })
+})
+
+describe('gate #47: a request to open that cannot read the boards', () => {
+  it('shows the failure on the Tasks screen instead of losing it', async () => {
+    const { store, casa } = await seeded()
+    let failing = false
+    const port = {
+      ...Object.fromEntries(
+        ['boards', 'createBoard', 'updateBoard', 'board', 'create', 'update', 'delete', 'comments', 'addComment', 'addStatus', 'updateStatus', 'deleteStatus', 'search'].map((name) => [
+          name,
+          (...args: unknown[]) => (store as unknown as Record<string, (...a: unknown[]) => unknown>)[name]!(...args),
+        ]),
+      ),
+      deleteComment: async () => true,
+      boards: async () => {
+        if (failing) throw new Error('não consegui falar com a API local')
+        return store.boards()
+      },
+    } as unknown as TasksPort
+    const host = document.createElement('div')
+    document.body.append(host)
+    app = createApp(Tasks, { deps: { ...testSharedDeps(), tasks: port } })
+    app.mount(host)
+    await settle()
+
+    failing = true
+    requestOpen({ boardId: casa, prefix: 'CASA', key: 3 })
+    await settle()
+
+    expect(host.querySelector('[role="alert"]')?.textContent).toContain('não consegui falar com a API local')
   })
 })
