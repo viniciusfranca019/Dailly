@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { TaskStatus } from '@dailly/tasks-core'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
 /**
  * Delete a status (card #43, J6.3, J6.4). With tasks in it, the person picks
@@ -23,7 +23,7 @@ const moveTo = ref(props.others[0]?.id ?? '')
  * last status of the board has none, and then the store's refusal (RN11) is
  * the answer, not a malformed `moveTo`.
  */
-const needsDestination = props.taskCount > 0 && props.others.length > 0
+const needsDestination = computed(() => props.taskCount > 0 && props.others.length > 0)
 const cancelButton = ref<HTMLButtonElement | null>(null)
 
 onMounted(() => cancelButton.value?.focus())
@@ -34,7 +34,7 @@ async function confirm(): Promise<void> {
   busy.value = true
   error.value = null
   try {
-    await props.remove(needsDestination ? moveTo.value : undefined)
+    await props.remove(needsDestination.value ? moveTo.value : undefined)
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : 'não consegui apagar o status'
   } finally {
