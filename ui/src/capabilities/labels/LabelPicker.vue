@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import type { Label } from '@dailly/domain'
+import type { Label } from '@shared'
 import { computed, ref } from 'vue'
-import { CHIP } from '../model/label-colors.js'
+import { CHIP } from './label-colors.js'
 
 /**
- * The labels of the entry being written or corrected (card #34): the chosen
- * ones as chips, and a field that suggests the existing labels and creates a
- * new one on Enter. Deciding "existing or new" is the screen's, not this
- * component's: it only says what name was asked for.
+ * The labels of an Entry being written or edited (cards #34 and #46): the
+ * chosen ones as chips, and a field that suggests the existing labels and
+ * creates a new one on Enter. Deciding "existing or new" is the screen's, not
+ * this component's: it only says what name was asked for. `listId` names the
+ * suggestions' datalist, one per instance, since two pickers can be on screen.
  */
-const props = defineProps<{ labels: readonly Label[]; chosen: readonly string[] }>()
+const props = defineProps<{ labels: readonly Label[]; chosen: readonly string[]; listId: string }>()
 const emit = defineEmits<{ add: [name: string]; remove: [id: string] }>()
 
 const draft = ref('')
@@ -42,14 +43,14 @@ function add(): void {
     <input
       v-model="draft"
       type="text"
-      list="daily-log-labels"
+      :list="listId"
       placeholder="+ label"
       aria-label="Adicionar label"
       class="w-32 rounded-md border border-[#1e2638] bg-transparent px-2 py-1 text-xs text-gray-200 placeholder:text-[#747e8f] focus:border-blue-500/50 focus:outline-none"
       data-testid="label-input"
       @keydown.enter.prevent="add"
     />
-    <datalist id="daily-log-labels">
+    <datalist :id="listId">
       <option v-for="label in props.labels" :key="label.id" :value="label.name" />
     </datalist>
   </div>

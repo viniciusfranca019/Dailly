@@ -20,6 +20,8 @@ export interface TaskPatch {
   readonly priority?: Priority
   readonly body?: string
   readonly placement?: Placement
+  /** The whole set, replacing the one the task had (card #46). */
+  readonly labelIds?: readonly string[]
 }
 
 /** Board and list are the same read (RN4): statuses and tasks, in order. */
@@ -65,7 +67,7 @@ export interface TaskStore {
   /**
    * Apply a patch; a placement applies RN3 with the store's clock. `null` when
    * no task has that key. Throws `TitleRequiredError`, `InvalidPriorityError`,
-   * `StatusNotFoundError` or `InvalidRankError`, and nothing changes then:
+   * `StatusNotFoundError`, `InvalidRankError` or `InvalidLabelError`, and nothing changes then:
    * every field is checked before the first write.
    */
   update(key: TaskKey, patch: TaskPatch): Promise<Task | null>

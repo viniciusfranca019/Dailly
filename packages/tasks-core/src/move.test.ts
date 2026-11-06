@@ -17,6 +17,7 @@ const task = (key: number, statusId: string, rank: string, completedAt: string |
   completedAt,
   createdAt: '2026-11-05T12:00:00.000Z',
   body: '',
+  labelIds: [],
 })
 
 const board = (tasks: Task[]) => ({ statuses: DEFAULT_STATUSES, tasks })

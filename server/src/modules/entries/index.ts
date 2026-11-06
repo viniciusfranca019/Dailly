@@ -40,5 +40,5 @@ export const entriesModule: ServerModule<{ entries: EntryRepository; labels: Lab
 
 export { validateEntry, validateRange } from './validate.js'
 export type { Invalid } from './validate.js'
-export { deleteEntryRow, insertEntryRow, updateEntryRow } from './rows.js'
+export { deleteEntryRow, insertEntryRow, labelsExist, setEntryLabels, updateEntryRow } from './rows.js'
 export type { EntryRow } from './rows.js'

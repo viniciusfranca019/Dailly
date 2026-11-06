@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { LabelPicker } from '@capabilities/labels'
 import type { TimeZone } from '@dailly/periods'
+import type { Label } from '@shared'
 import { WhiteboardDocument } from '@dailly/whiteboard-core'
 import { mountWhiteboard, type WhiteboardHandle } from '@capabilities/whiteboard/dom'
 import {
@@ -37,6 +39,12 @@ const props = defineProps<{
   /** The task's comments (card #45), read in a GET of their own. */
   comments: CommentsAccess
   zone: TimeZone
+  /** The global labels (card #46). */
+  labels: readonly Label[]
+  /** Whether `labels` is a read that succeeded, the only one an id can be judged gone by. */
+  labelsRead: boolean
+  /** The id of the label with that name, the existing one or a new one; `null` for an empty name. */
+  chooseLabel: (name: string) => Promise<string | null>
 }>()
 const emit = defineEmits<{
   close: []
@@ -49,6 +57,8 @@ const emit = defineEmits<{
 const title = ref(props.task.title)
 const statusId = ref(props.task.statusId)
 const priority = ref<Priority>(props.task.priority)
+/** In the draft, saved with the rest by Salvar or Ctrl+S, never one PATCH per click (card #46). */
+const labelIds = ref<readonly string[]>(props.task.labelIds)
 const error = ref<string | null>(null)
 const gone = ref(false)
 const confirming = ref(false)
@@ -91,6 +101,13 @@ async function submit(): Promise<void> {
     }
     throw cause
   }
+  // A label deleted while the panel was open (from the Daily Log's manager)
+  // has no chip left to take it off: it leaves the draft here, or every save
+  // would be refused for it. Only against a read that succeeded: a failed or
+  // pending one would make every label look gone.
+  if (props.labelsRead) labelIds.value = labelIds.value.filter((id) => props.labels.some((label) => label.id === id))
+  const changed =
+    labelIds.value.length !== props.task.labelIds.length || labelIds.value.some((id) => !props.task.labelIds.includes(id))
   busy.value = true
   error.value = null
   try {
@@ -99,6 +116,7 @@ async function submit(): Promise<void> {
       statusId: statusId.value,
       priority: priority.value,
       body: doc.value?.toMarkdown() ?? props.task.body,
+      ...(changed ? { labelIds: labelIds.value } : {}),
     })
     if (!found) gone.value = true
   } catch (cause) {
@@ -106,6 +124,19 @@ async function submit(): Promise<void> {
   } finally {
     busy.value = false
   }
+}
+
+async function addLabel(name: string): Promise<void> {
+  try {
+    const id = await props.chooseLabel(name)
+    if (id !== null && !labelIds.value.includes(id)) labelIds.value = [...labelIds.value, id]
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : 'não consegui criar a label'
+  }
+}
+
+function dropLabel(id: string): void {
+  labelIds.value = labelIds.value.filter((chosen) => chosen !== id)
 }
 
 async function confirmRemove(): Promise<void> {
@@ -247,6 +278,14 @@ function onKeydown(event: KeyboardEvent): void {
             </select>
           </label>
         </div>
+
+        <LabelPicker
+          :labels="labels"
+          :chosen="labelIds"
+          :list-id="`task-labels-${task.id}`"
+          @add="addLabel"
+          @remove="dropLabel"
+        />
 
         <div ref="boardHost" class="min-h-40 rounded-md border border-[#1e2638] p-3" data-testid="task-body" />
 

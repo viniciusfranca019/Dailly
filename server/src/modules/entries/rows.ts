@@ -42,3 +42,25 @@ export function updateEntryRow(db: Database, id: string, change: { readonly body
     db.prepare('UPDATE entries SET body = ?, updated_at = ? WHERE id = ?').run(change.body, updatedAt, id)
   }
 }
+
+/**
+ * Replace the labels an Entry carries (card #46, RN13): the Tasks module puts
+ * the global labels on a task's Entry through this, inside its own
+ * transaction, because `/entries` answers 404 for a task (RN6). The caller
+ * checks that every id exists first; the foreign key is the last guard.
+ */
+export function setEntryLabels(db: Database, id: string, labelIds: readonly string[]): void {
+  db.prepare('DELETE FROM entry_labels WHERE entry_id = ?').run(id)
+  const tag = db.prepare('INSERT INTO entry_labels (entry_id, label_id) VALUES (?, ?)')
+  for (const labelId of new Set(labelIds)) tag.run(id, labelId)
+}
+
+/** Whether every id names a label that exists. */
+export function labelsExist(db: Database, labelIds: readonly string[]): boolean {
+  const unique = [...new Set(labelIds)]
+  if (unique.length === 0) return true
+  const found = db
+    .prepare(`SELECT count(*) AS total FROM labels WHERE id IN (${unique.map(() => '?').join(', ')})`)
+    .get(...unique) as { total: number }
+  return found.total === unique.length
+}

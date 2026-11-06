@@ -15,6 +15,7 @@ const task = {
   completedAt: null,
   createdAt: '2026-11-05T12:00:00.000Z',
   body: '',
+  labelIds: [],
 }
 const status = { id: 'todo', boardId: 'casa', name: 'A fazer', category: 'unstarted', color: 'gray', position: 1 }
 const board = { id: 'casa', name: 'Casa', prefix: 'CASA' }
@@ -205,5 +206,13 @@ describe('httpTasksClient', () => {
     expect(await idle.search('  ')).toEqual([])
     expect(called).toBe(false)
     await expect(httpTasksClient({ config, fetch: answering(200, { results: [{ ...result, key: '3' }] }) }).search('x')).rejects.toThrow(ApiError)
+  })
+
+  it('#46: patches labelIds as the whole set, and refuses a task without its labels', async () => {
+    const seen: { url?: string; init?: RequestInit } = {}
+    await httpTasksClient({ config, fetch: answering(200, { ...task, labelIds: ['l1'] }, seen) }).update({ prefix: 'CASA', key: 1 }, { labelIds: ['l1'] })
+    expect(JSON.parse(seen.init?.body as string)).toEqual({ labelIds: ['l1'] })
+    const { labelIds: _gone, ...without } = task
+    await expect(httpTasksClient({ config, fetch: answering(200, { statuses: [], tasks: [without] }) }).board('casa')).rejects.toThrow(ApiError)
   })
 })

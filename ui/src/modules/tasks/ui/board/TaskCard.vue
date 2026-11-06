@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import type { Label } from '@shared'
+import LabelChips from '../labels/LabelChips.vue'
 import { PRIORITY_LABELS, formatKey, type Task } from '@dailly/tasks-core'
 
 /** One card of the board: key, title, priority and, when closed, the day. */
-defineProps<{ task: Task; completion: string | null }>()
+defineProps<{ task: Task; completion: string | null; labels: readonly Label[] }>()
 const emit = defineEmits<{ grab: [key: number]; release: []; drop: [beforeKey: number]; open: [key: number] }>()
 
 function start(event: DragEvent, task: Task): void {
@@ -31,6 +33,7 @@ function start(event: DragEvent, task: Task): void {
     <button type="button" class="mt-1 block w-full text-left text-gray-100" @click.stop="emit('open', task.key)">
       {{ task.title }}
     </button>
+    <LabelChips :ids="task.labelIds" :labels="labels" class="mt-1" />
     <p v-if="completion" class="mt-1 text-xs text-emerald-300">{{ completion }}</p>
   </li>
 </template>

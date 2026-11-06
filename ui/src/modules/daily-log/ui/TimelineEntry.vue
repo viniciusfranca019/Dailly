@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { formatPropertyValue, type Entry, type Label, type PropertyValue } from '@dailly/domain'
-import { CHIP } from '../model/label-colors.js'
+import { CHIP } from '@capabilities/labels'
 import { timeOf, type TimeZone } from '@dailly/periods'
 import { computed } from 'vue'
 import { titleOf } from '../model/timeline.js'

@@ -18,7 +18,7 @@ import type { DailyLogDeps } from '../deps.js'
 import { computed, onMounted, ref, useTemplateRef } from 'vue'
 import Composer from './Composer.vue'
 import Timeline from './Timeline.vue'
-import LabelPicker from './LabelPicker.vue'
+import { LabelPicker } from '@capabilities/labels'
 import LabelManager from './LabelManager.vue'
 import PropertyEditor from './PropertyEditor.vue'
 import FilterBar from './FilterBar.vue'
@@ -409,7 +409,7 @@ onMounted(async () => {
           @cancel="cancel"
           @remove="remove"
         />
-        <LabelPicker :labels="labels" :chosen="chosen" @add="addLabel" @remove="dropLabel" />
+        <LabelPicker :labels="labels" :chosen="chosen" list-id="daily-log-labels" @add="addLabel" @remove="dropLabel" />
         <PropertyEditor ref="propertyEditor" :defs="defs" :values="values" @add="addProp" @remove="dropProp" />
         <p
           v-if="error"

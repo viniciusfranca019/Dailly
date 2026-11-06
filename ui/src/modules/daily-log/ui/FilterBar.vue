@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { formatPropertyValue, type Label, type PropertyDef, type PropertyValue } from '@dailly/domain'
 import { ref } from 'vue'
-import { CHIP } from '../model/label-colors.js'
+import { CHIP } from '@capabilities/labels'
 
 /**
  * Cutting the timeline (card #36): labels toggled on combine with OR, each

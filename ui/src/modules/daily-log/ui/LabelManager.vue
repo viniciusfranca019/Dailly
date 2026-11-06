@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { LABEL_COLORS, type Label, type LabelColor } from '@dailly/domain'
 import { ref } from 'vue'
-import { CHIP, COLOR_NAMES } from '../model/label-colors.js'
+import { CHIP, COLOR_NAMES } from '@capabilities/labels'
 
 /**
  * Renaming, recoloring and deleting the global labels (card #34, J4). It

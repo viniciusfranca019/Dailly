@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { TaskStatus } from '@dailly/tasks-core'
+import type { Label } from '@shared'
 import type { TimeZone } from '@dailly/periods'
 import { completionLabel } from '../../model/completion.js'
 import type { StatusGroup } from '../../model/list.js'
@@ -13,6 +14,7 @@ const props = defineProps<{
   zone: TimeZone
   composing: boolean
   create: (statusId: string, title: string) => Promise<void>
+  labels: readonly Label[]
 }>()
 const emit = defineEmits<{
   compose: [statusId: string]
@@ -50,6 +52,7 @@ const createHere = (title: string) => props.create(props.group.status.id, title)
         :key="task.id"
         :task="task"
         :completion="completionLabel(task.completedAt, zone)"
+        :labels="labels"
         @open="emit('open', $event)"
       />
     </ul>

@@ -1,4 +1,4 @@
-import type { LabelColor } from '@dailly/domain'
+import type { LabelColor } from '@shared'
 
 /**
  * The chip classes of each palette color, written whole so Tailwind sees them

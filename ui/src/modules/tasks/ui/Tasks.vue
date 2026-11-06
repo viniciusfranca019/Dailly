@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { placeAt } from '@dailly/tasks-core'
-import type { Board, SharedDeps, StatusColor, Task, TaskBoard, TaskKey, TaskStatus } from '@shared'
+import type { Board, Label, SharedDeps, StatusColor, Task, TaskBoard, TaskKey, TaskStatus } from '@shared'
+import { findByName, nextColor, normalizeLabelName } from '@dailly/domain'
 import type { StatusCategory } from '@dailly/tasks-core'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { TasksDeps } from '../deps.js'
@@ -35,6 +36,10 @@ const props = defineProps<{ deps: SharedDeps & TasksDeps }>()
 type Read = { state: 'loading' } | { state: 'failed'; message: string } | { state: 'ready'; board: TaskBoard }
 
 const read = ref<Read>({ state: 'loading' })
+/** The global labels (card #46), read with the board. */
+const labels = ref<readonly Label[]>([])
+/** Whether `labels` came from a read that succeeded (and not the empty start or a failure). */
+const labelsRead = ref(false)
 const boards = ref<readonly Board[]>([])
 /** The board on the screen. */
 const current = ref<string | null>(null)
@@ -78,7 +83,41 @@ async function readBoards(): Promise<void> {
  */
 let ticket = 0
 
+/** A failed read of the labels leaves the chips out; the board still shows (RN7 rereads them). */
+/** As with the board, only the latest labels read writes them: a late one would bring back an old list. */
+let labelsTicket = 0
+
+async function loadLabels(): Promise<void> {
+  const mine = (labelsTicket += 1)
+  try {
+    const read = await props.deps.labels.list()
+    if (mine !== labelsTicket) return
+    labels.value = read
+    labelsRead.value = true
+  } catch {
+    // the next write reads them again
+    if (mine === labelsTicket) labelsRead.value = false
+  }
+}
+
+/**
+ * The label a name asks for (card #46): the existing one whatever its case
+ * (C5), or a new one with the next palette color (C2), as the Daily Log does.
+ */
+async function chooseLabel(name: string): Promise<string | null> {
+  const normalized = normalizeLabelName(name)
+  if (normalized === null) return null
+  const existing = findByName(labels.value, normalized)
+  if (existing) return existing.id
+  try {
+    return (await props.deps.labels.create({ name: normalized, color: nextColor(labels.value) })).id
+  } finally {
+    await loadLabels()
+  }
+}
+
 async function load(): Promise<void> {
+  void loadLabels()
   const mine = (ticket += 1)
   let next: Read
   try {
@@ -256,6 +295,7 @@ async function save(key: number, draft: Draft): Promise<boolean> {
       title: draft.title,
       priority: draft.priority,
       body: draft.body,
+      ...(draft.labelIds !== undefined ? { labelIds: draft.labelIds } : {}),
       ...(current && current.statusId !== draft.statusId
         ? { placement: placeAt(board, key, draft.statusId, top) }
         : {}),
@@ -441,6 +481,7 @@ async function drop(statusId: string, beforeKey: number | null): Promise<void> {
             :zone="deps.zone"
             :composing="composing === group.status.id"
             :create="create"
+            :labels="labels"
             @compose="composing = $event"
             @cancel="composing = null"
             @grab="grabbed = $event"
@@ -460,6 +501,7 @@ async function drop(statusId: string, beforeKey: number | null): Promise<void> {
             :zone="deps.zone"
             :composing="composing === group.status.id"
             :create="create"
+            :labels="labels"
             @compose="composing = $event"
             @cancel="composing = null"
             @open="open"
@@ -478,6 +520,9 @@ async function drop(statusId: string, beforeKey: number | null): Promise<void> {
         :remove="() => remove(panelTask!.key)"
         :width="panelWidth.width.value"
         :comments="commentsOf(panelTask)"
+        :labels="labels"
+        :labels-read="labelsRead"
+        :choose-label="chooseLabel"
         :zone="deps.zone"
         @resize="panelWidth.follow"
         @resized="panelWidth.settle"
