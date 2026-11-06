@@ -12,6 +12,7 @@ import {
 } from '@dailly/tasks-core'
 import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import type { Draft } from '../../model/draft.js'
+import { PANEL_WIDTH } from '../../model/width.js'
 
 /**
  * The panel of one task (card #22): title, status, priority and the body in
@@ -29,8 +30,16 @@ const props = defineProps<{
   /** Resolves `false` when the task no longer exists; throws on a refusal. */
   save: (draft: Draft) => Promise<boolean>
   remove: () => Promise<void>
+  /** In pixels, already inside the limits (card #44). */
+  width: number
 }>()
-const emit = defineEmits<{ close: [] }>()
+const emit = defineEmits<{
+  close: []
+  /** The width the pointer asks for while the edge is dragged; the page clamps it. */
+  resize: [requested: number]
+  /** The edge was released: the width can be remembered. */
+  resized: []
+}>()
 
 const title = ref(props.task.title)
 const statusId = ref(props.task.statusId)
@@ -109,6 +118,34 @@ async function confirmRemove(): Promise<void> {
 const root = ref<HTMLElement | null>(null)
 
 /**
+ * The left edge drag (card #44), with Pointer Events and no library: the
+ * capture keeps the moves coming while the pointer leaves the thin handle.
+ * The panel is anchored on the right, so moving left widens it.
+ */
+const dragging = ref<{ startX: number; startWidth: number } | null>(null)
+
+function startResize(event: PointerEvent): void {
+  // From the width on screen, not the stored one: in a window narrower than
+  // the stored width (C4) the panel is capped, and a drag from the stored
+  // value would stand still at first and then store a width never seen.
+  const rendered = root.value?.getBoundingClientRect().width ?? 0
+  dragging.value = { startX: event.clientX, startWidth: rendered > 0 ? rendered : props.width }
+  const handle = event.currentTarget
+  if (handle instanceof HTMLElement && 'pointerId' in event) handle.setPointerCapture?.(event.pointerId)
+}
+
+function moveResize(event: PointerEvent): void {
+  if (!dragging.value) return
+  emit('resize', dragging.value.startWidth + (dragging.value.startX - event.clientX))
+}
+
+function endResize(): void {
+  if (!dragging.value) return
+  dragging.value = null
+  emit('resized')
+}
+
+/**
  * Whether an Escape is the panel's to act on. Every other control keeps its
  * own: the block editor clears a selection with it, the capture under a "+"
  * cancels with it. So the panel closes only on an Escape that comes from
@@ -137,97 +174,115 @@ function onKeydown(event: KeyboardEvent): void {
     ref="root"
     role="dialog"
     :aria-label="formatKey(task.key)"
-    class="fixed inset-y-0 right-0 z-20 flex w-full max-w-xl flex-col gap-4 overflow-y-auto border-l border-[#1e2638] bg-[#0b1019] p-6 shadow-2xl"
+    :style="{ width: `${width}px`, maxWidth: '100%' }"
+    class="fixed inset-y-0 right-0 z-20 border-l border-[#1e2638] bg-[#0b1019] shadow-2xl"
   >
-    <header class="flex items-center gap-2">
-      <span class="font-mono text-xs text-[#747e8f]">{{ formatKey(task.key) }}</span>
-      <button type="button" class="ml-auto text-sm text-[#747e8f] hover:text-gray-100" @click="emit('close')">
-        Fechar
-      </button>
-    </header>
-
-    <div v-if="gone" class="flex flex-col items-start gap-3">
-      <p role="alert" class="text-sm text-red-300">tarefa não encontrada</p>
-      <button type="button" class="text-sm text-[#3b82f6] hover:underline" @click="emit('close')">
-        Voltar ao board
-      </button>
-    </div>
-
-    <template v-else>
-      <input
-        ref="titleField"
-        v-model="title"
-        type="text"
-        aria-label="Título"
-        :aria-invalid="error ? 'true' : undefined"
-        class="rounded-md border border-transparent bg-transparent px-1 text-lg font-medium text-gray-100 outline-none focus:border-[#1e2638]"
-      />
-
-      <div class="flex gap-4 text-sm">
-        <label class="flex items-center gap-2 text-[#747e8f]">
-          <span>Status</span>
-          <select
-            v-model="statusId"
-            aria-label="Status"
-            class="rounded-md border border-[#1e2638] bg-[#0f1522] px-2 py-1 text-gray-100"
-          >
-            <option v-for="status in statuses" :key="status.id" :value="status.id">{{ status.name }}</option>
-          </select>
-        </label>
-        <label class="flex items-center gap-2 text-[#747e8f]">
-          <span>Prioridade</span>
-          <select
-            v-model.number="priority"
-            aria-label="Prioridade"
-            class="rounded-md border border-[#1e2638] bg-[#0f1522] px-2 py-1 text-gray-100"
-          >
-            <option v-for="level in PRIORITIES" :key="level" :value="level">{{ PRIORITY_LABELS[level] }}</option>
-          </select>
-        </label>
-      </div>
-
-      <div ref="boardHost" class="min-h-40 rounded-md border border-[#1e2638] p-3" data-testid="task-body" />
-
-      <p v-if="error" role="alert" class="text-sm text-red-300">{{ error }}</p>
-
-      <div class="flex items-center gap-2">
-        <button
-          type="button"
-          :disabled="busy"
-          class="rounded-md bg-[#3b82f6] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-          @click="submit"
-        >
-          Salvar
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Redimensionar o painel"
+      :aria-valuenow="width"
+      :aria-valuemin="PANEL_WIDTH.min"
+      :aria-valuemax="PANEL_WIDTH.max"
+      class="absolute inset-y-0 left-0 w-1.5 cursor-col-resize touch-none hover:bg-[#3b82f6]/40"
+      :class="{ 'bg-[#3b82f6]/40': dragging }"
+      @pointerdown.prevent="startResize"
+      @pointermove="moveResize"
+      @pointerup="endResize"
+      @pointercancel="endResize"
+    />
+    <!-- The content scrolls inside; the edge stays put on the panel's border. -->
+    <div class="flex h-full flex-col gap-4 overflow-y-auto p-6">
+      <header class="flex items-center gap-2">
+        <span class="font-mono text-xs text-[#747e8f]">{{ formatKey(task.key) }}</span>
+        <button type="button" class="ml-auto text-sm text-[#747e8f] hover:text-gray-100" @click="emit('close')">
+          Fechar
         </button>
-        <span class="text-xs text-[#747e8f]">Ctrl+S</span>
-        <button
-          type="button"
-          class="ml-auto rounded-md px-3 py-1.5 text-sm text-red-300 hover:bg-red-500/10"
-          @click="confirming = true"
-        >
-          Apagar
+      </header>
+
+      <div v-if="gone" class="flex flex-col items-start gap-3">
+        <p role="alert" class="text-sm text-red-300">tarefa não encontrada</p>
+        <button type="button" class="text-sm text-[#3b82f6] hover:underline" @click="emit('close')">
+          Voltar ao board
         </button>
       </div>
 
-      <div
-        v-if="confirming"
-        role="alertdialog"
-        :aria-label="`Apagar ${formatKey(task.key)}?`"
-        class="rounded-md border border-red-500/20 bg-red-500/10 p-3 text-sm"
-      >
-        <p class="text-gray-200">Apagar {{ formatKey(task.key) }}? Não dá para desfazer.</p>
-        <div class="mt-2 flex gap-2">
+      <template v-else>
+        <input
+          ref="titleField"
+          v-model="title"
+          type="text"
+          aria-label="Título"
+          :aria-invalid="error ? 'true' : undefined"
+          class="rounded-md border border-transparent bg-transparent px-1 text-lg font-medium text-gray-100 outline-none focus:border-[#1e2638]"
+        />
+
+        <div class="flex gap-4 text-sm">
+          <label class="flex items-center gap-2 text-[#747e8f]">
+            <span>Status</span>
+            <select
+              v-model="statusId"
+              aria-label="Status"
+              class="rounded-md border border-[#1e2638] bg-[#0f1522] px-2 py-1 text-gray-100"
+            >
+              <option v-for="status in statuses" :key="status.id" :value="status.id">{{ status.name }}</option>
+            </select>
+          </label>
+          <label class="flex items-center gap-2 text-[#747e8f]">
+            <span>Prioridade</span>
+            <select
+              v-model.number="priority"
+              aria-label="Prioridade"
+              class="rounded-md border border-[#1e2638] bg-[#0f1522] px-2 py-1 text-gray-100"
+            >
+              <option v-for="level in PRIORITIES" :key="level" :value="level">{{ PRIORITY_LABELS[level] }}</option>
+            </select>
+          </label>
+        </div>
+
+        <div ref="boardHost" class="min-h-40 rounded-md border border-[#1e2638] p-3" data-testid="task-body" />
+
+        <p v-if="error" role="alert" class="text-sm text-red-300">{{ error }}</p>
+
+        <div class="flex items-center gap-2">
           <button
             type="button"
             :disabled="busy"
-            class="rounded-md bg-red-500 px-3 py-1 text-white disabled:opacity-50"
-            @click="confirmRemove"
+            class="rounded-md bg-[#3b82f6] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+            @click="submit"
+          >
+            Salvar
+          </button>
+          <span class="text-xs text-[#747e8f]">Ctrl+S</span>
+          <button
+            type="button"
+            class="ml-auto rounded-md px-3 py-1.5 text-sm text-red-300 hover:bg-red-500/10"
+            @click="confirming = true"
           >
             Apagar
           </button>
-          <button type="button" class="px-3 py-1 text-gray-300" @click="confirming = false">Cancelar</button>
         </div>
-      </div>
-    </template>
+
+        <div
+          v-if="confirming"
+          role="alertdialog"
+          :aria-label="`Apagar ${formatKey(task.key)}?`"
+          class="rounded-md border border-red-500/20 bg-red-500/10 p-3 text-sm"
+        >
+          <p class="text-gray-200">Apagar {{ formatKey(task.key) }}? Não dá para desfazer.</p>
+          <div class="mt-2 flex gap-2">
+            <button
+              type="button"
+              :disabled="busy"
+              class="rounded-md bg-red-500 px-3 py-1 text-white disabled:opacity-50"
+              @click="confirmRemove"
+            >
+              Apagar
+            </button>
+            <button type="button" class="px-3 py-1 text-gray-300" @click="confirming = false">Cancelar</button>
+          </div>
+        </div>
+      </template>
+    </div>
   </aside>
 </template>

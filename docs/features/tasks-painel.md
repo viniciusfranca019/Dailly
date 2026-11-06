@@ -5,7 +5,7 @@ description: O painel de uma tarefa, aberto pelo card ou pela linha, para editar
 tags: [tasks, painel, edição]
 status: stable
 since: 0.1.5
-generated: { by: regulus/claude-opus-5-5, at: 2026-11-05T17:00:00-03:00 }
+generated: { by: regulus/claude-opus-5-5, at: 2026-11-05T23:50:00-03:00 }
 ---
 
 # O que faz
@@ -24,6 +24,9 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-05T17:00:00-03:00 }
 - Uma gravação recusada mostra a mensagem, e o card e a linha ficam como o servidor
   tem.
 - Esc ou "Fechar" fecha o painel. O que não foi salvo se perde: o salvar é explícito.
+- Arrastar a borda esquerda muda a largura do painel, de 360 a 960 px (576 na primeira
+  vez). O painel reabre na largura escolhida, para qualquer tarefa, e numa janela mais
+  estreita ocupa a janela inteira sem perder a largura guardada.
 
 # Regras
 
@@ -37,6 +40,9 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-05T17:00:00-03:00 }
   exporta.
 - **RN7**: depois de salvar ou apagar, a tela relê o board.
 - **RN8**: a prioridade é um inteiro de 0 a 4; fora disso, 400.
+- **A largura é deste navegador**: fica no `localStorage` (`dailly.tasks.panelWidth`),
+  gravada ao soltar a borda. Sem storage (janela privada), ela vale até recarregar. Um
+  valor guardado fora dos limites é lido como o limite mais próximo.
 
 # Onde mora
 
@@ -44,12 +50,16 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-05T17:00:00-03:00 }
 - `server/src/modules/tasks/routes.ts` (o `PATCH` parcial),
   `server/src/modules/entries/rows.ts` (`updateEntryRow`)
 - `ui/src/modules/tasks/ui/detail/TaskPanel.vue`, `ui/src/modules/tasks/model/draft.ts`
+- `ui/src/modules/tasks/model/width.ts` (os limites), `ui/src/modules/tasks/ui/panel-width.ts`
+  (a largura lembrada)
 
 # Entregue
 
-No card #22 (F3 do [PRD do Tasks](/prd/tasks.md)), em 2026-11-05.
+No card #22 (F3 do [PRD do Tasks](/prd/tasks.md)), em 2026-11-05. A borda que
+redimensiona, no card #44 (F6), em 2026-11-05.
 
 # Limites
 
 - Não abre pela URL (`/tasks/T-<n>`): o shell não tem rota por URL para módulo nenhum.
+- A largura não se ajusta pelo teclado nem volta ao padrão com duplo clique.
 - Não avisa ao fechar com mudança não salva, nem salva sozinho.

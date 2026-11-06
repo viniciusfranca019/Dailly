@@ -1,6 +1,7 @@
 # Directory Update Log
 
 ## 2026-11-05
+* **Update**: [Tasks, painel da tarefa](/features/tasks-painel.md) se redimensiona pela borda esquerda, a F6 do [Tasks](/prd/tasks.md) (card #44).
 * **Update**: as fatias F4 a F10 do [Tasks](/prd/tasks.md) ganham os cards #42 a #48.
 * **Update**: [Tasks](/prd/tasks.md) v2 refinado (`Refinado: sim`) em modo delegado: a P4 fecha em `task_comments`, e a F8 deixa de esperar a Fase 2, que já entrou.
 * **Update**: [Daily Log](/features/daily-log.md) filtra a timeline por labels e propriedades, a F4 da [Fase 2](/prd/daily-log-fase-2.md) (card #36), que fecha a fase.

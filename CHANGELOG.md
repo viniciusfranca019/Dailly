@@ -1,3 +1,3 @@
-version: 0.1.15
+version: 0.1.16
 
-- As fatias F4 a F10 do PRD do Tasks v2 apontam os cards #42 a #48.
+- Tasks F6 (#44): o painel da tarefa se redimensiona arrastando a borda esquerda, de 360 a 960 px, e reabre na largura escolhida, guardada no navegador.
