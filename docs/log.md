@@ -1,5 +1,8 @@
 # Directory Update Log
 
+## 2026-11-06
+* **Creation**: [Tasks, vários boards](/features/tasks-boards.md), a F4 do [Tasks](/prd/tasks.md) (card #42): boards com prefixo, a troca e a migration 8. [Módulos](/conventions/modules.md) registra o 8 do tasks.
+
 ## 2026-11-05
 * **Update**: [Tasks, painel da tarefa](/features/tasks-painel.md) se redimensiona pela borda esquerda, a F6 do [Tasks](/prd/tasks.md) (card #44).
 * **Update**: as fatias F4 a F10 do [Tasks](/prd/tasks.md) ganham os cards #42 a #48.
