@@ -1,5 +1,7 @@
 import {
+  STATUS_COLORS,
   formatKey,
+  type StatusColor,
   type Board,
   type Priority,
   type StatusCategory,
@@ -31,16 +33,20 @@ const parseStatus = (value: unknown): TaskStatus => {
   if (
     !isRecord(value) ||
     typeof value['id'] !== 'string' ||
+    typeof value['boardId'] !== 'string' ||
     typeof value['name'] !== 'string' ||
     typeof value['position'] !== 'number' ||
-    !CATEGORIES.includes(value['category'] as StatusCategory)
+    !CATEGORIES.includes(value['category'] as StatusCategory) ||
+    !(STATUS_COLORS as readonly unknown[]).includes(value['color'])
   ) {
     throw wrongShape('um status')
   }
   return {
     id: value['id'],
+    boardId: value['boardId'],
     name: value['name'],
     category: value['category'] as StatusCategory,
+    color: value['color'] as StatusColor,
     position: value['position'],
   }
 }
@@ -203,6 +209,40 @@ export function httpTasksClient(deps: HttpTasksClientDeps): TasksPort {
     async deleteComment(key, id) {
       return orGone(async () => {
         await call(`${path(key)}/comments/${encodeURIComponent(id)}`, { method: 'DELETE' })
+        return true
+      }, false)
+    },
+    async addStatus(boardId, input) {
+      return orGone(
+        async () =>
+          parseStatus(
+            await call(`/boards/${encodeURIComponent(boardId)}/statuses`, {
+              method: 'POST',
+              body: JSON.stringify({ name: input.name, category: input.category, color: input.color }),
+            }),
+          ),
+        null,
+      )
+    },
+    async updateStatus(id, patch) {
+      return orGone(
+        async () =>
+          parseStatus(
+            await call(`/statuses/${encodeURIComponent(id)}`, {
+              method: 'PATCH',
+              body: JSON.stringify({
+                ...(patch.name !== undefined ? { name: patch.name } : {}),
+                ...(patch.color !== undefined ? { color: patch.color } : {}),
+              }),
+            }),
+          ),
+        null,
+      )
+    },
+    async deleteStatus(id, moveTo) {
+      const query = moveTo === undefined ? '' : `?moveTo=${encodeURIComponent(moveTo)}`
+      return orGone(async () => {
+        await call(`/statuses/${encodeURIComponent(id)}${query}`, { method: 'DELETE' })
         return true
       }, false)
     },

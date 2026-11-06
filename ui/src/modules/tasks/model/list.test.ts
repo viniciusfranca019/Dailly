@@ -1,4 +1,6 @@
-import { DEFAULT_STATUSES, type Task } from '@dailly/tasks-core'
+import { SEED_STATUS_IDS, seedStatusesFor, type Task } from '@dailly/tasks-core'
+
+const DEFAULT_STATUSES = seedStatusesFor('tasks', SEED_STATUS_IDS)
 import { describe, expect, it } from 'vitest'
 import { groupByStatus } from './list.js'
 

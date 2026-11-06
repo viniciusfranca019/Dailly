@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { placeAt } from '@dailly/tasks-core'
-import type { Board, SharedDeps, Task, TaskBoard, TaskKey } from '@shared'
+import type { Board, SharedDeps, StatusColor, Task, TaskBoard, TaskKey, TaskStatus } from '@shared'
+import type { StatusCategory } from '@dailly/tasks-core'
 import { computed, onMounted, ref } from 'vue'
 import type { TasksDeps } from '../deps.js'
 import { firstToDo, groupByStatus } from '../model/list.js'
@@ -9,6 +10,8 @@ import type { Draft } from '../model/draft.js'
 import { useLastBoard } from './board-choice.js'
 import BoardForm from './boards/BoardForm.vue'
 import TaskPanel from './detail/TaskPanel.vue'
+import StatusDelete from './statuses/StatusDelete.vue'
+import StatusForm from './statuses/StatusForm.vue'
 import StatusGroup from './list/StatusGroup.vue'
 import { usePanelWidth } from './panel-width.js'
 import { useTasksView } from './view.js'
@@ -37,12 +40,9 @@ const current = ref<string | null>(null)
 const lastBoard = useLastBoard()
 /** Which board form is open, if any. */
 const editing = ref<'create' | 'edit' | null>(null)
-/**
- * The board just created opens in its five columns (#42 C1), not in the
- * invitation an empty board shows otherwise (#20 C2): the person made it to
- * fill it, and the columns are where its tasks are born.
- */
-const justCreated = ref<string | null>(null)
+/** The status dialog open, if any (card #43): add, edit or delete. */
+type StatusDialog = { mode: 'add' } | { mode: 'edit'; status: TaskStatus } | { mode: 'delete'; status: TaskStatus }
+const statusDialog = ref<StatusDialog | null>(null)
 const currentBoard = computed(() => boards.value.find((board) => board.id === current.value))
 /** The status whose capture is open, if any. */
 const composing = ref<string | null>(null)
@@ -111,7 +111,6 @@ async function switchBoard(boardId: string): Promise<void> {
 /** Throws on refusal, so the form keeps what was typed and shows why (C2, C3). */
 async function createBoard(input: { name: string; prefix: string }): Promise<void> {
   const created = await props.deps.tasks.createBoard(input)
-  justCreated.value = created.id
   await readBoards()
   // Closed only after the reread, so a failed read still has the form to say so.
   editing.value = null
@@ -126,6 +125,36 @@ async function updateBoard(input: { name: string; prefix: string }): Promise<voi
   editing.value = null
 }
 
+async function addStatus(input: { name: string; category: StatusCategory; color: StatusColor }): Promise<void> {
+  if (current.value === null) return
+  const added = await props.deps.tasks.addStatus(current.value, input)
+  if (!added) throw new Error('board não encontrado')
+  statusDialog.value = null
+  await load()
+}
+
+async function updateStatus(id: string, input: { name: string; color: StatusColor }): Promise<void> {
+  const updated = await props.deps.tasks.updateStatus(id, { name: input.name, color: input.color })
+  if (!updated) throw new Error('status não encontrado')
+  statusDialog.value = null
+  await load()
+}
+
+/** Throws on a refusal, so the dialog says why; the board is reread either way (RN7). */
+async function deleteStatus(id: string, moveTo: string | undefined): Promise<void> {
+  try {
+    await props.deps.tasks.deleteStatus(id, moveTo)
+    statusDialog.value = null
+  } finally {
+    await load()
+  }
+}
+
+const tasksIn = (statusId: string) =>
+  read.value.state === 'ready' ? read.value.board.tasks.filter((task) => task.statusId === statusId).length : 0
+const otherStatuses = (statusId: string) =>
+  read.value.state === 'ready' ? read.value.board.statuses.filter((status) => status.id !== statusId) : []
+
 /** The whole key of a task on the screen: its frozen prefix and its number (RN5). */
 function keyOf(key: number): TaskKey | null {
   if (read.value.state !== 'ready') return null
@@ -134,12 +163,13 @@ function keyOf(key: number): TaskKey | null {
 }
 
 const groups = computed(() => (read.value.state === 'ready' ? groupByStatus(read.value.board) : []))
+/**
+ * An empty board shows the invitation (#20 C2) above its columns, not in
+ * their place: since #43 the columns are where the statuses are managed, and
+ * a new board opens in them (#42 C1).
+ */
 const empty = computed(
-  () =>
-    read.value.state === 'ready' &&
-    read.value.board.tasks.length === 0 &&
-    composing.value === null &&
-    justCreated.value !== current.value,
+  () => read.value.state === 'ready' && read.value.board.tasks.length === 0 && composing.value === null,
 )
 
 function inviteFirst(): void {
@@ -264,6 +294,16 @@ async function drop(statusId: string, beforeKey: number | null): Promise<void> {
         {{ currentBoard.prefix }}
       </button>
       <button
+        v-if="read.state === 'ready'"
+        type="button"
+        aria-label="Adicionar status"
+        title="Adicionar status"
+        class="rounded px-1.5 text-xs text-[#747e8f] hover:bg-[#1e2638] hover:text-gray-100"
+        @click="statusDialog = { mode: 'add' }"
+      >
+        + status
+      </button>
+      <button
         v-if="boards.length > 0"
         type="button"
         aria-label="Novo board"
@@ -307,6 +347,24 @@ async function drop(statusId: string, beforeKey: number | null): Promise<void> {
       @cancel="editing = null"
     />
 
+    <StatusForm v-if="statusDialog?.mode === 'add'" :save="addStatus" @cancel="statusDialog = null" />
+    <StatusForm
+      v-else-if="statusDialog?.mode === 'edit'"
+      :key="statusDialog.status.id"
+      :editing="statusDialog.status"
+      :save="(input) => updateStatus((statusDialog as { status: TaskStatus }).status.id, input)"
+      @cancel="statusDialog = null"
+    />
+    <StatusDelete
+      v-else-if="statusDialog?.mode === 'delete'"
+      :key="statusDialog.status.id"
+      :status="statusDialog.status"
+      :others="otherStatuses(statusDialog.status.id)"
+      :task-count="tasksIn(statusDialog.status.id)"
+      :remove="(moveTo) => deleteStatus((statusDialog as { status: TaskStatus }).status.id, moveTo)"
+      @cancel="statusDialog = null"
+    />
+
     <div class="min-h-0 flex-1 overflow-auto px-6 pb-6">
       <p v-if="read.state === 'loading'" class="text-sm text-[#747e8f]">Carregando as tarefas…</p>
 
@@ -318,18 +376,18 @@ async function drop(statusId: string, beforeKey: number | null): Promise<void> {
         {{ read.message }}
       </p>
 
-      <div v-else-if="empty" class="flex flex-col items-center gap-3 py-16 text-center">
-        <p class="text-sm text-gray-300">Nenhuma tarefa ainda</p>
-        <button
-          type="button"
-          class="rounded-md bg-[#3b82f6] px-3 py-1.5 text-sm font-medium text-white"
-          @click="inviteFirst"
-        >
-          Criar a primeira tarefa
-        </button>
-      </div>
-
       <template v-else>
+        <div v-if="empty" class="mb-4 flex items-center gap-3 rounded-lg border border-dashed border-[#1e2638] px-4 py-3">
+          <p class="text-sm text-gray-300">Nenhuma tarefa ainda</p>
+          <button
+            type="button"
+            class="rounded-md bg-[#3b82f6] px-3 py-1.5 text-sm font-medium text-white"
+            @click="inviteFirst"
+          >
+            Criar a primeira tarefa
+          </button>
+        </div>
+
         <p
           v-if="moveError"
           role="alert"
@@ -352,6 +410,8 @@ async function drop(statusId: string, beforeKey: number | null): Promise<void> {
             @release="grabbed = null"
             @open="open"
             @drop="drop"
+            @edit-status="statusDialog = { mode: 'edit', status: $event }"
+            @remove-status="statusDialog = { mode: 'delete', status: $event }"
           />
         </div>
 
@@ -366,6 +426,8 @@ async function drop(statusId: string, beforeKey: number | null): Promise<void> {
             @compose="composing = $event"
             @cancel="composing = null"
             @open="open"
+            @edit-status="statusDialog = { mode: 'edit', status: $event }"
+            @remove-status="statusDialog = { mode: 'delete', status: $event }"
           />
         </div>
       </template>

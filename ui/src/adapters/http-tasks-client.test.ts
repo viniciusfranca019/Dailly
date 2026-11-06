@@ -16,7 +16,7 @@ const task = {
   createdAt: '2026-11-05T12:00:00.000Z',
   body: '',
 }
-const status = { id: 'todo', name: 'A fazer', category: 'unstarted', position: 1 }
+const status = { id: 'todo', boardId: 'casa', name: 'A fazer', category: 'unstarted', color: 'gray', position: 1 }
 const board = { id: 'casa', name: 'Casa', prefix: 'CASA' }
 
 const answering = (status_: number, body: unknown, seen: { url?: string; init?: RequestInit } = {}) =>
@@ -152,5 +152,39 @@ describe('httpTasksClient', () => {
     await expect(
       httpTasksClient({ config, fetch: answering(400, { errors: [{ field: 'body', message: 'o comentário é obrigatório' }] }) }).addComment({ prefix: 'T', key: 1 }, ' '),
     ).rejects.toThrow('o comentário é obrigatório')
+  })
+
+  it('#43: posts, patches and deletes a status, with moveTo in the query, and refuses a color it does not know', async () => {
+    const review = { ...status, id: 'review', name: 'Revisão', category: 'started', color: 'purple', position: 3 }
+    const posted: { url?: string; init?: RequestInit } = {}
+    expect(await httpTasksClient({ config, fetch: answering(201, review, posted) }).addStatus('casa', { name: 'Revisão', category: 'started', color: 'purple' })).toEqual(review)
+    expect([posted.url, posted.init?.method, JSON.parse(posted.init?.body as string)]).toEqual([
+      '/api/boards/casa/statuses',
+      'POST',
+      { name: 'Revisão', category: 'started', color: 'purple' },
+    ])
+
+    const patched: { url?: string; init?: RequestInit } = {}
+    await httpTasksClient({ config, fetch: answering(200, review, patched) }).updateStatus('review', { color: 'green' })
+    expect([patched.url, JSON.parse(patched.init?.body as string)]).toEqual(['/api/statuses/review', { color: 'green' }])
+
+    const deleted: { url?: string; init?: RequestInit } = {}
+    const client = httpTasksClient({
+      config,
+      fetch: (async (url: string, init?: RequestInit) => {
+        deleted.url = url
+        deleted.init = init
+        return new Response(null, { status: 204 })
+      }) as unknown as typeof fetch,
+    })
+    expect(await client.deleteStatus('review', 'done')).toBe(true)
+    expect([deleted.url, deleted.init?.method]).toEqual(['/api/statuses/review?moveTo=done', 'DELETE'])
+
+    const conflict = httpTasksClient({ config, fetch: answering(409, { error: 'o board precisa de ao menos um status' }) })
+    await expect(conflict.deleteStatus('todo')).rejects.toThrow('o board precisa de ao menos um status')
+    expect(await httpTasksClient({ config, fetch: answering(404, { error: 'status não encontrado' }) }).deleteStatus('x')).toBe(false)
+    await expect(
+      httpTasksClient({ config, fetch: answering(200, { statuses: [{ ...status, color: 'magenta' }], tasks: [] }) }).board('casa'),
+    ).rejects.toThrow(ApiError)
   })
 })

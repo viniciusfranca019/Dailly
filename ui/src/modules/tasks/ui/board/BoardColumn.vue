@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import type { TaskStatus } from '@dailly/tasks-core'
 import type { TimeZone } from '@dailly/periods'
 import { completionLabel } from '../../model/completion.js'
 import type { StatusGroup } from '../../model/list.js'
 import NewTask from '../list/NewTask.vue'
+import StatusHeading from '../statuses/StatusHeading.vue'
 import TaskCard from './TaskCard.vue'
 
 /**
@@ -22,6 +24,8 @@ const emit = defineEmits<{
   release: []
   open: [key: number]
   drop: [statusId: string, beforeKey: number | null]
+  editStatus: [status: TaskStatus]
+  removeStatus: [status: TaskStatus]
 }>()
 
 const createHere = (title: string) => props.create(props.group.status.id, title)
@@ -35,8 +39,12 @@ const createHere = (title: string) => props.create(props.group.status.id, title)
     @drop.prevent="emit('drop', group.status.id, null)"
   >
     <header class="flex items-center gap-2 px-3 py-2">
-      <h2 class="text-sm font-medium text-gray-200">{{ group.status.name }}</h2>
-      <span class="text-xs text-[#747e8f]">{{ group.tasks.length }}</span>
+      <StatusHeading
+        :status="group.status"
+        :count="group.tasks.length"
+        @edit="emit('editStatus', group.status)"
+        @remove="emit('removeStatus', group.status)"
+      />
       <button
         type="button"
         :aria-label="`Nova tarefa em ${group.status.name}`"

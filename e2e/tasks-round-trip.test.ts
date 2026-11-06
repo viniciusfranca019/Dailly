@@ -24,6 +24,22 @@ async function overTheWire() {
 }
 
 describe('Tasks, end to end', () => {
+  it('#43 C7: deleting a status over the wire moves its task on top of the destination, stamped', async () => {
+    const { tasks } = await overTheWire()
+    const review = await tasks.addStatus('tasks', { name: 'Revisão', category: 'started', color: 'purple' })
+    await tasks.create({ boardId: 'tasks', title: 'Feito antes', statusId: 'done' })
+    await tasks.create({ boardId: 'tasks', title: 'Em revisão', statusId: review!.id })
+
+    expect(await tasks.deleteStatus(review!.id, 'done')).toBe(true)
+
+    const board = (await tasks.board('tasks'))!
+    expect(board.statuses.map((status) => status.name)).not.toContain('Revisão')
+    const inDone = board.tasks.filter((task) => task.statusId === 'done')
+    expect(inDone.map((task) => task.title)).toEqual(['Em revisão', 'Feito antes'])
+    expect(inDone[0]?.completedAt).toEqual(expect.any(String))
+    await expect(tasks.deleteStatus('done')).rejects.toThrow('o status tem tarefas: escolha para onde elas vão')
+  })
+
   it('#45 C5, C7: a comment travels as markdown, is deleted for good, and never reaches the Daily Log', async () => {
     const { tasks, entries } = await overTheWire()
     await tasks.create({ boardId: 'tasks', title: 'Chamar o encanador', statusId: 'todo' })
@@ -38,9 +54,11 @@ describe('Tasks, end to end', () => {
   it('#42: a board created through the adapter keys its tasks, and the whole key travels as the path', async () => {
     const { tasks } = await overTheWire()
     const casa = await tasks.createBoard({ name: 'Casa', prefix: 'CASA' })
-    await tasks.create({ boardId: casa.id, title: 'Trocar a lâmpada', statusId: 'todo' })
+    // Since F5 (#43) every board has statuses of its own.
+    const todo = (await tasks.board(casa.id))!.statuses.find((status) => status.name === 'A fazer')!.id
+    await tasks.create({ boardId: casa.id, title: 'Trocar a lâmpada', statusId: todo })
     await tasks.updateBoard(casa.id, { prefix: 'LAR' })
-    const second = await tasks.create({ boardId: casa.id, title: 'Pintar a sala', statusId: 'todo' })
+    const second = await tasks.create({ boardId: casa.id, title: 'Pintar a sala', statusId: todo })
 
     expect(await tasks.boards()).toEqual([{ id: 'tasks', name: 'Tasks', prefix: 'T' }, { ...casa, prefix: 'LAR' }])
     expect([second.keyPrefix, second.key]).toEqual(['LAR', 2])

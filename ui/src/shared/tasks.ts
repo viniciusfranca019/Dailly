@@ -2,12 +2,15 @@ import type {
   Board,
   BoardPatch,
   NewBoard,
+  NewStatus,
   NewTask,
+  StatusPatch,
   Task,
   TaskBoard,
   TaskComment,
   TaskKey,
   TaskPatch,
+  TaskStatus,
 } from '@dailly/tasks-core'
 
 /**
@@ -41,14 +44,23 @@ export interface TasksPort {
   addComment(key: TaskKey, body: string): Promise<TaskComment | null>
   /** `false` when the comment or its task was already gone. */
   deleteComment(key: TaskKey, id: string): Promise<boolean>
+  /** A new status in the board (card #43); `null` when the board is gone; throws on a refusal. */
+  addStatus(boardId: string, input: NewStatus): Promise<TaskStatus | null>
+  /** Rename or recolor; `null` when the status is gone; throws on a refusal. */
+  updateStatus(id: string, patch: StatusPatch): Promise<TaskStatus | null>
+  /** Its tasks go on top of `moveTo`; `false` when the status was gone; throws on a refusal. */
+  deleteStatus(id: string, moveTo?: string): Promise<boolean>
 }
 
 export type {
   Board,
   BoardPatch,
   NewBoard,
+  NewStatus,
   NewTask,
   Placement,
+  StatusColor,
+  StatusPatch,
   Task,
   TaskBoard,
   TaskComment,
