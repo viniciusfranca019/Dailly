@@ -1,4 +1,17 @@
 import {
+  InvalidColorError,
+  InvalidMoveToError,
+  LastStatusError,
+  STATUS_SEED,
+  StatusHasTasksError,
+  StatusNameTakenError,
+  isStatusColor,
+  normalizeStatusName,
+  orderStatuses,
+  parseNewStatus,
+  ranksOnTop,
+  sameStatusName,
+  type StoredStatus,
   BoardNotFoundError,
   InvalidPriorityError,
   InvalidRankError,
@@ -34,10 +47,21 @@ export interface SqliteTaskStoreDeps {
 
 interface StatusRow {
   readonly id: string
+  readonly board_id: string
   readonly name: string
   readonly category: StatusCategory
-  readonly position: number
+  readonly color: StoredStatus['color']
+  readonly created_order: number
 }
+
+const toStored = (row: StatusRow): StoredStatus => ({
+  id: row.id,
+  boardId: row.board_id,
+  name: row.name,
+  category: row.category,
+  color: row.color,
+  createdOrder: row.created_order,
+})
 
 interface TaskRow {
   readonly id: string
@@ -91,8 +115,34 @@ export function sqliteTaskStore({ db, newId, now }: SqliteTaskStoreDeps): TaskSt
       | { entry_id: string }
       | undefined)?.entry_id
 
-  const statuses = (): TaskStatus[] =>
-    db.prepare('SELECT id, name, category, position FROM task_statuses ORDER BY position').all() as StatusRow[]
+  const SELECT_STATUS = 'SELECT id, board_id, name, category, color, created_order FROM task_statuses'
+  const statusesOf = (boardId: string): TaskStatus[] =>
+    orderStatuses((db.prepare(`${SELECT_STATUS} WHERE board_id = ?`).all(boardId) as StatusRow[]).map(toStored))
+  /** A status of that board, or nothing: a status of another board is not found (#43). */
+  const statusIn = (boardId: string, statusId: string): StatusRow | undefined =>
+    db.prepare(`${SELECT_STATUS} WHERE id = ? AND board_id = ?`).get(statusId, boardId) as StatusRow | undefined
+  const nextOrder = (): number =>
+    (db.prepare('SELECT COALESCE(MAX(created_order), 0) + 1 AS next FROM task_statuses').get() as { next: number }).next
+  const insertStatus = (id: string, boardId: string, status: { name: string; category: string; color: string }) =>
+    db
+      .prepare('INSERT INTO task_statuses (id, board_id, name, category, color, created_order) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(id, boardId, status.name, status.category, status.color, nextOrder())
+  const claimName = (boardId: string, name: string, except: string | null): void => {
+    const names = db.prepare('SELECT id, name FROM task_statuses WHERE board_id = ?').all(boardId) as {
+      id: string
+      name: string
+    }[]
+    if (names.some((row) => row.id !== except && sameStatusName(row.name, name))) throw new StatusNameTakenError(name)
+  }
+  /** The tasks of a board in the order of its columns (RN11), then by rank. */
+  const ordered = (boardId: string, rows: readonly TaskRow[]): TaskRow[] => {
+    const position = new Map(statusesOf(boardId).map((status) => [status.id, status.position]))
+    return [...rows].sort(
+      (a, b) =>
+        (position.get(a.status_id) ?? 0) - (position.get(b.status_id) ?? 0) ||
+        (a.rank < b.rank ? -1 : a.rank > b.rank ? 1 : 0),
+    )
+  }
   const findBoard = (id: string) => db.prepare(`${SELECT_BOARD} WHERE id = ?`).get(id) as Board | undefined
 
   /** RN9 reads every prefix a board ever used, not only the current ones. */
@@ -116,6 +166,8 @@ export function sqliteTaskStore({ db, newId, now }: SqliteTaskStoreDeps): TaskSt
       now(),
     )
     reserve(prefix, board.id)
+    // Every board is born with the five of the seed, ids of its own (RN11).
+    for (const seed of STATUS_SEED) insertStatus(newId(), board.id, seed)
     return board
   })
 
@@ -131,9 +183,7 @@ export function sqliteTaskStore({ db, newId, now }: SqliteTaskStoreDeps): TaskSt
 
   const create = db.transaction((boardId: string, title: string, statusId: string): Task => {
     if (!findBoard(boardId)) throw new BoardNotFoundError(boardId)
-    if (!db.prepare('SELECT 1 FROM task_statuses WHERE id = ?').get(statusId)) {
-      throw new StatusNotFoundError(statusId)
-    }
+    if (!statusIn(boardId, statusId)) throw new StatusNotFoundError(statusId)
     const top = db
       .prepare('SELECT rank FROM tasks WHERE board_id = ? AND status_id = ? ORDER BY rank LIMIT 1')
       .get(boardId, statusId) as { rank: string } | undefined
@@ -178,9 +228,7 @@ export function sqliteTaskStore({ db, newId, now }: SqliteTaskStoreDeps): TaskSt
     let placed = { status_id: current.status_id, rank: current.rank, completed_at: current.completed_at }
     if (patch.placement) {
       const { statusId, rank } = patch.placement
-      const status = db.prepare('SELECT category FROM task_statuses WHERE id = ?').get(statusId) as
-        | { category: StatusCategory }
-        | undefined
+      const status = statusIn(current.board_id, statusId)
       if (!status) throw new StatusNotFoundError(statusId)
       if (!isRank(rank)) throw new InvalidRankError(rank)
       placed = {
@@ -198,7 +246,66 @@ export function sqliteTaskStore({ db, newId, now }: SqliteTaskStoreDeps): TaskSt
     return toTask({ ...current, ...placed, title, priority, body: patch.body ?? current.body })
   })
 
+  const addStatus = db.transaction((boardId: string, input: Parameters<TaskStore['addStatus']>[1]) => {
+    if (!findBoard(boardId)) return null
+    const parsed = parseNewStatus(input)
+    claimName(boardId, parsed.name, null)
+    const id = newId()
+    insertStatus(id, boardId, parsed)
+    return statusesOf(boardId).find((status) => status.id === id) ?? null
+  })
+
+  const updateStatus = db.transaction((id: string, patch: Parameters<TaskStore['updateStatus']>[1]) => {
+    const current = db.prepare(`${SELECT_STATUS} WHERE id = ?`).get(id) as StatusRow | undefined
+    if (!current) return null
+    const name = patch.name === undefined ? current.name : normalizeStatusName(patch.name)
+    if (patch.color !== undefined && !isStatusColor(patch.color)) throw new InvalidColorError(patch.color)
+    claimName(current.board_id, name, id)
+    db.prepare('UPDATE task_statuses SET name = ?, color = ? WHERE id = ?').run(name, patch.color ?? current.color, id)
+    return statusesOf(current.board_id).find((status) => status.id === id) ?? null
+  })
+
+  const deleteStatus = db.transaction((id: string, moveTo: string | undefined): boolean => {
+    const current = db.prepare(`${SELECT_STATUS} WHERE id = ?`).get(id) as StatusRow | undefined
+    if (!current) return false
+    if (statusesOf(current.board_id).length === 1) throw new LastStatusError()
+    const moving = db.prepare('SELECT entry_id, completed_at FROM tasks WHERE status_id = ? ORDER BY rank').all(id) as {
+      entry_id: string
+      completed_at: string | null
+    }[]
+    if (moving.length > 0 && moveTo === undefined) throw new StatusHasTasksError()
+    if (moveTo !== undefined) {
+      const target = statusIn(current.board_id, moveTo)
+      if (!target || target.id === id) throw new InvalidMoveToError('o destino deve ser outro status do mesmo board')
+      // In one write with the delete (RN12): on top of the destination, in their order, through RN3.
+      const top = db.prepare('SELECT rank FROM tasks WHERE status_id = ? ORDER BY rank LIMIT 1').get(target.id) as
+        | { rank: string }
+        | undefined
+      const ranks = ranksOnTop(moving.length, top?.rank)
+      const at = now()
+      const move = db.prepare('UPDATE tasks SET status_id = ?, rank = ?, completed_at = ? WHERE entry_id = ?')
+      moving.forEach((task, index) => {
+        move.run(target.id, ranks[index], completionAfterMove(task.completed_at, target.category, at), task.entry_id)
+        updateEntryRow(db, task.entry_id, {}, at)
+      })
+    }
+    db.prepare('DELETE FROM task_statuses WHERE id = ?').run(id)
+    return true
+  })
+
   return {
+    async addStatus(boardId, input) {
+      return addStatus(boardId, input)
+    },
+
+    async updateStatus(id, patch) {
+      return updateStatus(id, patch)
+    },
+
+    async deleteStatus(id, moveTo) {
+      return deleteStatus(id, moveTo)
+    },
+
     async boards() {
       // By insertion: the seed first, then each board as it was created.
       return db.prepare(`${SELECT_BOARD} ORDER BY rowid`).all() as Board[]
@@ -217,8 +324,8 @@ export function sqliteTaskStore({ db, newId, now }: SqliteTaskStoreDeps): TaskSt
 
     async board(boardId) {
       if (!findBoard(boardId)) return null
-      const rows = db.prepare(`${SELECT_TASKS} WHERE t.board_id = ? ORDER BY s.position, t.rank`).all(boardId) as TaskRow[]
-      return { statuses: statuses(), tasks: rows.map(toTask) }
+      const rows = db.prepare(`${SELECT_TASKS} WHERE t.board_id = ?`).all(boardId) as TaskRow[]
+      return { statuses: statusesOf(boardId), tasks: ordered(boardId, rows).map(toTask) }
     },
 
     async create({ boardId, title, statusId }) {

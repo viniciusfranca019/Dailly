@@ -1,4 +1,11 @@
 import {
+  InvalidCategoryError,
+  InvalidColorError,
+  InvalidMoveToError,
+  LastStatusError,
+  StatusHasTasksError,
+  StatusNameTakenError,
+  type StatusPatch,
   BoardNotFoundError,
   CommentRequiredError,
   InvalidPrefixError,
@@ -79,6 +86,43 @@ function parseComment(body: unknown): { text: string } | { errors: Invalid[] } {
   return errors.length > 0 ? { errors } : { text: body.body as string }
 }
 
+/** Only the named fields, each text; the values are the store's to judge. */
+function onlyText(
+  body: unknown,
+  allowed: readonly string[],
+  required: readonly string[],
+): { values: Record<string, string> } | { errors: Invalid[] } {
+  if (!isRecord(body)) return { errors: [{ field: '', message: 'o corpo deve ser um objeto JSON' }] }
+  const keys = Object.keys(body)
+  const errors: Invalid[] = keys
+    .filter((name) => !allowed.includes(name))
+    .map((field) => ({ field, message: 'não é um campo que se edita' }))
+  if (keys.length === 0) errors.push({ field: '', message: 'nenhum campo para salvar' })
+  for (const field of allowed) {
+    const value = body[field]
+    if (value === undefined ? required.includes(field) : typeof value !== 'string') {
+      errors.push({ field, message: 'deve ser texto' })
+    }
+  }
+  if (errors.length > 0) return { errors }
+  return { values: Object.fromEntries(keys.map((key) => [key, body[key] as string])) }
+}
+
+/** The status refusals (card #43): the shape ones name a field (400), the conflicts are 409. */
+function refuseStatus(error: unknown): { code: number; body: unknown } | null {
+  const field = (name: string, message: string) => ({ code: 400, body: { errors: [{ field: name, message }] } })
+  if (error instanceof NameRequiredError) return field('name', error.message)
+  if (error instanceof InvalidCategoryError) return field('category', error.message)
+  if (error instanceof InvalidColorError) return field('color', error.message)
+  if (error instanceof InvalidMoveToError) return field('moveTo', error.message)
+  if (error instanceof StatusNameTakenError || error instanceof StatusHasTasksError || error instanceof LastStatusError) {
+    return { code: 409, body: { error: error.message } }
+  }
+  return null
+}
+
+const STATUS_NOT_FOUND = { error: 'status não encontrado' }
+
 const BOARD_REQUIRED = { errors: [{ field: 'boardId', message: 'o board é obrigatório' }] }
 const BOARD_NOT_FOUND = { error: 'board não encontrado' }
 
@@ -149,6 +193,57 @@ export function registerTaskRoutes(app: FastifyInstance, store: TaskStore): void
       return updated
     } catch (error) {
       const refusal = refuseBoard(error)
+      if (refusal) return reply.code(refusal.code).send(refusal.body)
+      throw error
+    }
+  })
+
+  // The statuses of a board (card #43). A new one is created under its board;
+  // edited and deleted by its own id, unique across boards.
+  app.post('/boards/:id/statuses', async (request, reply) => {
+    const parsed = onlyText(request.body, ['name', 'category', 'color'], ['name', 'category', 'color'])
+    if ('errors' in parsed) return reply.code(400).send({ errors: parsed.errors })
+    const { name, category, color } = parsed.values as { name: string; category: string; color: string }
+    try {
+      const status = await store.addStatus((request.params as { id: string }).id, {
+        name,
+        category: category as never,
+        color: color as never,
+      })
+      if (!status) return reply.code(404).send(BOARD_NOT_FOUND)
+      return reply.code(201).send(status)
+    } catch (error) {
+      const refusal = refuseStatus(error)
+      if (refusal) return reply.code(refusal.code).send(refusal.body)
+      throw error
+    }
+  })
+
+  app.patch('/statuses/:id', async (request, reply) => {
+    const parsed = onlyText(request.body, ['name', 'color'], [])
+    if ('errors' in parsed) return reply.code(400).send({ errors: parsed.errors })
+    try {
+      const status = await store.updateStatus((request.params as { id: string }).id, parsed.values as StatusPatch)
+      if (!status) return reply.code(404).send(STATUS_NOT_FOUND)
+      return status
+    } catch (error) {
+      const refusal = refuseStatus(error)
+      if (refusal) return reply.code(refusal.code).send(refusal.body)
+      throw error
+    }
+  })
+
+  app.delete('/statuses/:id', async (request, reply) => {
+    const { moveTo } = request.query as { moveTo?: unknown }
+    if (moveTo !== undefined && (typeof moveTo !== 'string' || moveTo === '')) {
+      return reply.code(400).send({ errors: [{ field: 'moveTo', message: 'deve ser o id de um status' }] })
+    }
+    try {
+      const deleted = await store.deleteStatus((request.params as { id: string }).id, moveTo)
+      if (!deleted) return reply.code(404).send(STATUS_NOT_FOUND)
+      return reply.code(204).send()
+    } catch (error) {
+      const refusal = refuseStatus(error)
       if (refusal) return reply.code(refusal.code).send(refusal.body)
       throw error
     }
