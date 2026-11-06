@@ -3,11 +3,15 @@
  *
  * `id` is the Entry's UUID, the same one, so a future aggregate (project,
  * epic) points at the Entry and the atom never grows a `projectId`. `key` is
- * the readable number behind `T-<n>`; it is never reused (RN5).
+ * the readable number behind `<PREFIX>-<n>`, sequential inside the board and
+ * never reused (RN5). `keyPrefix` is the board's prefix when the task was
+ * born, frozen: renaming the prefix only changes the tasks created after.
  */
 export interface Task {
   readonly id: string
+  readonly boardId: string
   readonly key: number
+  readonly keyPrefix: string
   readonly title: string
   readonly statusId: string
   /** 0 none, 1 urgent, 2 high, 3 medium, 4 low (RN8, Linear's levels). */
@@ -57,12 +61,18 @@ export const DEFAULT_STATUSES: readonly TaskStatus[] = [
   { id: 'canceled', name: 'Cancelado', category: 'canceled', position: 4 },
 ]
 
-export const formatKey = (key: number): string => `T-${key}`
+/** A task's key in full: unique across boards, because a prefix is never shared (RN9). */
+export interface TaskKey {
+  readonly prefix: string
+  readonly key: number
+}
 
-/** `T-12` → 12; anything else, lowercase included, is not a key. */
-export function parseKey(text: string): number | null {
-  const match = /^T-([1-9][0-9]*)$/.exec(text)
-  return match ? Number(match[1]) : null
+export const formatKey = (prefix: string, key: number): string => `${prefix}-${key}`
+
+/** `CASA-12` → { prefix: 'CASA', key: 12 }; anything else, lowercase included, is not a key. */
+export function parseKey(text: string): TaskKey | null {
+  const match = /^([A-Z0-9]{1,6})-([1-9][0-9]*)$/.exec(text)
+  return match ? { prefix: match[1] as string, key: Number(match[2]) } : null
 }
 
 export class TitleRequiredError extends Error {
