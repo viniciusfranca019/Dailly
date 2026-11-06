@@ -67,6 +67,14 @@ ui/src/modules/<id>/
   ramo, porque só assim o Vite dobra o ramo e o chunk some do bundle. A flag vai
   no `ui/src/env.d.ts` e nos alvos `dev-all`, `test-all` e `build-all` do
   `Makefile`.
+- **Um atalho de qualquer tela é um comando** (card #47): o descritor ganha
+  `commands: [{ id, shortcut: { key, mod? } }]`, dentro do ramo da flag, e o index do
+  módulo exporta `commands = { <id>: <Componente> }`. O shell escuta o `keydown` em
+  `window`, aplica a RN15 (`shared/command.ts`: sem `mod`, não dispara num campo),
+  carrega o módulo pelo mesmo `load()` e mostra o componente numa camada, com as
+  props `deps`, `focusTick`, `navigate(route)` e `close()`. Um pedido para o próprio
+  módulo (abrir a tarefa escolhida) vai por um estado em `model/` dele, nunca pelo
+  shell. Os atalhos de uma tela só (o Ctrl+S do painel) ficam nela.
 - **As dependências** chegam em duas metades: o comum a todos (`SharedDeps`,
   `ui/src/shared/deps.ts`: o fuso e o relógio) e o que é só do módulo, que ele
   declara no próprio `deps.ts`. O id do módulo ganha uma chave em `OwnDeps`
