@@ -1,5 +1,5 @@
 import { rankBetween } from './rank.js'
-import type { StatusCategory } from './task.js'
+import type { StatusCategory } from './status.js'
 import type { TaskBoard } from './task-store.js'
 
 export interface Placement {
@@ -25,6 +25,21 @@ export function placeAt(
   const index = beforeKey === null ? column.length : column.findIndex((task) => task.key === beforeKey)
   const at = index < 0 ? column.length : index
   return { statusId, rank: rankBetween(column[at - 1]?.rank, column[at]?.rank) }
+}
+
+/**
+ * The ranks of `count` tasks put on top of a column whose top card has rank
+ * `top` (card #43, RN12): above it, keeping their order among themselves.
+ * Built from the bottom up, each one right above the next.
+ */
+export function ranksOnTop(count: number, top: string | undefined): string[] {
+  const ranks: string[] = []
+  let above = top
+  for (let index = 0; index < count; index += 1) {
+    above = rankBetween(undefined, above)
+    ranks.unshift(above)
+  }
+  return ranks
 }
 
 const CLOSED: readonly StatusCategory[] = ['completed', 'canceled']

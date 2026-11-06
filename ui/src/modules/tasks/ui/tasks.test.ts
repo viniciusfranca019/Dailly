@@ -38,6 +38,9 @@ const portOver = (store: TaskStore, over: Partial<TasksPort> = {}): TasksPort =>
   comments: (key) => store.comments(key),
   addComment: (key, body) => store.addComment(key, body),
   deleteComment: async (key, id) => (await store.deleteComment(key, id)) === 'deleted',
+  addStatus: (boardId, input) => store.addStatus(boardId, input),
+  updateStatus: (id, patch) => store.updateStatus(id, patch),
+  deleteStatus: (id, moveTo) => store.deleteStatus(id, moveTo),
   ...over,
 })
 
@@ -86,7 +89,9 @@ describe('C2: sem tarefa, a tela convida a criar', () => {
     const host = await mount(portOver(await storeWith()))
 
     expect(host.textContent).toContain('Nenhuma tarefa ainda')
-    expect(group(host, 'A fazer')).toBeNull()
+    // Since #43 the invitation sits above the columns, which stay: the
+    // scenario asks for the invitation, not for the columns to go.
+    expect(titleField(host)).toBeNull()
 
     button(host, 'Criar a primeira tarefa')!.click()
     await settle()

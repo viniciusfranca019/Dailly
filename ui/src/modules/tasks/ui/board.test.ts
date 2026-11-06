@@ -41,6 +41,9 @@ const portOver = (store: TaskStore, over: Partial<TasksPort> = {}): TasksPort =>
   comments: (key) => store.comments(key),
   addComment: (key, body) => store.addComment(key, body),
   deleteComment: async (key, id) => (await store.deleteComment(key, id)) === 'deleted',
+  addStatus: (boardId, input) => store.addStatus(boardId, input),
+  updateStatus: (id, patch) => store.updateStatus(id, patch),
+  deleteStatus: (id, moveTo) => store.deleteStatus(id, moveTo),
   ...over,
 })
 

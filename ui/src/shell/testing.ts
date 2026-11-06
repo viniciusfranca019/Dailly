@@ -39,6 +39,9 @@ const tasksOver = (store: ReturnType<typeof inMemoryTaskStore>) => ({
   addComment: (key: Parameters<typeof store.addComment>[0], body: string) => store.addComment(key, body),
   deleteComment: async (key: Parameters<typeof store.deleteComment>[0], id: string) =>
     (await store.deleteComment(key, id)) === 'deleted',
+  addStatus: (boardId: string, input: Parameters<typeof store.addStatus>[1]) => store.addStatus(boardId, input),
+  updateStatus: (id: string, patch: Parameters<typeof store.updateStatus>[1]) => store.updateStatus(id, patch),
+  deleteStatus: (id: string, moveTo?: string) => store.deleteStatus(id, moveTo),
 })
 
 /** A storage in a Map, so no test sees another test's saved order. */

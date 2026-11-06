@@ -21,6 +21,9 @@ const patchBoard = (id: string, payload: unknown) =>
   app.inject({ method: 'PATCH', url: `/boards/${id}`, payload: payload as object })
 const createTask = (payload: unknown) => app.inject({ method: 'POST', url: '/tasks', payload: payload as object })
 const read = async (boardId: string) => (await app.inject({ method: 'GET', url: `/tasks?boardId=${boardId}` })).json()
+/** A board's own "A fazer": since F5 (#43) each board has statuses of its own. */
+const todoOf = async (boardId: string): Promise<string> =>
+  (await read(boardId)).statuses.find((status: { name: string }) => status.name === 'A fazer').id
 const keys = (board: { tasks: { keyPrefix: string; key: number }[] }) =>
   board.tasks.map((task) => `${task.keyPrefix}-${task.key}`)
 
@@ -87,10 +90,10 @@ describe('POST /boards', () => {
 describe('PATCH /boards/:id', () => {
   it('C7: a new prefix holds only for the tasks created after', async () => {
     const casa = (await createBoard({ name: 'Casa', prefix: 'CASA' })).json()
-    for (const title of ['um', 'dois', 'três']) await createTask({ boardId: casa.id, title, statusId: 'todo' })
+    for (const title of ['um', 'dois', 'três']) await createTask({ boardId: casa.id, title, statusId: await todoOf(casa.id) })
 
     const patched = await patchBoard(casa.id, { prefix: 'LAR' })
-    const fourth = await createTask({ boardId: casa.id, title: 'Pintar a sala', statusId: 'todo' })
+    const fourth = await createTask({ boardId: casa.id, title: 'Pintar a sala', statusId: await todoOf(casa.id) })
 
     expect(patched.statusCode).toBe(200)
     expect(patched.json()).toEqual({ ...casa, prefix: 'LAR' })
@@ -130,7 +133,7 @@ describe('/tasks with boards', () => {
   it('C4: each board reads only its own tasks', async () => {
     const casa = (await createBoard({ name: 'Casa', prefix: 'CASA' })).json()
     await createTask({ boardId: 'tasks', title: 'Pagar o condomínio', statusId: 'todo' })
-    await createTask({ boardId: casa.id, title: 'Trocar a lâmpada', statusId: 'todo' })
+    await createTask({ boardId: casa.id, title: 'Trocar a lâmpada', statusId: await todoOf(casa.id) })
 
     const board = await read(casa.id)
     expect(board.tasks.map((task: { title: string }) => task.title)).toEqual(['Trocar a lâmpada'])
@@ -141,10 +144,10 @@ describe('/tasks with boards', () => {
   it('C6: the key is sequential inside the board', async () => {
     const casa = (await createBoard({ name: 'Casa', prefix: 'CASA' })).json()
     for (let n = 0; n < 7; n += 1) await createTask({ boardId: 'tasks', title: `t${n}`, statusId: 'todo' })
-    await createTask({ boardId: casa.id, title: 'um', statusId: 'todo' })
-    await createTask({ boardId: casa.id, title: 'dois', statusId: 'todo' })
+    await createTask({ boardId: casa.id, title: 'um', statusId: await todoOf(casa.id) })
+    await createTask({ boardId: casa.id, title: 'dois', statusId: await todoOf(casa.id) })
 
-    const third = await createTask({ boardId: casa.id, title: 'Comprar tinta', statusId: 'todo' })
+    const third = await createTask({ boardId: casa.id, title: 'Comprar tinta', statusId: await todoOf(casa.id) })
 
     expect(third.statusCode).toBe(201)
     expect(third.json()).toMatchObject({ keyPrefix: 'CASA', key: 3 })

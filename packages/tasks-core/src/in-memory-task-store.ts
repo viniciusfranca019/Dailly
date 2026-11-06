@@ -7,10 +7,24 @@ import {
   type Board,
 } from './board.js'
 import { normalizeCommentBody, type TaskComment } from './comment.js'
-import { completionAfterMove } from './move.js'
+import { completionAfterMove, ranksOnTop } from './move.js'
+import {
+  InvalidMoveToError,
+  LastStatusError,
+  SEED_STATUS_IDS,
+  STATUS_SEED,
+  StatusHasTasksError,
+  StatusNameTakenError,
+  isStatusColor,
+  InvalidColorError,
+  normalizeStatusName,
+  orderStatuses,
+  parseNewStatus,
+  sameStatusName,
+  type StoredStatus,
+} from './status.js'
 import { rankBetween } from './rank.js'
 import {
-  DEFAULT_STATUSES,
   InvalidPriorityError,
   InvalidRankError,
   StatusNotFoundError,
@@ -46,6 +60,19 @@ export function inMemoryTaskStore({ newId, now }: InMemoryTaskStoreDeps): TaskSt
   /** Every prefix a board ever used, and whose it is (RN9). */
   const prefixes = new Map<string, string>([[SEED_BOARD.prefix, SEED_BOARD.id]])
   const tasks: Task[] = []
+  let createdOrder = 0
+  const seedOf = (boardId: string, ids: readonly string[]): StoredStatus[] =>
+    STATUS_SEED.map((seed, index) => ({ ...seed, id: ids[index] as string, boardId, createdOrder: (createdOrder += 1) }))
+  const statuses: StoredStatus[] = seedOf(SEED_BOARD.id, SEED_STATUS_IDS)
+  const statusesOf = (boardId: string) => orderStatuses(statuses.filter((status) => status.boardId === boardId))
+  /** A status of that board, or nothing: a status of another board is not found (#43). */
+  const statusIn = (boardId: string, statusId: string) =>
+    statuses.find((status) => status.id === statusId && status.boardId === boardId)
+  const claimName = (boardId: string, name: string, except: string | null) => {
+    if (statuses.some((status) => status.boardId === boardId && status.id !== except && sameStatusName(status.name, name))) {
+      throw new StatusNameTakenError(name)
+    }
+  }
   /** By the task's id (the Entry's), gone with it, as `ON DELETE CASCADE`. */
   const comments = new Map<string, TaskComment[]>()
 
@@ -67,6 +94,7 @@ export function inMemoryTaskStore({ newId, now }: InMemoryTaskStoreDeps): TaskSt
       const board: Board = { id: newId(), name, prefix }
       boards.push(board)
       counters.set(board.id, 0)
+      statuses.push(...seedOf(board.id, STATUS_SEED.map(() => newId())))
       prefixes.set(prefix, board.id)
       return board
     },
@@ -87,18 +115,17 @@ export function inMemoryTaskStore({ newId, now }: InMemoryTaskStoreDeps): TaskSt
     async board(boardId) {
       if (!boards.some((board) => board.id === boardId)) return null
       const own = tasks.filter((task) => task.boardId === boardId)
-      return { statuses: DEFAULT_STATUSES, tasks: orderTasks(DEFAULT_STATUSES, own) }
+      const ordered = statusesOf(boardId)
+      return { statuses: ordered, tasks: orderTasks(ordered, own) }
     },
 
     async create({ boardId, title, statusId }) {
       const board = boards.find((candidate) => candidate.id === boardId)
       if (!board) throw new BoardNotFoundError(boardId)
       const normalized = normalizeTitle(title)
-      if (!DEFAULT_STATUSES.some((status) => status.id === statusId)) {
-        throw new StatusNotFoundError(statusId)
-      }
+      if (!statusIn(boardId, statusId)) throw new StatusNotFoundError(statusId)
       const own = tasks.filter((task) => task.boardId === boardId)
-      const top = orderTasks(DEFAULT_STATUSES, own).find((task) => task.statusId === statusId)
+      const top = orderTasks(statusesOf(boardId), own).find((task) => task.statusId === statusId)
       const key = (counters.get(boardId) ?? 0) + 1
       counters.set(boardId, key)
       const task: Task = {
@@ -129,7 +156,7 @@ export function inMemoryTaskStore({ newId, now }: InMemoryTaskStoreDeps): TaskSt
       let placed: Pick<Task, 'statusId' | 'rank' | 'completedAt'> = current
       if (patch.placement) {
         const { statusId, rank } = patch.placement
-        const status = DEFAULT_STATUSES.find((candidate) => candidate.id === statusId)
+        const status = statusIn(current.boardId, statusId)
         if (!status) throw new StatusNotFoundError(statusId)
         if (!isRank(rank)) throw new InvalidRankError(rank)
         placed = { statusId, rank, completedAt: completionAfterMove(current.completedAt, status.category, now()) }
@@ -150,6 +177,57 @@ export function inMemoryTaskStore({ newId, now }: InMemoryTaskStoreDeps): TaskSt
       if (index < 0) return false
       const [removed] = tasks.splice(index, 1)
       if (removed) comments.delete(removed.id)
+      return true
+    },
+
+    async addStatus(boardId, input) {
+      if (!boards.some((board) => board.id === boardId)) return null
+      const parsed = parseNewStatus(input)
+      claimName(boardId, parsed.name, null)
+      const id = newId()
+      statuses.push({ ...parsed, id, boardId, createdOrder: (createdOrder += 1) })
+      return statusesOf(boardId).find((status) => status.id === id) ?? null
+    },
+
+    async updateStatus(id, patch) {
+      const index = statuses.findIndex((status) => status.id === id)
+      if (index < 0) return null
+      const current = statuses[index] as StoredStatus
+      const name = patch.name === undefined ? current.name : normalizeStatusName(patch.name)
+      if (patch.color !== undefined && !isStatusColor(patch.color)) throw new InvalidColorError(patch.color)
+      claimName(current.boardId, name, id)
+      statuses[index] = { ...current, name, color: patch.color ?? current.color }
+      return statusesOf(current.boardId).find((status) => status.id === id) ?? null
+    },
+
+    async deleteStatus(id, moveTo) {
+      const current = statuses.find((status) => status.id === id)
+      if (!current) return false
+      const board = statusesOf(current.boardId)
+      if (board.length === 1) throw new LastStatusError()
+      const moving = orderTasks(board, tasks.filter((task) => task.statusId === id))
+      if (moving.length > 0 && moveTo === undefined) throw new StatusHasTasksError()
+      let target: StoredStatus | undefined
+      if (moveTo !== undefined) {
+        target = statusIn(current.boardId, moveTo)
+        if (!target || target.id === id) throw new InvalidMoveToError('o destino deve ser outro status do mesmo board')
+      }
+      if (target) {
+        const destination = target
+        const top = orderTasks(board, tasks.filter((task) => task.statusId === destination.id))[0]
+        const ranks = ranksOnTop(moving.length, top?.rank)
+        const at = now()
+        moving.forEach((task, index) => {
+          const position = tasks.findIndex((candidate) => candidate.id === task.id)
+          tasks[position] = {
+            ...task,
+            statusId: destination.id,
+            rank: ranks[index] as string,
+            completedAt: completionAfterMove(task.completedAt, destination.category, at),
+          }
+        })
+      }
+      statuses.splice(statuses.indexOf(current), 1)
       return true
     },
 

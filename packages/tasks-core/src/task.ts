@@ -36,30 +36,7 @@ export const PRIORITY_LABELS: Readonly<Record<Priority, string>> = {
   4: 'baixa',
 }
 
-/**
- * The five fixed categories (RN2). Rules, column order and reports read the
- * category, never the name, so renaming "Feito" cannot break the Analyse.
- */
-export type StatusCategory = 'backlog' | 'unstarted' | 'started' | 'completed' | 'canceled'
-
-export interface TaskStatus {
-  readonly id: string
-  readonly name: string
-  readonly category: StatusCategory
-  readonly position: number
-}
-
-/**
- * The statuses every store is born with. The v1 does not edit them (out of
- * scope), so a store that seeds anything else breaks the contract suite.
- */
-export const DEFAULT_STATUSES: readonly TaskStatus[] = [
-  { id: 'backlog', name: 'Backlog', category: 'backlog', position: 0 },
-  { id: 'todo', name: 'A fazer', category: 'unstarted', position: 1 },
-  { id: 'doing', name: 'Fazendo', category: 'started', position: 2 },
-  { id: 'done', name: 'Feito', category: 'completed', position: 3 },
-  { id: 'canceled', name: 'Cancelado', category: 'canceled', position: 4 },
-]
+export type { StatusCategory, TaskStatus } from './status.js'
 
 /** A task's key in full: unique across boards, because a prefix is never shared (RN9). */
 export interface TaskKey {

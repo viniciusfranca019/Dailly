@@ -28,6 +28,10 @@ const newStore = (): TaskStore => {
   return inMemoryTaskStore({ newId: () => `id-${(n += 1)}`, now: () => '2026-11-06T12:00:00.000Z' })
 }
 
+/** A board's own "A fazer": since F5 (#43) each board has statuses of its own. */
+const todoOf = async (store: TaskStore, boardId: string) =>
+  (await store.board(boardId))!.statuses.find((status) => status.name === 'A fazer')!.id
+
 const portOver = (store: TaskStore): TasksPort => ({
   boards: () => store.boards(),
   createBoard: (input) => store.createBoard(input),
@@ -39,6 +43,9 @@ const portOver = (store: TaskStore): TasksPort => ({
   comments: (key) => store.comments(key),
   addComment: (key, body) => store.addComment(key, body),
   deleteComment: async (key, id) => (await store.deleteComment(key, id)) === 'deleted',
+  addStatus: (boardId, input) => store.addStatus(boardId, input),
+  updateStatus: (id, patch) => store.updateStatus(id, patch),
+  deleteStatus: (id, moveTo) => store.deleteStatus(id, moveTo),
 })
 
 async function mount(store: TaskStore) {
@@ -141,7 +148,7 @@ describe('C4: Trocar de board mostra só as tarefas dele (J5.2)', () => {
     const store = newStore()
     const casa = await store.createBoard({ name: 'Casa', prefix: 'CASA' })
     await store.create({ boardId: SEED_BOARD.id, title: 'Pagar o condomínio', statusId: 'todo' })
-    await store.create({ boardId: casa.id, title: 'Trocar a lâmpada', statusId: 'todo' })
+    await store.create({ boardId: casa.id, title: 'Trocar a lâmpada', statusId: await todoOf(store, casa.id) })
     const host = await mount(store)
     expect(cards(host)).toEqual([expect.stringContaining('T-1')])
 
@@ -173,7 +180,7 @@ describe('the board is edited in place (J5.4)', () => {
   it('renames and changes the prefix, and a task created after takes the new one', async () => {
     const store = newStore()
     const casa = await store.createBoard({ name: 'Casa', prefix: 'CASA' })
-    await store.create({ boardId: casa.id, title: 'um', statusId: 'todo' })
+    await store.create({ boardId: casa.id, title: 'um', statusId: await todoOf(store, casa.id) })
     localStorage.setItem('dailly.tasks.board', casa.id)
     const host = await mount(store)
 
@@ -187,7 +194,7 @@ describe('the board is edited in place (J5.4)', () => {
     await settle()
 
     expect(boardNames(host)).toEqual(['Tasks', 'Lar'])
-    expect((await store.create({ boardId: casa.id, title: 'dois', statusId: 'todo' })).keyPrefix).toBe('LAR')
+    expect((await store.create({ boardId: casa.id, title: 'dois', statusId: await todoOf(store, casa.id) })).keyPrefix).toBe('LAR')
     expect(cards(host)).toEqual([expect.stringContaining('CASA-1')])
   })
 
@@ -214,7 +221,7 @@ describe('gate #42: a late read of the board left behind does not cover the new 
     const store = newStore()
     const casa = await store.createBoard({ name: 'Casa', prefix: 'CASA' })
     await store.create({ boardId: SEED_BOARD.id, title: 'Pagar o condomínio', statusId: 'todo' })
-    await store.create({ boardId: casa.id, title: 'Trocar a lâmpada', statusId: 'todo' })
+    await store.create({ boardId: casa.id, title: 'Trocar a lâmpada', statusId: await todoOf(store, casa.id) })
     let hold: (() => void) | null = null
     let holding = false
     const port: TasksPort = {

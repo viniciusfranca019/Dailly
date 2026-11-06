@@ -2,8 +2,8 @@ import type { Migration } from '../../shell/module.js'
 
 /**
  * The Tasks slice of the `user_version`: 5 after Entries' 4 (the `kind` column
- * this facet hangs off), then 8 for the boards (F4, card #42) and 9 for the
- * comments (F7, card #45).
+ * this facet hangs off), then 8 for the boards (F4, card #42), 9 for the
+ * comments (F7, card #45) and 10 for the statuses of each board (F5, card #43).
  *
  * - `task_statuses` is seeded with the five fixed statuses of the v1; the
  *   category has a CHECK because rules read it, never the name (RN2). The
@@ -34,6 +34,20 @@ import type { Migration } from '../../shell/module.js'
  * later rebuild of `tasks` (the copy-and-rename above) drops that table, and
  * with `foreign_keys` on a cascade from it would take every comment along.
  * Deleting a task deletes its Entry, so the cascade still takes its comments.
+ *
+ * Migration 10 (F5): `task_statuses` becomes per board, rebuilt to gain
+ * `board_id` and `color`, with UNIQUE (`board_id`, `name`); `position` becomes
+ * `created_order`, the order of creation (the column order is the category's,
+ * then the creation's, RN11). The five of the v1 go to the board `tasks` with
+ * the same ids, where `tasks.status_id` already points (RN10). Every other
+ * board (made in F4) gets its own five, with ids `<board>:<old id>`, and its
+ * tasks point at them; no task changes key, rank nor "concluída em".
+ * `tasks` is rebuilt in the same step, pointing at the new table from the
+ * start: with `foreign_keys` on, dropping the old `task_statuses` while
+ * `tasks` still pointed at it would count every task as an orphan, deferred
+ * or not. Renaming the new table then rewrites that reference to
+ * `task_statuses`. The comments point at `entries`, so the rebuild does not
+ * touch them (migration 9).
  */
 export const TASKS_MIGRATIONS: readonly Migration[] = [
   {
@@ -121,6 +135,59 @@ export const TASKS_MIGRATIONS: readonly Migration[] = [
         created_at TEXT NOT NULL
       );
       CREATE INDEX idx_task_comments_entry_created ON task_comments(entry_id, created_at);
+    `,
+  },
+  {
+    version: 10,
+    up: `
+      CREATE TABLE task_statuses_v10 (
+        id            TEXT PRIMARY KEY,
+        board_id      TEXT NOT NULL REFERENCES task_boards(id),
+        name          TEXT NOT NULL,
+        category      TEXT NOT NULL
+                      CHECK (category IN ('backlog', 'unstarted', 'started', 'completed', 'canceled')),
+        color         TEXT NOT NULL
+                      CHECK (color IN ('blue', 'green', 'yellow', 'orange', 'red', 'purple', 'pink', 'gray')),
+        created_order INTEGER NOT NULL,
+        UNIQUE (board_id, name)
+      );
+      INSERT INTO task_statuses_v10 (id, board_id, name, category, color, created_order)
+        SELECT s.id, 'tasks', s.name, s.category,
+               CASE s.category WHEN 'started' THEN 'yellow' WHEN 'completed' THEN 'blue' ELSE 'gray' END,
+               s.position + 1
+          FROM task_statuses s;
+      INSERT INTO task_statuses_v10 (id, board_id, name, category, color, created_order)
+        SELECT b.id || ':' || s.id, b.id, s.name, s.category,
+               CASE s.category WHEN 'started' THEN 'yellow' WHEN 'completed' THEN 'blue' ELSE 'gray' END,
+               s.position + 1
+          FROM task_boards b CROSS JOIN task_statuses s
+         WHERE b.id <> 'tasks';
+
+      CREATE TABLE tasks_v10 (
+        entry_id     TEXT PRIMARY KEY REFERENCES entries(id) ON DELETE CASCADE,
+        board_id     TEXT NOT NULL REFERENCES task_boards(id),
+        key          INTEGER NOT NULL,
+        key_prefix   TEXT NOT NULL,
+        title        TEXT NOT NULL,
+        status_id    TEXT NOT NULL REFERENCES task_statuses_v10(id),
+        priority     INTEGER NOT NULL DEFAULT 0 CHECK (priority BETWEEN 0 AND 4),
+        rank         TEXT NOT NULL,
+        completed_at TEXT,
+        UNIQUE (board_id, key),
+        UNIQUE (key_prefix, key)
+      );
+      INSERT INTO tasks_v10 (entry_id, board_id, key, key_prefix, title, status_id, priority, rank, completed_at)
+        SELECT entry_id, board_id, key, key_prefix, title,
+               CASE board_id WHEN 'tasks' THEN status_id ELSE board_id || ':' || status_id END,
+               priority, rank, completed_at
+          FROM tasks;
+
+      DROP TABLE tasks;
+      DROP TABLE task_statuses;
+      ALTER TABLE task_statuses_v10 RENAME TO task_statuses;
+      ALTER TABLE tasks_v10 RENAME TO tasks;
+      CREATE INDEX idx_task_statuses_board ON task_statuses(board_id, created_order);
+      CREATE INDEX idx_tasks_board_status_rank ON tasks(board_id, status_id, rank);
     `,
   },
 ]

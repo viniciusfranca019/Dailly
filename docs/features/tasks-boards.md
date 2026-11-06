@@ -13,7 +13,7 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-06T15:00:00-03:00 }
 - No topo do Tasks, a **troca de boards** mostra os boards na ordem de criação, com
   "Tasks" primeiro. Trocar mostra só as tarefas daquele board, no board e na lista.
 - O **+** ao lado abre "Novo board": nome e prefixo ("Casa", "CASA"). O board novo
-  entra na troca e abre já nas cinco colunas, vazio.
+  entra na troca e abre nas cinco colunas, vazio.
 - O botão com o prefixo do board atual abre "Editar board": trocar o nome ou o
   prefixo. As tarefas criadas depois ganham o prefixo novo; as que já existiam
   mantêm a chave que tinham (CASA-1 continua CASA-1 quando o board passa a LAR).
@@ -63,8 +63,8 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-06T15:00:00-03:00 }
 
 # Entregue
 
-No card #42 (F4 do [PRD do Tasks](/prd/tasks.md)), em 2026-11-06. Os status próprios
-de cada board são da F5; até lá, todo board mostra os cinco status de hoje.
+No card #42 (F4 do [PRD do Tasks](/prd/tasks.md)), em 2026-11-06. Desde a F5 cada board
+tem os seus [status](/features/tasks-status.md), e um board novo nasce com os cinco.
 
 # Limites
 

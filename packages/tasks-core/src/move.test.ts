@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { completionAfterMove, placeAt } from './move.js'
-import { DEFAULT_STATUSES, type Task } from './task.js'
+import { completionAfterMove, placeAt, ranksOnTop } from './move.js'
+import { SEED_STATUS_IDS, seedStatusesFor } from './status.js'
+import type { Task } from './task.js'
+
+const DEFAULT_STATUSES = seedStatusesFor('tasks', SEED_STATUS_IDS)
 
 const task = (key: number, statusId: string, rank: string, completedAt: string | null = null): Task => ({
   id: `id-${key}`,
@@ -65,5 +68,20 @@ describe('completionAfterMove (RN3)', () => {
   it('keeps the first stamp between two closed statuses, and nothing on open ones', () => {
     expect(completionAfterMove('2026-11-01T10:00:00.000Z', category('canceled'), NOW)).toBe('2026-11-01T10:00:00.000Z')
     expect(completionAfterMove(null, category('backlog'), NOW)).toBeNull()
+  })
+})
+
+describe('ranksOnTop (#43, RN12)', () => {
+  it('puts the tasks above the top of the column, in their order', () => {
+    const ranks = ranksOnTop(3, 'i')
+    expect(ranks).toHaveLength(3)
+    expect([...ranks].sort()).toEqual(ranks)
+    expect(ranks[2]! < 'i').toBe(true)
+  })
+
+  it('works on an empty column, and for none', () => {
+    const ranks = ranksOnTop(2, undefined)
+    expect(ranks[0]! < ranks[1]!).toBe(true)
+    expect(ranksOnTop(0, 'i')).toEqual([])
   })
 })
