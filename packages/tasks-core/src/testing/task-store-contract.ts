@@ -79,6 +79,8 @@ export function taskStoreContract(label: string, { make }: { make: () => TaskSto
 
       expect(await store.comments(T(9))).toBeNull()
       expect(await store.addComment(T(9), 'x')).toBeNull()
+      // The task is looked up first: a body for a task that is gone is moot.
+      expect(await store.addComment(T(9), '   ')).toBeNull()
       expect(await store.deleteComment(T(9), other!.id)).toBe('task-not-found')
       expect(await store.deleteComment(T(1), other!.id)).toBe('comment-not-found')
       expect(await store.comments(T(2))).toEqual([other])

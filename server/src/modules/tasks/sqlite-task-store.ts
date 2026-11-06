@@ -250,9 +250,10 @@ export function sqliteTaskStore({ db, newId, now }: SqliteTaskStoreDeps): TaskSt
     },
 
     async addComment(key, body) {
-      const normalized = normalizeCommentBody(body)
+      // The task first, as the fake does: a body for a task that is gone is moot.
       const entry = entryOf(key)
       if (entry === undefined) return null
+      const normalized = normalizeCommentBody(body)
       const comment: TaskComment = { id: newId(), body: normalized, createdAt: now() }
       db.prepare('INSERT INTO task_comments (id, entry_id, body, created_at) VALUES (?, ?, ?, ?)').run(
         comment.id,

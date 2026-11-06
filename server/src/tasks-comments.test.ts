@@ -49,7 +49,7 @@ describe('POST /tasks/:key/comments', () => {
   })
 
   it('answers 404 "tarefa não encontrada" for a key with no task', async () => {
-    for (const response of [await post('T-9', { body: 'x' }), await list('T-9'), await post('xyz', { body: 'x' })]) {
+    for (const response of [await post('T-9', { body: 'x' }), await post('T-9', { body: '   ' }), await list('T-9'), await post('xyz', { body: 'x' })]) {
       expect(response.statusCode).toBe(404)
       expect(response.json()).toEqual({ error: 'tarefa não encontrada' })
     }
