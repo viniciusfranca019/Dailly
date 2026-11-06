@@ -129,4 +129,28 @@ describe('httpTasksClient', () => {
     expect(await client.delete({ prefix: 'CASA', key: 2 })).toBe(true)
     expect([seen.url, seen.init?.method]).toEqual(['/api/tasks/CASA-2', 'DELETE'])
   })
+
+  it('#45: reads, posts and deletes the comments under the whole key, and 404 is gone', async () => {
+    const comment = { id: 'c1', body: 'ele vem quinta', createdAt: '2026-11-05T17:32:00.000Z' }
+    const seen: { url?: string; init?: RequestInit } = {}
+    expect(await httpTasksClient({ config, fetch: answering(200, [comment], seen) }).comments({ prefix: 'CASA', key: 3 })).toEqual([comment])
+    expect(seen.url).toBe('/api/tasks/CASA-3/comments')
+
+    const posted: { url?: string; init?: RequestInit } = {}
+    expect(await httpTasksClient({ config, fetch: answering(201, comment, posted) }).addComment({ prefix: 'T', key: 1 }, 'ele vem quinta')).toEqual(comment)
+    expect([posted.url, posted.init?.method, JSON.parse(posted.init?.body as string)]).toEqual([
+      '/api/tasks/T-1/comments',
+      'POST',
+      { body: 'ele vem quinta' },
+    ])
+
+    const gone = httpTasksClient({ config, fetch: answering(404, { error: 'tarefa não encontrada' }) })
+    expect(await gone.comments({ prefix: 'T', key: 9 })).toBeNull()
+    expect(await gone.addComment({ prefix: 'T', key: 9 }, 'x')).toBeNull()
+    expect(await gone.deleteComment({ prefix: 'T', key: 9 }, 'c1')).toBe(false)
+    await expect(httpTasksClient({ config, fetch: answering(200, [{ ...comment, body: 3 }]) }).comments({ prefix: 'T', key: 1 })).rejects.toThrow(ApiError)
+    await expect(
+      httpTasksClient({ config, fetch: answering(400, { errors: [{ field: 'body', message: 'o comentário é obrigatório' }] }) }).addComment({ prefix: 'T', key: 1 }, ' '),
+    ).rejects.toThrow('o comentário é obrigatório')
+  })
 })

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { TimeZone } from '@dailly/periods'
 import { WhiteboardDocument } from '@dailly/whiteboard-core'
 import { mountWhiteboard, type WhiteboardHandle } from '@capabilities/whiteboard/dom'
 import {
@@ -13,6 +14,7 @@ import {
 import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import type { Draft } from '../../model/draft.js'
 import { PANEL_WIDTH } from '../../model/width.js'
+import TaskComments, { type CommentsAccess } from './TaskComments.vue'
 
 /**
  * The panel of one task (card #22): title, status, priority and the body in
@@ -32,6 +34,9 @@ const props = defineProps<{
   remove: () => Promise<void>
   /** In pixels, already inside the limits (card #44). */
   width: number
+  /** The task's comments (card #45), read in a GET of their own. */
+  comments: CommentsAccess
+  zone: TimeZone
 }>()
 const emit = defineEmits<{
   close: []
@@ -156,6 +161,8 @@ function escapeIsMine(event: Event): boolean {
   const target = event.target
   if (!(target instanceof Node) || target === document.body || target === document.documentElement) return true
   if (boardHost.value?.contains(target)) return false
+  // The comment editor is a block editor too, with its own Escape.
+  if (target instanceof Element && target.closest('[data-editor]')) return false
   return root.value?.contains(target) ?? false
 }
 
@@ -282,6 +289,8 @@ function onKeydown(event: KeyboardEvent): void {
             <button type="button" class="px-3 py-1 text-gray-300" @click="confirming = false">Cancelar</button>
           </div>
         </div>
+
+        <TaskComments :access="comments" :zone="zone" @gone="gone = true" />
       </template>
     </div>
   </aside>

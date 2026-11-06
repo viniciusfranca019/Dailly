@@ -1,4 +1,5 @@
 import type { Board, BoardPatch, NewBoard } from './board.js'
+import type { TaskComment } from './comment.js'
 import type { Placement } from './move.js'
 import type { Priority, Task, TaskKey, TaskStatus } from './task.js'
 
@@ -68,4 +69,18 @@ export interface TaskStore {
   update(key: TaskKey, patch: TaskPatch): Promise<Task | null>
   /** `false` when no task has that key. */
   delete(key: TaskKey): Promise<boolean>
+  /**
+   * A task's comments, oldest first, ties broken by id (card #45). `null`
+   * when no task has that key.
+   */
+  comments(key: TaskKey): Promise<readonly TaskComment[] | null>
+  /**
+   * Stamped with the store's clock. `null` when no task has that key; throws
+   * `CommentRequiredError` for an empty body, and nothing is written then.
+   */
+  addComment(key: TaskKey, body: string): Promise<TaskComment | null>
+  /** A comment of another task is not found, as one that does not exist. */
+  deleteComment(key: TaskKey, id: string): Promise<CommentDeletion>
 }
+
+export type CommentDeletion = 'deleted' | 'task-not-found' | 'comment-not-found'

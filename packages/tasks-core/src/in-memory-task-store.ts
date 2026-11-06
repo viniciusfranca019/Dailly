@@ -6,6 +6,7 @@ import {
   normalizePrefix,
   type Board,
 } from './board.js'
+import { normalizeCommentBody, type TaskComment } from './comment.js'
 import { completionAfterMove } from './move.js'
 import { rankBetween } from './rank.js'
 import {
@@ -45,6 +46,8 @@ export function inMemoryTaskStore({ newId, now }: InMemoryTaskStoreDeps): TaskSt
   /** Every prefix a board ever used, and whose it is (RN9). */
   const prefixes = new Map<string, string>([[SEED_BOARD.prefix, SEED_BOARD.id]])
   const tasks: Task[] = []
+  /** By the task's id (the Entry's), gone with it, as `ON DELETE CASCADE`. */
+  const comments = new Map<string, TaskComment[]>()
 
   const same = (task: Task, { prefix, key }: TaskKey) => task.keyPrefix === prefix && task.key === key
   const claim = (prefix: string, boardId: string | null) => {
@@ -145,8 +148,37 @@ export function inMemoryTaskStore({ newId, now }: InMemoryTaskStoreDeps): TaskSt
     async delete(key) {
       const index = tasks.findIndex((task) => same(task, key))
       if (index < 0) return false
-      tasks.splice(index, 1)
+      const [removed] = tasks.splice(index, 1)
+      if (removed) comments.delete(removed.id)
       return true
+    },
+
+    async comments(key) {
+      const task = tasks.find((candidate) => same(candidate, key))
+      if (!task) return null
+      return [...(comments.get(task.id) ?? [])].sort(
+        (a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+      )
+    },
+
+    async addComment(key, body) {
+      const task = tasks.find((candidate) => same(candidate, key))
+      if (!task) return null
+      const comment: TaskComment = { id: newId(), body: normalizeCommentBody(body), createdAt: now() }
+      comments.set(task.id, [...(comments.get(task.id) ?? []), comment])
+      return comment
+    },
+
+    async deleteComment(key, id) {
+      const task = tasks.find((candidate) => same(candidate, key))
+      if (!task) return 'task-not-found'
+      const own = comments.get(task.id) ?? []
+      if (!own.some((comment) => comment.id === id)) return 'comment-not-found'
+      comments.set(
+        task.id,
+        own.filter((comment) => comment.id !== id),
+      )
+      return 'deleted'
     },
   }
 }

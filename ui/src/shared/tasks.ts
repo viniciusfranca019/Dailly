@@ -1,4 +1,14 @@
-import type { Board, BoardPatch, NewBoard, NewTask, Task, TaskBoard, TaskKey, TaskPatch } from '@dailly/tasks-core'
+import type {
+  Board,
+  BoardPatch,
+  NewBoard,
+  NewTask,
+  Task,
+  TaskBoard,
+  TaskComment,
+  TaskKey,
+  TaskPatch,
+} from '@dailly/tasks-core'
 
 /**
  * The port of the Tasks module, in the words of the screen that consumes it.
@@ -25,6 +35,12 @@ export interface TasksPort {
   update(key: TaskKey, patch: TaskPatch): Promise<Task | null>
   /** `false` when the task was already gone. */
   delete(key: TaskKey): Promise<boolean>
+  /** Oldest first (card #45); `null` when the task no longer exists. */
+  comments(key: TaskKey): Promise<readonly TaskComment[] | null>
+  /** `null` when the task no longer exists; throws on a refusal. */
+  addComment(key: TaskKey, body: string): Promise<TaskComment | null>
+  /** `false` when the comment or its task was already gone. */
+  deleteComment(key: TaskKey, id: string): Promise<boolean>
 }
 
 export type {
@@ -35,6 +51,7 @@ export type {
   Placement,
   Task,
   TaskBoard,
+  TaskComment,
   TaskKey,
   TaskPatch,
   TaskStatus,

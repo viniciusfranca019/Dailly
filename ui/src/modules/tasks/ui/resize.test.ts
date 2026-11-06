@@ -32,6 +32,9 @@ async function mount(): Promise<HTMLElement> {
     create: (input) => store.create(input),
     update: (key, patch) => store.update(key, patch),
     delete: (key) => store.delete(key),
+    comments: (key) => store.comments(key),
+    addComment: (key, body) => store.addComment(key, body),
+    deleteComment: async (key, id) => (await store.deleteComment(key, id)) === 'deleted',
   }
   const host = document.createElement('div')
   document.body.append(host)

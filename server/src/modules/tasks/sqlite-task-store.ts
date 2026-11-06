@@ -8,6 +8,7 @@ import {
   isPriority,
   isRank,
   normalizeBoardName,
+  normalizeCommentBody,
   normalizePrefix,
   normalizeTitle,
   rankBetween,
@@ -15,6 +16,7 @@ import {
   type Priority,
   type StatusCategory,
   type Task,
+  type TaskComment,
   type TaskKey,
   type TaskPatch,
   type TaskStatus,
@@ -74,7 +76,21 @@ const SELECT_TASKS = `
 
 const SELECT_BOARD = 'SELECT id, name, prefix FROM task_boards'
 
+interface CommentRow {
+  readonly id: string
+  readonly body: string
+  readonly created_at: string
+}
+
+const toComment = (row: CommentRow): TaskComment => ({ id: row.id, body: row.body, createdAt: row.created_at })
+
 export function sqliteTaskStore({ db, newId, now }: SqliteTaskStoreDeps): TaskStore {
+  /** The Entry id of a task, which is also its id; `undefined` when no task has that key. */
+  const entryOf = ({ prefix, key }: TaskKey): string | undefined =>
+    (db.prepare('SELECT entry_id FROM tasks WHERE key_prefix = ? AND key = ?').get(prefix, key) as
+      | { entry_id: string }
+      | undefined)?.entry_id
+
   const statuses = (): TaskStatus[] =>
     db.prepare('SELECT id, name, category, position FROM task_statuses ORDER BY position').all() as StatusRow[]
   const findBoard = (id: string) => db.prepare(`${SELECT_BOARD} WHERE id = ?`).get(id) as Board | undefined
@@ -219,9 +235,40 @@ export function sqliteTaskStore({ db, newId, now }: SqliteTaskStoreDeps): TaskSt
         | { entry_id: string }
         | undefined
       if (!found) return false
-      // The facet goes with the Entry (ON DELETE CASCADE).
+      // The facet and its comments go with the Entry (ON DELETE CASCADE).
       deleteEntryRow(db, found.entry_id)
       return true
+    },
+
+    async comments(key) {
+      const entry = entryOf(key)
+      if (entry === undefined) return null
+      const rows = db
+        .prepare('SELECT id, body, created_at FROM task_comments WHERE entry_id = ? ORDER BY created_at, id')
+        .all(entry) as CommentRow[]
+      return rows.map(toComment)
+    },
+
+    async addComment(key, body) {
+      // The task first, as the fake does: a body for a task that is gone is moot.
+      const entry = entryOf(key)
+      if (entry === undefined) return null
+      const normalized = normalizeCommentBody(body)
+      const comment: TaskComment = { id: newId(), body: normalized, createdAt: now() }
+      db.prepare('INSERT INTO task_comments (id, entry_id, body, created_at) VALUES (?, ?, ?, ?)').run(
+        comment.id,
+        entry,
+        comment.body,
+        comment.createdAt,
+      )
+      return comment
+    },
+
+    async deleteComment(key, id) {
+      const entry = entryOf(key)
+      if (entry === undefined) return 'task-not-found'
+      const { changes } = db.prepare('DELETE FROM task_comments WHERE id = ? AND entry_id = ?').run(id, entry)
+      return changes > 0 ? 'deleted' : 'comment-not-found'
     },
   }
 }

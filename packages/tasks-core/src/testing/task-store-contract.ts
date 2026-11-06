@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { CommentRequiredError } from '../comment.js'
 import {
   BoardNotFoundError,
   InvalidPrefixError,
@@ -34,6 +35,67 @@ const seedBoard = async (store: TaskStore) => {
 
 export function taskStoreContract(label: string, { make }: { make: () => TaskStore }): void {
   describe(`${label} — contrato do TaskStore`, () => {
+    it('#45 C1: comenta a tarefa, e lê os comentários do mais antigo ao mais novo', async () => {
+      const store = make()
+      await store.create({ boardId: IN, title: 'um', statusId: 'todo' })
+
+      const first = await store.addComment(T(1), '  liguei pro encanador \n')
+      const second = await store.addComment(T(1), 'ele vem **quinta**')
+
+      expect(first).toMatchObject({ body: 'liguei pro encanador', createdAt: expect.any(String) })
+      expect(second?.id).not.toBe(first?.id)
+      expect((await store.comments(T(1)))?.map((comment) => comment.body)).toEqual([
+        'liguei pro encanador',
+        'ele vem **quinta**',
+      ])
+    })
+
+    it('#45 C3: recusa o comentário vazio e não grava nada', async () => {
+      const store = make()
+      await store.create({ boardId: IN, title: 'um', statusId: 'todo' })
+
+      for (const body of ['', '   ', '\n \n']) {
+        await expect(store.addComment(T(1), body)).rejects.toThrow(CommentRequiredError)
+      }
+      expect(await store.comments(T(1))).toEqual([])
+    })
+
+    it('#45 C5: apaga o comentário, e ele não volta', async () => {
+      const store = make()
+      await store.create({ boardId: IN, title: 'um', statusId: 'todo' })
+      const kept = await store.addComment(T(1), 'liguei pro encanador')
+      const gone = await store.addComment(T(1), 'ele vem quinta')
+
+      expect(await store.deleteComment(T(1), gone!.id)).toBe('deleted')
+      expect(await store.comments(T(1))).toEqual([kept])
+      expect(await store.deleteComment(T(1), gone!.id)).toBe('comment-not-found')
+    })
+
+    it('#45: a tarefa que não existe não tem comentário, e o de outra tarefa não é achado', async () => {
+      const store = make()
+      await store.create({ boardId: IN, title: 'um', statusId: 'todo' })
+      await store.create({ boardId: IN, title: 'dois', statusId: 'todo' })
+      const other = await store.addComment(T(2), 'da dois')
+
+      expect(await store.comments(T(9))).toBeNull()
+      expect(await store.addComment(T(9), 'x')).toBeNull()
+      // The task is looked up first: a body for a task that is gone is moot.
+      expect(await store.addComment(T(9), '   ')).toBeNull()
+      expect(await store.deleteComment(T(9), other!.id)).toBe('task-not-found')
+      expect(await store.deleteComment(T(1), other!.id)).toBe('comment-not-found')
+      expect(await store.comments(T(2))).toEqual([other])
+    })
+
+    it('#45: os comentários vão junto com a tarefa apagada', async () => {
+      const store = make()
+      await store.create({ boardId: IN, title: 'um', statusId: 'todo' })
+      await store.addComment(T(1), 'x')
+
+      await store.delete(T(1))
+
+      expect(await store.comments(T(1))).toBeNull()
+    })
+
     it('nasce com o board "Tasks", de prefixo T (RN10)', async () => {
       expect(await make().boards()).toEqual([SEED_BOARD])
     })

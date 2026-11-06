@@ -77,3 +77,16 @@ describe('sqliteTaskStore — the task is an Entry (RN1)', () => {
     })
   })
 })
+
+describe('sqliteTaskStore — the comments go with the task (card #45)', () => {
+  it('leaves no row in task_comments after the task is deleted', async () => {
+    const db = migrated()
+    const store = sqliteTaskStore({ db, ...deps() })
+    await store.create({ boardId: 'tasks', title: 'x', statusId: 'todo' })
+    await store.addComment({ prefix: 'T', key: 1 }, 'ele vem quinta')
+
+    await store.delete({ prefix: 'T', key: 1 })
+
+    expect(db.prepare('SELECT count(*) AS total FROM task_comments').get()).toEqual({ total: 0 })
+  })
+})

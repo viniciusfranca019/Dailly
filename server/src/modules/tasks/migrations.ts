@@ -2,7 +2,8 @@ import type { Migration } from '../../shell/module.js'
 
 /**
  * The Tasks slice of the `user_version`: 5 after Entries' 4 (the `kind` column
- * this facet hangs off), then 8 for the boards (F4, card #42).
+ * this facet hangs off), then 8 for the boards (F4, card #42) and 9 for the
+ * comments (F7, card #45).
  *
  * - `task_statuses` is seeded with the five fixed statuses of the v1; the
  *   category has a CHECK because rules read it, never the name (RN2). The
@@ -26,6 +27,13 @@ import type { Migration } from '../../shell/module.js'
  *   on the task (RN5). SQLite cannot add a NOT NULL foreign key nor swap a
  *   UNIQUE in place, hence the copy; every row, key and status is kept and
  *   lands in the board `tasks` with prefix T. `entries` is not touched.
+ *
+ * Migration 9 (F7): `task_comments`, the comments of a task (P4 of the PRD:
+ * not Entries, so they never reach the Daily Log, RN14). `entry_id` is the
+ * task's Entry, and the foreign key points at `entries`, not at `tasks`: a
+ * later rebuild of `tasks` (the copy-and-rename above) drops that table, and
+ * with `foreign_keys` on a cascade from it would take every comment along.
+ * Deleting a task deletes its Entry, so the cascade still takes its comments.
  */
 export const TASKS_MIGRATIONS: readonly Migration[] = [
   {
@@ -101,6 +109,18 @@ export const TASKS_MIGRATIONS: readonly Migration[] = [
       DROP TABLE tasks;
       ALTER TABLE tasks_v8 RENAME TO tasks;
       CREATE INDEX idx_tasks_board_status_rank ON tasks(board_id, status_id, rank);
+    `,
+  },
+  {
+    version: 9,
+    up: `
+      CREATE TABLE task_comments (
+        id         TEXT PRIMARY KEY,
+        entry_id   TEXT NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
+        body       TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+      CREATE INDEX idx_task_comments_entry_created ON task_comments(entry_id, created_at);
     `,
   },
 ]
