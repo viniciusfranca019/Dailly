@@ -219,3 +219,36 @@ describe('gate #46, round 2: a labels read that failed strips nothing', () => {
     expect((await w.store.board(SEED_BOARD.id))!.tasks[0]).toMatchObject({ title: 'novo', labelIds: ['l1'] })
   })
 })
+
+describe('gate #46, round 3: a late labels read does not undo a label just created', () => {
+  it('saves T-1 with "casa" when the read from the mount answers after the one from the creation', async () => {
+    const w = await world()
+    let calls = 0
+    let release: (() => void) | null = null
+    const host = await mount({
+      store: w.store,
+      labels: {
+        ...w.labels,
+        list: async () => {
+          calls += 1
+          const before = await w.labels.list()
+          // The read of the next board load is slow, and answers with the list from before "casa".
+          if (calls === 2) await new Promise<void>((resolve) => (release = resolve))
+          return before
+        },
+      },
+    })
+    await openT1(host)
+    // A write rereads the board, which reads the labels again (call 2, held).
+    panel(host)!.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true }))
+    await settle()
+
+    await confirmLabel(host, 'casa')
+    ;(release as (() => void) | null)?.()
+    await settle()
+    await save(host)
+
+    const [casa] = await w.labels.list()
+    expect((await w.store.board(SEED_BOARD.id))!.tasks[0]?.labelIds).toEqual([casa!.id])
+  })
+})

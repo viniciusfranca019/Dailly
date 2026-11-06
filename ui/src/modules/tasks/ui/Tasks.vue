@@ -84,13 +84,19 @@ async function readBoards(): Promise<void> {
 let ticket = 0
 
 /** A failed read of the labels leaves the chips out; the board still shows (RN7 rereads them). */
+/** As with the board, only the latest labels read writes them: a late one would bring back an old list. */
+let labelsTicket = 0
+
 async function loadLabels(): Promise<void> {
+  const mine = (labelsTicket += 1)
   try {
-    labels.value = await props.deps.labels.list()
+    const read = await props.deps.labels.list()
+    if (mine !== labelsTicket) return
+    labels.value = read
     labelsRead.value = true
   } catch {
     // the next write reads them again
-    labelsRead.value = false
+    if (mine === labelsTicket) labelsRead.value = false
   }
 }
 
