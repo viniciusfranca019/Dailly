@@ -205,3 +205,42 @@ describe('the board is edited in place (J5.4)', () => {
     expect(await store.boards()).toEqual([SEED_BOARD, casa])
   })
 })
+
+describe('gate #42: a late read of the board left behind does not cover the new one', () => {
+  it('shows only CASA-1 when the read of "Tasks" answers after the switch to "Casa"', async () => {
+    const store = newStore()
+    const casa = await store.createBoard({ name: 'Casa', prefix: 'CASA' })
+    await store.create({ boardId: SEED_BOARD.id, title: 'Pagar o condomínio', statusId: 'todo' })
+    await store.create({ boardId: casa.id, title: 'Trocar a lâmpada', statusId: 'todo' })
+    let hold: (() => void) | null = null
+    let holding = false
+    const port: TasksPort = {
+      ...portOver(store),
+      board: async (boardId) => {
+        const answer = await store.board(boardId)
+        if (holding && boardId === SEED_BOARD.id) await new Promise<void>((resolve) => (hold = resolve))
+        return answer
+      },
+    }
+    const host = document.createElement('div')
+    document.body.append(host)
+    app = createApp(Tasks, { deps: { ...testSharedDeps(), tasks: port } })
+    app.mount(host)
+    await settle()
+
+    // A write on "Tasks" rereads it, and that read is slow.
+    holding = true
+    button(host, 'Nova tarefa em A fazer')!.click()
+    await settle()
+    const input = host.querySelector<HTMLInputElement>('input[aria-label="Título da nova tarefa"]')!
+    type(input, 'Nova')
+    input.closest('form')!.dispatchEvent(new Event('submit', { cancelable: true }))
+    await settle()
+    await switchTo(host, 'Casa')
+    ;(hold as (() => void) | null)?.()
+    await settle()
+
+    expect(switcher(host)?.selectedOptions[0]?.textContent?.trim()).toBe('Casa')
+    expect(cards(host)).toEqual([expect.stringMatching(/CASA-1.*Trocar a lâmpada/)])
+  })
+})

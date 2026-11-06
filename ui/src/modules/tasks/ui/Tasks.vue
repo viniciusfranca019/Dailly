@@ -71,20 +71,29 @@ async function readBoards(): Promise<void> {
   if (!boards.value.some((board) => board.id === current.value)) current.value = lastBoard.pick(boards.value)
 }
 
+/**
+ * Each read takes a ticket, and only the latest one writes the screen: a slow
+ * read of the board left behind must not land over the board switched to.
+ */
+let ticket = 0
+
 async function load(): Promise<void> {
+  const mine = (ticket += 1)
+  let next: Read
   try {
     if (current.value === null) await readBoards()
     let board = current.value === null ? null : await props.deps.tasks.board(current.value)
-    if (!board) {
+    if (!board && mine === ticket) {
       // The board went away between two reads: fall back to the first one.
       await readBoards()
       board = current.value === null ? null : await props.deps.tasks.board(current.value)
     }
     if (!board) throw new Error('board não encontrado')
-    read.value = { state: 'ready', board }
+    next = { state: 'ready', board }
   } catch (cause) {
-    read.value = { state: 'failed', message: message(cause, 'não consegui ler as tarefas') }
+    next = { state: 'failed', message: message(cause, 'não consegui ler as tarefas') }
   }
+  if (mine === ticket) read.value = next
 }
 
 onMounted(load)
@@ -102,9 +111,10 @@ async function switchBoard(boardId: string): Promise<void> {
 /** Throws on refusal, so the form keeps what was typed and shows why (C2, C3). */
 async function createBoard(input: { name: string; prefix: string }): Promise<void> {
   const created = await props.deps.tasks.createBoard(input)
-  editing.value = null
   justCreated.value = created.id
   await readBoards()
+  // Closed only after the reread, so a failed read still has the form to say so.
+  editing.value = null
   await switchBoard(created.id)
 }
 
@@ -112,8 +122,8 @@ async function updateBoard(input: { name: string; prefix: string }): Promise<voi
   if (current.value === null) return
   const updated = await props.deps.tasks.updateBoard(current.value, input)
   if (!updated) throw new Error('board não encontrado')
-  editing.value = null
   await readBoards()
+  editing.value = null
 }
 
 /** The whole key of a task on the screen: its frozen prefix and its number (RN5). */
