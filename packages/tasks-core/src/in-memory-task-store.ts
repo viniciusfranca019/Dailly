@@ -8,6 +8,7 @@ import {
 } from './board.js'
 import { normalizeCommentBody, type TaskComment } from './comment.js'
 import { completionAfterMove, ranksOnTop } from './move.js'
+import { SEARCH_LIMIT, matchesTitle, searchKey, type TaskSearchResult } from './search.js'
 import {
   InvalidMoveToError,
   LastStatusError,
@@ -178,6 +179,27 @@ export function inMemoryTaskStore({ newId, now }: InMemoryTaskStoreDeps): TaskSt
       const [removed] = tasks.splice(index, 1)
       if (removed) comments.delete(removed.id)
       return true
+    },
+
+    async search(text) {
+      if (text.trim() === '') return []
+      const named = searchKey(text)
+      const exact = named ? tasks.filter((task) => same(task, named)) : []
+      // Newest first: by the creation instant, then by the order they were made.
+      const byTitle = [...tasks]
+        .reverse()
+        .sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0))
+        .filter((task) => !exact.includes(task) && matchesTitle(task.title, text))
+      const boardName = (id: string) => boards.find((board) => board.id === id)?.name ?? ''
+      return [...exact, ...byTitle].slice(0, SEARCH_LIMIT).map(
+        (task): TaskSearchResult => ({
+          key: task.key,
+          keyPrefix: task.keyPrefix,
+          title: task.title,
+          boardId: task.boardId,
+          boardName: boardName(task.boardId),
+        }),
+      )
     },
 
     async addStatus(boardId, input) {

@@ -17,6 +17,8 @@ export {
 export type { Board, BoardPatch, NewBoard } from './board.js'
 export { CommentRequiredError, normalizeCommentBody } from './comment.js'
 export type { TaskComment } from './comment.js'
+export { SEARCH_LIMIT, matchesTitle, searchKey } from './search.js'
+export type { TaskSearchResult } from './search.js'
 export { rankBetween } from './rank.js'
 export { completionAfterMove, placeAt, ranksOnTop } from './move.js'
 export {

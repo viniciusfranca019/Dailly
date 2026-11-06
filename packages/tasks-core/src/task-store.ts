@@ -1,6 +1,7 @@
 import type { Board, BoardPatch, NewBoard } from './board.js'
 import type { TaskComment } from './comment.js'
 import type { Placement } from './move.js'
+import type { TaskSearchResult } from './search.js'
 import type { NewStatus, StatusPatch } from './status.js'
 import type { Priority, Task, TaskKey, TaskStatus } from './task.js'
 
@@ -99,6 +100,11 @@ export interface TaskStore {
    * nothing changes then.
    */
   deleteStatus(id: string, moveTo?: string): Promise<boolean>
+  /**
+   * Tasks of every board by key or part of the title (card #47): the exact key
+   * first, then the most recent, at most `SEARCH_LIMIT`. Empty text finds none.
+   */
+  search(text: string): Promise<readonly TaskSearchResult[]>
 }
 
 export type CommentDeletion = 'deleted' | 'task-not-found' | 'comment-not-found'
