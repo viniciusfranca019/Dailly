@@ -301,7 +301,7 @@ async function drop(statusId: string, beforeKey: number | null): Promise<void> {
         class="rounded px-1.5 text-xs text-[#747e8f] hover:bg-[#1e2638] hover:text-gray-100"
         @click="statusDialog = { mode: 'add' }"
       >
-        + status
+        <span aria-hidden="true">+ </span>Adicionar status
       </button>
       <button
         v-if="boards.length > 0"

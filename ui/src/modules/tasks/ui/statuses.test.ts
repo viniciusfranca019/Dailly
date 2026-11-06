@@ -258,3 +258,40 @@ describe('C8: Cancelar a escolha do destino não muda nada (J6.4a)', () => {
     expect((await store.board(casa))!.statuses.map((status) => status.name)).toContain('Revisão')
   })
 })
+
+describe('gate #43: the last status, with tasks, asks for no destination', () => {
+  it('sends no moveTo, so the API answers with RN11 and not with a bad moveTo', async () => {
+    const { store, casa } = await casaStore()
+    for (const status of (await store.board(casa))!.statuses) {
+      if (status.name !== 'A fazer') await store.deleteStatus(status.id)
+    }
+    await store.create({ boardId: casa, title: 'um', statusId: await statusId(store, casa, 'A fazer') })
+    const calls: (string | undefined)[] = []
+    const host = document.createElement('div')
+    document.body.append(host)
+    app = createApp(Tasks, {
+      deps: {
+        ...testSharedDeps({ now: NOW }),
+        tasks: {
+          ...portOver(store),
+          deleteStatus: (id: string, moveTo?: string) => {
+            calls.push(moveTo)
+            return store.deleteStatus(id, moveTo)
+          },
+        },
+      },
+    })
+    app.mount(host)
+    await settle()
+
+    button(column(host, 'A fazer'), 'Apagar status A fazer')!.click()
+    await settle()
+    const dialog = host.querySelector('[role="alertdialog"]')!
+    expect(dialog.querySelector('select')).toBeNull()
+    button(dialog, 'Apagar status')!.click()
+    await settle()
+
+    expect(calls).toEqual([undefined])
+    expect(dialog.querySelector('[role="alert"]')?.textContent?.trim()).toBe('o board precisa de ao menos um status')
+  })
+})
