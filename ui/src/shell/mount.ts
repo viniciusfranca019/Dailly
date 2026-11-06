@@ -266,7 +266,9 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
   /** One listener for every command; the Ctrl+S of the panel and the composer stay where they are. */
   function onKeydown(event: KeyboardEvent): void {
     if (command.value && event.key === 'Escape') {
+      // The command's Esc only: a screen under it (the task panel) must not take it too.
       event.preventDefault()
+      event.stopImmediatePropagation()
       closeCommand()
       return
     }

@@ -82,5 +82,14 @@ describe('C7: Escolher abre a tarefa no board dela (J10.3)', () => {
     expect(host.querySelector<HTMLSelectElement>('select[aria-label="Board"]')?.selectedOptions[0]?.textContent?.trim()).toBe('Casa')
     expect(host.querySelector('[role="dialog"][aria-label="CASA-3"]')).not.toBeNull()
     expect(host.querySelector('input[aria-label="Buscar tarefa"]')).toBeNull()
+
+    // gate #47, round 2: the Esc that closes the search is not the panel's too.
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, cancelable: true }))
+    await until(() => host.querySelector('input[aria-label="Buscar tarefa"]'))
+    ;(document.activeElement as HTMLElement | null)?.blur()
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }))
+    await settle()
+    expect(host.querySelector('input[aria-label="Buscar tarefa"]')).toBeNull()
+    expect(host.querySelector('[role="dialog"][aria-label="CASA-3"]')).not.toBeNull()
   })
 })
