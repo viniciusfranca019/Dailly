@@ -199,6 +199,20 @@ async function save(key: number, draft: Draft): Promise<boolean> {
   }
 }
 
+/**
+ * The panel's door to the comments of one task (card #45). The whole key is
+ * taken from the task the panel opened with, so a comment is sent to that
+ * task even after the board is reread.
+ */
+function commentsOf(task: Task) {
+  const whole: TaskKey = { prefix: task.keyPrefix, key: task.key }
+  return {
+    list: () => props.deps.tasks.comments(whole),
+    add: (body: string) => props.deps.tasks.addComment(whole, body),
+    remove: (id: string) => props.deps.tasks.deleteComment(whole, id),
+  }
+}
+
 async function remove(key: number): Promise<void> {
   const whole = keyOf(key)
   if (whole) await props.deps.tasks.delete(whole)
@@ -364,6 +378,8 @@ async function drop(statusId: string, beforeKey: number | null): Promise<void> {
         :save="(draft: Draft) => save(panelTask!.key, draft)"
         :remove="() => remove(panelTask!.key)"
         :width="panelWidth.width.value"
+        :comments="commentsOf(panelTask)"
+        :zone="deps.zone"
         @resize="panelWidth.follow"
         @resized="panelWidth.settle"
         @close="close"

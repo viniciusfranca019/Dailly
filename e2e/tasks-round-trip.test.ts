@@ -24,6 +24,17 @@ async function overTheWire() {
 }
 
 describe('Tasks, end to end', () => {
+  it('#45 C5, C7: a comment travels as markdown, is deleted for good, and never reaches the Daily Log', async () => {
+    const { tasks, entries } = await overTheWire()
+    await tasks.create({ boardId: 'tasks', title: 'Chamar o encanador', statusId: 'todo' })
+    const sent = await tasks.addComment({ prefix: 'T', key: 1 }, 'ele vem **quinta**')
+
+    expect(await tasks.comments({ prefix: 'T', key: 1 })).toEqual([sent])
+    expect((await entries.list({})).map((entry) => entry.body)).not.toContain('ele vem **quinta**')
+    expect(await tasks.deleteComment({ prefix: 'T', key: 1 }, sent!.id)).toBe(true)
+    expect(await tasks.comments({ prefix: 'T', key: 1 })).toEqual([])
+  })
+
   it('#42: a board created through the adapter keys its tasks, and the whole key travels as the path', async () => {
     const { tasks } = await overTheWire()
     const casa = await tasks.createBoard({ name: 'Casa', prefix: 'CASA' })

@@ -5,6 +5,7 @@ import {
   type StatusCategory,
   type Task,
   type TaskBoard,
+  type TaskComment,
   type TaskKey,
   type TaskStatus,
 } from '@dailly/tasks-core'
@@ -95,6 +96,18 @@ const parseBoardInfo = (value: unknown): Board => {
   return { id: value['id'], name: value['name'], prefix: value['prefix'] }
 }
 
+const parseComment = (value: unknown): TaskComment => {
+  if (
+    !isRecord(value) ||
+    typeof value['id'] !== 'string' ||
+    typeof value['body'] !== 'string' ||
+    typeof value['createdAt'] !== 'string'
+  ) {
+    throw wrongShape('um comentário')
+  }
+  return { id: value['id'], body: value['body'], createdAt: value['createdAt'] }
+}
+
 const path = ({ prefix, key }: TaskKey) => `/tasks/${encodeURIComponent(formatKey(prefix, key))}`
 
 /** 404 is an answer here, not a failure: the thing is gone, and the caller says so. */
@@ -173,6 +186,25 @@ export function httpTasksClient(deps: HttpTasksClientDeps): TasksPort {
         if (error instanceof ApiError && error.status === 404) return false
         throw error
       }
+    },
+    async comments(key) {
+      return orGone(async () => {
+        const answer = await call(`${path(key)}/comments`)
+        if (!Array.isArray(answer)) throw wrongShape('os comentários')
+        return answer.map(parseComment)
+      }, null)
+    },
+    async addComment(key, body) {
+      return orGone(
+        async () => parseComment(await call(`${path(key)}/comments`, { method: 'POST', body: JSON.stringify({ body }) })),
+        null,
+      )
+    },
+    async deleteComment(key, id) {
+      return orGone(async () => {
+        await call(`${path(key)}/comments/${encodeURIComponent(id)}`, { method: 'DELETE' })
+        return true
+      }, false)
     },
   }
 }
