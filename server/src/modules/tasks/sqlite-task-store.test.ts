@@ -32,7 +32,7 @@ taskStoreContract('sqliteTaskStore', { make: () => sqliteTaskStore({ db: migrate
 describe('sqliteTaskStore — the task is an Entry (RN1)', () => {
   it('writes the Entry with the same id, kind "task", in the same transaction', async () => {
     const db = migrated()
-    const task = await sqliteTaskStore({ db, ...deps() }).create({ title: 'Comprar café', statusId: 'todo' })
+    const task = await sqliteTaskStore({ db, ...deps() }).create({ boardId: 'tasks', title: 'Comprar café', statusId: 'todo' })
 
     expect(db.prepare('SELECT id, kind, body, occurred_at FROM entries').all()).toEqual([
       { id: task.id, kind: 'task', body: '', occurred_at: '2026-11-05T12:00:00.000Z' },
@@ -42,9 +42,9 @@ describe('sqliteTaskStore — the task is an Entry (RN1)', () => {
   it('takes the Entry with it when the task is deleted', async () => {
     const db = migrated()
     const store = sqliteTaskStore({ db, ...deps() })
-    await store.create({ title: 'x', statusId: 'todo' })
+    await store.create({ boardId: 'tasks', title: 'x', statusId: 'todo' })
 
-    await store.delete(1)
+    await store.delete({ prefix: 'T', key: 1 })
 
     expect(db.prepare('SELECT count(*) AS total FROM entries').get()).toEqual({ total: 0 })
   })
@@ -52,7 +52,7 @@ describe('sqliteTaskStore — the task is an Entry (RN1)', () => {
   it('writes neither row when the task is refused', async () => {
     const db = migrated()
     await expect(
-      sqliteTaskStore({ db, ...deps() }).create({ title: 'x', statusId: 'nope' }),
+      sqliteTaskStore({ db, ...deps() }).create({ boardId: 'tasks', title: 'x', statusId: 'nope' }),
     ).rejects.toThrow()
 
     expect(db.prepare('SELECT count(*) AS total FROM entries').get()).toEqual({ total: 0 })
@@ -66,9 +66,9 @@ describe('sqliteTaskStore — the task is an Entry (RN1)', () => {
       newId: () => '00000000-0000-4000-8000-000000000001',
       now: () => `2026-11-05T12:00:0${(clock += 1)}.000Z`,
     })
-    await store.create({ title: 'x', statusId: 'todo' })
+    await store.create({ boardId: 'tasks', title: 'x', statusId: 'todo' })
 
-    await store.update(1, { body: '# notas' })
+    await store.update({ prefix: 'T', key: 1 }, { body: '# notas' })
 
     expect(db.prepare('SELECT body, created_at, updated_at FROM entries').get()).toEqual({
       body: '# notas',
