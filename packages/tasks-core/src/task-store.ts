@@ -1,7 +1,9 @@
+import type { Board, BoardPatch, NewBoard } from './board.js'
 import type { Placement } from './move.js'
-import type { Priority, Task, TaskStatus } from './task.js'
+import type { Priority, Task, TaskKey, TaskStatus } from './task.js'
 
 export interface NewTask {
+  readonly boardId: string
   readonly title: string
   readonly statusId: string
 }
@@ -32,12 +34,30 @@ export interface TaskBoard {
  * `@dailly/requests-core`: whoever declares the need owns the port, and the
  * contract suite in `./testing` holds every implementation to it.
  *
- * The store assigns `key` and `rank`, not the caller: the key is a counter that
- * has to survive a delete (RN5), and only the store sees the whole column.
+ * The store assigns `key` and `rank`, not the caller: the key is a counter of
+ * the board that has to survive a delete (RN5), and only the store sees the
+ * whole column.
  */
 export interface TaskStore {
-  board(): Promise<TaskBoard>
-  /** Throws `TitleRequiredError` or `StatusNotFoundError`; nothing is written then. */
+  /** By creation, the seed board ("Tasks") first. */
+  boards(): Promise<readonly Board[]>
+  /**
+   * Throws `NameRequiredError`, `InvalidPrefixError` or `PrefixTakenError`
+   * (RN9: any prefix a board ever used); nothing is written then.
+   */
+  createBoard(input: NewBoard): Promise<Board>
+  /**
+   * `null` when no board has that id. A new prefix only changes the tasks
+   * created after (RN5); the old one stays reserved for this board (RN9).
+   */
+  updateBoard(id: string, patch: BoardPatch): Promise<Board | null>
+  /** One board's statuses and tasks; `null` when no board has that id. */
+  board(boardId: string): Promise<TaskBoard | null>
+  /**
+   * The task takes the board's next number and its current prefix. Throws
+   * `BoardNotFoundError`, `TitleRequiredError` or `StatusNotFoundError`;
+   * nothing is written then.
+   */
   create(input: NewTask): Promise<Task>
   /**
    * Apply a patch; a placement applies RN3 with the store's clock. `null` when
@@ -45,7 +65,7 @@ export interface TaskStore {
    * `StatusNotFoundError` or `InvalidRankError`, and nothing changes then:
    * every field is checked before the first write.
    */
-  update(key: number, patch: TaskPatch): Promise<Task | null>
+  update(key: TaskKey, patch: TaskPatch): Promise<Task | null>
   /** `false` when no task has that key. */
-  delete(key: number): Promise<boolean>
+  delete(key: TaskKey): Promise<boolean>
 }

@@ -173,7 +173,7 @@ function onKeydown(event: KeyboardEvent): void {
   <aside
     ref="root"
     role="dialog"
-    :aria-label="formatKey(task.key)"
+    :aria-label="formatKey(task.keyPrefix, task.key)"
     :style="{ width: `${width}px`, maxWidth: '100%' }"
     class="fixed inset-y-0 right-0 z-20 border-l border-[#1e2638] bg-[#0b1019] shadow-2xl"
   >
@@ -194,7 +194,7 @@ function onKeydown(event: KeyboardEvent): void {
     <!-- The content scrolls inside; the edge stays put on the panel's border. -->
     <div class="flex h-full flex-col gap-4 overflow-y-auto p-6">
       <header class="flex items-center gap-2">
-        <span class="font-mono text-xs text-[#747e8f]">{{ formatKey(task.key) }}</span>
+        <span class="font-mono text-xs text-[#747e8f]">{{ formatKey(task.keyPrefix, task.key) }}</span>
         <button type="button" class="ml-auto text-sm text-[#747e8f] hover:text-gray-100" @click="emit('close')">
           Fechar
         </button>
@@ -266,10 +266,10 @@ function onKeydown(event: KeyboardEvent): void {
         <div
           v-if="confirming"
           role="alertdialog"
-          :aria-label="`Apagar ${formatKey(task.key)}?`"
+          :aria-label="`Apagar ${formatKey(task.keyPrefix, task.key)}?`"
           class="rounded-md border border-red-500/20 bg-red-500/10 p-3 text-sm"
         >
-          <p class="text-gray-200">Apagar {{ formatKey(task.key) }}? Não dá para desfazer.</p>
+          <p class="text-gray-200">Apagar {{ formatKey(task.keyPrefix, task.key) }}? Não dá para desfazer.</p>
           <div class="mt-2 flex gap-2">
             <button
               type="button"

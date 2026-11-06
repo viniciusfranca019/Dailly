@@ -19,6 +19,7 @@ importam e onde mora no código. O Analyse ainda é só uma tela-esqueleto atrá
 * [Tasks, capturar e listar](/features/tasks-capturar-e-listar.md) - a lista por status, a captura por título e a chave T-<n> que não se reaproveita
 * [Tasks, board e a troca board/lista](/features/tasks-board.md) - o kanban com arrastar, o carimbo de conclusão e a visualização lembrada
 * [Tasks, painel da tarefa](/features/tasks-painel.md) - editar título, status, prioridade e corpo, e apagar com confirmação
+* [Tasks, vários boards](/features/tasks-boards.md) - boards com prefixo próprio, a troca entre eles e a chave <PREFIXO>-<n> congelada
 
 ## O app
 * [Ordem da barra lateral](/features/ordem-da-barra.md) - arrastar ou Alt+↑/↓ para pôr os módulos na ordem do uso, lembrada no navegador

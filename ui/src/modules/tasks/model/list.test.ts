@@ -4,7 +4,9 @@ import { groupByStatus } from './list.js'
 
 const task = (key: number, statusId: string): Task => ({
   id: `id-${key}`,
+  boardId: 'tasks',
   key,
+  keyPrefix: 'T',
   title: `tarefa ${key}`,
   statusId,
   priority: 0,

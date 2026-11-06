@@ -28,10 +28,13 @@ export function testShellDeps(
 
 /** The screen's port over a store: the calls the board and the list make. */
 const tasksOver = (store: ReturnType<typeof inMemoryTaskStore>) => ({
-  board: () => store.board(),
+  boards: () => store.boards(),
+  createBoard: (input: Parameters<typeof store.createBoard>[0]) => store.createBoard(input),
+  updateBoard: (id: string, patch: Parameters<typeof store.updateBoard>[1]) => store.updateBoard(id, patch),
+  board: (boardId: string) => store.board(boardId),
   create: (input: Parameters<typeof store.create>[0]) => store.create(input),
-  update: (key: number, patch: Parameters<typeof store.update>[1]) => store.update(key, patch),
-  delete: (key: number) => store.delete(key),
+  update: (key: Parameters<typeof store.update>[0], patch: Parameters<typeof store.update>[1]) => store.update(key, patch),
+  delete: (key: Parameters<typeof store.delete>[0]) => store.delete(key),
 })
 
 /** A storage in a Map, so no test sees another test's saved order. */

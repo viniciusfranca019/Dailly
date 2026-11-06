@@ -1,9 +1,14 @@
 import {
+  BoardNotFoundError,
+  InvalidPrefixError,
+  NameRequiredError,
+  PrefixTakenError,
   InvalidPriorityError,
   InvalidRankError,
   StatusNotFoundError,
   TitleRequiredError,
   parseKey,
+  type BoardPatch,
   type Priority,
   type TaskPatch,
   type TaskStore,
@@ -27,6 +32,42 @@ interface Invalid {
   readonly field: string
   readonly message: string
 }
+
+const BOARD_PATCHABLE: readonly string[] = ['name', 'prefix']
+
+/** The shape of a board's PATCH; as with tasks, an unknown field is refused, not ignored. */
+function parseBoardPatch(body: unknown): { patch: BoardPatch } | { errors: Invalid[] } {
+  if (!isRecord(body)) return { errors: [{ field: '', message: 'o corpo deve ser um objeto JSON' }] }
+  const errors: Invalid[] = []
+  const keys = Object.keys(body)
+  for (const key of keys.filter((name) => !BOARD_PATCHABLE.includes(name))) {
+    errors.push({ field: key, message: 'não é um campo que se edita' })
+  }
+  if (keys.length === 0) errors.push({ field: '', message: 'nenhum campo para salvar' })
+  const { name, prefix } = body
+  if (name !== undefined && typeof name !== 'string') errors.push({ field: 'name', message: 'deve ser texto' })
+  if (prefix !== undefined && typeof prefix !== 'string') errors.push({ field: 'prefix', message: 'deve ser texto' })
+  if (errors.length > 0) return { errors }
+  return {
+    patch: {
+      ...(name !== undefined ? { name: name as string } : {}),
+      ...(prefix !== undefined ? { prefix: prefix as string } : {}),
+    },
+  }
+}
+
+/** The board refusals: the shape ones name a field (400), a prefix in use is a conflict (409). */
+function refuseBoard(error: unknown): { code: number; body: unknown } | null {
+  if (error instanceof NameRequiredError) return { code: 400, body: { errors: [{ field: 'name', message: error.message }] } }
+  if (error instanceof InvalidPrefixError) {
+    return { code: 400, body: { errors: [{ field: 'prefix', message: error.message }] } }
+  }
+  if (error instanceof PrefixTakenError) return { code: 409, body: { error: error.message } }
+  return null
+}
+
+const BOARD_REQUIRED = { errors: [{ field: 'boardId', message: 'o board é obrigatório' }] }
+const BOARD_NOT_FOUND = { error: 'board não encontrado' }
 
 /** The shape of a PATCH body; the values themselves are the store's to judge. */
 function parsePatch(body: unknown): { patch: TaskPatch } | { errors: Invalid[] } {
@@ -62,21 +103,68 @@ function parsePatch(body: unknown): { patch: TaskPatch } | { errors: Invalid[] }
 /**
  * The Tasks routes. Board and list read the same `GET /tasks` (RN4); F2 adds
  * the move, F3 the panel. `DELETE` is here in F1 because RN5 is only
- * observable after a delete (card #20, C4).
+ * observable after a delete (card #20, C4). F4 (card #42) adds the boards:
+ * `/tasks` stays the one path to a task, scoped by `boardId`, with no default
+ * board hidden in the server; a task is found by its whole key (`CASA-3`),
+ * unique across boards by RN9.
  */
 export function registerTaskRoutes(app: FastifyInstance, store: TaskStore): void {
-  app.get('/tasks', async () => store.board())
+  app.get('/boards', async () => store.boards())
 
-  app.post('/tasks', async (request, reply) => {
+  app.post('/boards', async (request, reply) => {
     const body = request.body
-    if (!isRecord(body) || typeof body.title !== 'string' || typeof body.statusId !== 'string') {
+    if (!isRecord(body) || typeof body.name !== 'string' || typeof body.prefix !== 'string') {
       return reply.code(400).send({
-        errors: [{ field: '', message: 'o corpo deve ter title e statusId, os dois texto' }],
+        errors: [{ field: '', message: 'o corpo deve ter name e prefix, os dois texto' }],
       })
     }
     try {
-      return reply.code(201).send(await store.create({ title: body.title, statusId: body.statusId }))
+      return reply.code(201).send(await store.createBoard({ name: body.name, prefix: body.prefix }))
     } catch (error) {
+      const refusal = refuseBoard(error)
+      if (refusal) return reply.code(refusal.code).send(refusal.body)
+      throw error
+    }
+  })
+
+  app.patch('/boards/:id', async (request, reply) => {
+    const parsed = parseBoardPatch(request.body)
+    if ('errors' in parsed) return reply.code(400).send({ errors: parsed.errors })
+    try {
+      const updated = await store.updateBoard((request.params as { id: string }).id, parsed.patch)
+      if (!updated) return reply.code(404).send(BOARD_NOT_FOUND)
+      return updated
+    } catch (error) {
+      const refusal = refuseBoard(error)
+      if (refusal) return reply.code(refusal.code).send(refusal.body)
+      throw error
+    }
+  })
+
+  app.get('/tasks', async (request, reply) => {
+    const { boardId } = request.query as { boardId?: unknown }
+    if (typeof boardId !== 'string' || boardId === '') return reply.code(400).send(BOARD_REQUIRED)
+    const board = await store.board(boardId)
+    if (!board) return reply.code(404).send(BOARD_NOT_FOUND)
+    return board
+  })
+
+  app.post('/tasks', async (request, reply) => {
+    const body = request.body
+    if (isRecord(body) && (typeof body.boardId !== 'string' || body.boardId === '')) {
+      return reply.code(400).send(BOARD_REQUIRED)
+    }
+    if (!isRecord(body) || typeof body.title !== 'string' || typeof body.statusId !== 'string') {
+      return reply.code(400).send({
+        errors: [{ field: '', message: 'o corpo deve ter boardId, title e statusId, os três texto' }],
+      })
+    }
+    try {
+      return reply
+        .code(201)
+        .send(await store.create({ boardId: body.boardId as string, title: body.title, statusId: body.statusId }))
+    } catch (error) {
+      if (error instanceof BoardNotFoundError) return reply.code(404).send(BOARD_NOT_FOUND)
       if (error instanceof TitleRequiredError) {
         return reply.code(400).send({ errors: [{ field: 'title', message: error.message }] })
       }

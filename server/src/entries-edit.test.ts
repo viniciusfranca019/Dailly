@@ -97,8 +97,8 @@ describe('DELETE /entries/:id', () => {
 
 describe('C9: a task is not edited nor deleted through /entries (RN6)', () => {
   it('answers 404 to GET, PATCH and DELETE on the Entry of a task, and the task stays', async () => {
-    const created = await app.inject({ method: 'POST', url: '/tasks', payload: { title: 'Comprar café', statusId: 'todo' } })
-    const board = (await app.inject({ method: 'GET', url: '/tasks' })).json()
+    const created = await app.inject({ method: 'POST', url: '/tasks', payload: { boardId: 'tasks', title: 'Comprar café', statusId: 'todo' } })
+    const board = (await app.inject({ method: 'GET', url: '/tasks?boardId=tasks' })).json()
     // A task's id is the id of its Entry (Tasks RN1).
     const id = board.tasks[0].id
     expect(created.statusCode).toBe(201)
@@ -108,6 +108,6 @@ describe('C9: a task is not edited nor deleted through /entries (RN6)', () => {
     const del = await app.inject({ method: 'DELETE', url: `/entries/${id}` })
 
     expect([get.statusCode, patch.statusCode, del.statusCode]).toEqual([404, 404, 404])
-    expect((await app.inject({ method: 'GET', url: '/tasks' })).json().tasks).toHaveLength(1)
+    expect((await app.inject({ method: 'GET', url: '/tasks?boardId=tasks' })).json().tasks).toHaveLength(1)
   })
 })

@@ -17,8 +17,9 @@ beforeEach(() => {
   app = buildApp({ db, zone: UTC })
 })
 
-const create = (payload: unknown) => app.inject({ method: 'POST', url: '/tasks', payload: payload as object })
-const board = async () => (await app.inject({ method: 'GET', url: '/tasks' })).json()
+const create = (payload: unknown) =>
+  app.inject({ method: 'POST', url: '/tasks', payload: { boardId: 'tasks', ...(payload as object) } })
+const board = async () => (await app.inject({ method: 'GET', url: '/tasks?boardId=tasks' })).json()
 
 describe('GET /tasks', () => {
   it('answers the five statuses and no task on a new file', async () => {
@@ -71,9 +72,11 @@ describe('POST /tasks', () => {
   })
 
   it('refuses a body that is not an object with a text title and status', async () => {
-    for (const payload of [[], { title: 3, statusId: 'todo' }, { title: 'x' }]) {
+    for (const payload of [{ title: 3, statusId: 'todo' }, { title: 'x' }]) {
       expect((await create(payload)).statusCode).toBe(400)
     }
+    // Not through `create`, which would spread the array into an object.
+    expect((await app.inject({ method: 'POST', url: '/tasks', payload: [] as unknown as object })).statusCode).toBe(400)
   })
 })
 

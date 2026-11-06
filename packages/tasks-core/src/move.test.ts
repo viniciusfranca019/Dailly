@@ -4,7 +4,9 @@ import { DEFAULT_STATUSES, type Task } from './task.js'
 
 const task = (key: number, statusId: string, rank: string, completedAt: string | null = null): Task => ({
   id: `id-${key}`,
+  boardId: 'tasks',
   key,
+  keyPrefix: 'T',
   title: `T-${key}`,
   statusId,
   priority: 0,

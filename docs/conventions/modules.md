@@ -104,7 +104,7 @@ server/src/modules/<id>/
 - **Migrations numa sequência global** de `PRAGMA user_version`: o módulo
   escolhe os números das suas fatias, e o `collectMigrations` recusa colisão no
   boot nomeando os dois módulos. Hoje entries é `1` e `4`, requests é `2`, o cofre é
-  `3` e o tasks é `5`; o módulo novo pega o próximo livre. Uma migration já entregue nunca muda:
+  `3` e o tasks é `5` e `8`; o módulo novo pega o próximo livre. Uma migration já entregue nunca muda:
   uma correção é uma migration nova.
 - **Os testes de rota moram na raiz de `server/src`** (`requests.test.ts`,
   `cofre.test.ts`), não dentro de `modules/`: a regra de arquitetura recusa teste

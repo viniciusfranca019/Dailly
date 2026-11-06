@@ -22,10 +22,13 @@ afterEach(() => {
 async function mount(): Promise<HTMLElement> {
   let n = 0
   const store: TaskStore = inMemoryTaskStore({ newId: () => `id-${(n += 1)}`, now: () => '2026-11-05T12:00:00.000Z' })
-  await store.create({ title: 'Comprar café', statusId: 'todo' })
-  await store.create({ title: 'Lavar a louça', statusId: 'todo' })
+  await store.create({ boardId: 'tasks', title: 'Comprar café', statusId: 'todo' })
+  await store.create({ boardId: 'tasks', title: 'Lavar a louça', statusId: 'todo' })
   const tasks: TasksPort = {
-    board: () => store.board(),
+    boards: () => store.boards(),
+    createBoard: (input) => store.createBoard(input),
+    updateBoard: (id, patch) => store.updateBoard(id, patch),
+    board: (boardId) => store.board(boardId),
     create: (input) => store.create(input),
     update: (key, patch) => store.update(key, patch),
     delete: (key) => store.delete(key),
