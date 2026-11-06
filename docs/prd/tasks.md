@@ -185,13 +185,13 @@ Quando a migration precisar reescrever a tabela `entries` → paro e pergunto ao
 F1: Capturar e listar      — cobre J1.1, J1.1a, J1.2, J1.2a, J1.2b, RN1, RN2, RN5, RN6                — depende de —      → #20
 F2: Board e a troca        — cobre J2.1, J2.1a, J2.2, J2.3, J3.1, J3.1a, J3.2, RN3, RN4, RN7    — depende de F1     → #21
 F3: Painel da tarefa       — cobre J4.1, J4.1a, J4.2, J4.2a, J4.3, J4.3a, RN7, RN8              — depende de F1     → #22
-F4: Vários boards          — cobre J5.1, J5.1a, J5.1b, J5.2, J5.3, J5.4, RN5, RN9, RN10          — depende de F3     → a criar
-F5: Status do board        — cobre J6.1, J6.1a, J6.2, J6.3, J6.3a, J6.4, J6.4a, RN2, RN11, RN12 — depende de F4     → a criar
-F6: Painel redimensionável — cobre J7.1, J7.1a                                                    — depende de F3     → a criar
-F7: Comentários            — cobre J8.1, J8.1a, J8.1b, J8.2, RN14                                — depende de F3     → a criar
-F8: Labels                 — cobre J9.1, J9.2, J9.2a, J9.3, RN13                                 — depende de F3     → a criar
-F9: Busca com Ctrl+K       — cobre J10.1, J10.1a, J10.2, J10.2a, J10.3, RN15                     — depende de F4     → a criar
-F10: Criar rápido          — cobre J11.1, J11.1a, J11.2, J11.2a, J11.2b, RN15                    — depende de F4     → a criar
+F4: Vários boards          — cobre J5.1, J5.1a, J5.1b, J5.2, J5.3, J5.4, RN5, RN9, RN10          — depende de F3     → #42
+F5: Status do board        — cobre J6.1, J6.1a, J6.2, J6.3, J6.3a, J6.4, J6.4a, RN2, RN11, RN12 — depende de F4     → #43
+F6: Painel redimensionável — cobre J7.1, J7.1a                                                    — depende de F3     → #44
+F7: Comentários            — cobre J8.1, J8.1a, J8.1b, J8.2, RN14                                — depende de F3     → #45
+F8: Labels                 — cobre J9.1, J9.2, J9.2a, J9.3, RN13                                 — depende de F3     → #46
+F9: Busca com Ctrl+K       — cobre J10.1, J10.1a, J10.2, J10.2a, J10.3, RN15                     — depende de F4     → #47
+F10: Criar rápido          — cobre J11.1, J11.1a, J11.2, J11.2a, J11.2b, RN15                    — depende de F4     → #48
 ```
 
 F1 entrega a lista antes do board de propósito: board e lista são a mesma consulta (RN4),
