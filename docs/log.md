@@ -1,6 +1,7 @@
 # Directory Update Log
 
 ## 2026-11-06
+* **Update**: [Tasks, painel da tarefa](/features/tasks-painel.md) ganha os comentários, a F7 do [Tasks](/prd/tasks.md) (card #45), com a migration 9.
 * **Creation**: [Tasks, vários boards](/features/tasks-boards.md), a F4 do [Tasks](/prd/tasks.md) (card #42): boards com prefixo, a troca e a migration 8. [Módulos](/conventions/modules.md) registra o 8 do tasks.
 
 ## 2026-11-05

@@ -1,3 +1,3 @@
-version: 0.1.17
+version: 0.1.18
 
-- Tasks F4 (#42): vários boards, cada um com nome e prefixo próprio (`CASA-<n>`), a troca entre eles e o último usado lembrado; trocar o prefixo vale só para as tarefas novas, e um prefixo usado nunca vai para outro board. A migration 8 põe as tarefas de antes no board "Tasks", com as chaves T-<n> que já tinham. A API passa a pedir `boardId` em `GET` e `POST /tasks`.
+- Tasks F7 (#45): comentários no painel da tarefa, do mais antigo ao mais novo, com a data e a hora no fuso, escritos num segundo editor de blocos (Ctrl+Enter envia) e apagados com confirmação. Ficam em `task_comments` (migration 9), vão junto com a tarefa e nunca aparecem no Daily Log.
