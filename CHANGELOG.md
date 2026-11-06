@@ -1,3 +1,3 @@
-version: 0.1.18
+version: 0.1.19
 
-- Tasks F7 (#45): comentários no painel da tarefa, do mais antigo ao mais novo, com a data e a hora no fuso, escritos num segundo editor de blocos (Ctrl+Enter envia) e apagados com confirmação. Ficam em `task_comments` (migration 9), vão junto com a tarefa e nunca aparecem no Daily Log.
+- Tasks F5 (#43): cada board tem os seus status, com cor. Dá para adicionar um status numa categoria (ele entra depois dos dela), renomear e trocar a cor, e apagar, levando as tarefas para o topo de outro status com o "concluída em" ajustado. A migration 10 dá a cada board os seus cinco status, sem mexer nas tarefas. O convite de um board vazio passa a ficar acima das colunas.
