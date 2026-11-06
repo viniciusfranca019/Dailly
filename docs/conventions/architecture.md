@@ -71,7 +71,7 @@ do outro.
 | `packages/whiteboard-core` | o modelo do editor de blocos: blocos, parser e serializer de markdown, edições estruturais; sem DOM |
 | `packages/requests-core` | o modelo do Requests: `RequestSpec`, `ProtocolRegistry`, import de curl, `resolve(spec, env)`, a port `RequestStore`; sem rede |
 | `server/src` | `shell/` (config, banco, migrations, cofre, guarda de Host e Origin, `/health`), `modules/` (`entries`, `requests`, `vault`, `tasks`), cada um com o próprio store construído no `provide` |
-| `ui/src` | `shell/` (composition root, manifest com flags, rotas), `shared/` (contratos e ports), `adapters/` (HTTP), `capabilities/whiteboard` (o adapter DOM), `modules/` (`daily-log`, `requests`, `analyse`), `playground/` |
+| `ui/src` | `shell/` (composition root, manifest com flags, rotas), `shared/` (contratos e ports), `adapters/` (HTTP), `capabilities/whiteboard` (o adapter DOM), `capabilities/labels` (o seletor e a paleta das labels globais), `modules/` (`daily-log`, `requests`, `analyse`), `playground/` |
 
 ## Os módulos
 
@@ -193,7 +193,8 @@ complexo, e ninguém pediu); só export manual; storage próprio.
 
 **Vale:** duas camadas. `modules/` guarda produto (daily-log, requests,
 analyse); `capabilities/` guarda o que é autocontido e não conhece o produto (o
-whiteboard). O critério: se não dá para descrever sem dizer `Entry`, é módulo.
+whiteboard, e as labels: o seletor e a paleta que o Daily Log e o Tasks usam para
+pôr as mesmas labels nas suas Entries, card #46). O critério: se não dá para descrever sem dizer `Entry`, é módulo.
 Uma capacidade só importa `shared/`; um módulo alcança outro só pelo `index.ts`;
 ninguém importa o shell. Os testes moram no módulo. Um módulo inacabado entra por
 flag de build, uma comparação estática que o Vite dobra. No servidor (a Emenda 2)

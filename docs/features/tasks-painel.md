@@ -1,8 +1,8 @@
 ---
 type: Feature
 title: Tasks, painel da tarefa
-description: O painel de uma tarefa, aberto pelo card ou pela linha, para editar título, status, prioridade e o corpo no editor de blocos, salvar com Ctrl+S, apagar com confirmação e comentar.
-tags: [tasks, painel, edição, comentários]
+description: O painel de uma tarefa, aberto pelo card ou pela linha, para editar título, status, prioridade e o corpo no editor de blocos, salvar com Ctrl+S, apagar com confirmação, comentar e pôr labels.
+tags: [tasks, painel, edição, comentários, labels]
 status: stable
 since: 0.1.5
 generated: { by: regulus/claude-opus-5-5, at: 2026-11-06T16:00:00-03:00 }
@@ -27,6 +27,12 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-06T16:00:00-03:00 }
 - Arrastar a borda esquerda muda a largura do painel, de 360 a 960 px (576 na primeira
   vez). O painel reabre na largura escolhida, para qualquer tarefa, e numa janela mais
   estreita ocupa a janela inteira sem perder a largura guardada.
+- **Labels**: o campo "+ label" do painel sugere as labels que já existem (as mesmas do
+  Daily Log) e cria uma nova ao confirmar com Enter, com a próxima cor da paleta. Um
+  nome com outra caixa ("trabalho" para "Trabalho") usa a que existe; nome vazio não
+  cria nada. O × de uma label tira ela da tarefa. As labels escolhidas são gravadas com
+  o resto, no Salvar ou no Ctrl+S, e aparecem como chips no card e na linha, depois do
+  título.
 - Abaixo do corpo ficam os **comentários**, do mais antigo ao mais novo, cada um com a
   data e a hora do envio no fuso configurado ("05/11 14:32"). O editor de comentário,
   no fim, é outro editor de blocos: "Comentar" ou Ctrl+Enter envia, e ele fica vazio.
@@ -51,6 +57,12 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-06T16:00:00-03:00 }
 - **A largura é deste navegador**: fica no `localStorage` (`dailly.tasks.panelWidth`),
   gravada ao soltar a borda. Sem storage (janela privada), ela vale até recarregar. Um
   valor guardado fora dos limites é lido como o limite mais próximo.
+- **RN13**: a label é a global do Daily Log, gravada em `entry_labels` da Entry da
+  tarefa pelo `PATCH /tasks/:key` com `labelIds` (o conjunto inteiro, que substitui o
+  anterior), porque o `/entries` responde 404 para a Entry de uma tarefa. Um id que
+  não existe é 400 ("contém uma label que não existe"), e a tarefa fica como estava.
+  Renomear, recolorir e apagar label é no gerenciador do Daily Log; apagar uma label
+  tira ela das tarefas também.
 - **O comentário não é uma Entry** (P4 do PRD): mora em `task_comments` (migration 9),
   vai junto quando a tarefa é apagada e nunca aparece no Daily Log nem no `GET
   /entries` (RN14). O corpo é o markdown do editor.
@@ -70,14 +82,17 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-06T16:00:00-03:00 }
 - `ui/src/modules/tasks/ui/detail/TaskPanel.vue`, `ui/src/modules/tasks/model/draft.ts`
 - `ui/src/modules/tasks/model/width.ts` (os limites), `ui/src/modules/tasks/ui/panel-width.ts`
   (a largura lembrada)
+- `ui/src/capabilities/labels/` (o seletor e a paleta, do Daily Log e do Tasks),
+  `ui/src/modules/tasks/ui/labels/LabelChips.vue`, `server/src/modules/entries/rows.ts`
+  (`setEntryLabels`)
 - `packages/tasks-core/src/comment.ts`, `ui/src/modules/tasks/ui/detail/TaskComments.vue`
   e `CommentBody.vue`, `ui/src/modules/tasks/model/comment-stamp.ts`
 
 # Entregue
 
 No card #22 (F3 do [PRD do Tasks](/prd/tasks.md)), em 2026-11-05. A borda que
-redimensiona, no card #44 (F6), em 2026-11-05. Os comentários, no card #45 (F7), em
-2026-11-06.
+redimensiona, no card #44 (F6), em 2026-11-05. Os comentários, no card #45 (F7), e as labels, no card #46
+(F8), em 2026-11-06.
 
 # Limites
 

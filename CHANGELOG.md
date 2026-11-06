@@ -1,4 +1,4 @@
-version: 0.1.20
+version: 0.1.21
 
-- Tasks F9 (#47): Ctrl+K, em qualquer tela, abre a busca de tarefas pela chave (mesmo com o prefixo antigo do board) ou por parte do título, em todos os boards; escolher leva ao Tasks, no board da tarefa, com o painel aberto. Nasce a costura de comandos do shell: um módulo declara atalhos no manifesto e um componente por atalho.
-- Os tipos de board, comentário e status passam a sair de `@shared`, que o `vue-tsc` cobrava do `Tasks.vue`.
+- Tasks F8 (#46): o painel da tarefa põe as labels globais do Daily Log, escolhendo uma existente ou criando digitando, e o card e a linha mostram os chips. As labels vão em `entry_labels` pelo `PATCH /tasks/:key` com `labelIds`; um id que não existe é recusado.
+- O seletor e a paleta das labels viram a capacidade `ui/src/capabilities/labels`, usada pelo Daily Log e pelo Tasks.
