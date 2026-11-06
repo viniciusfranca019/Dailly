@@ -106,7 +106,7 @@ describe('C1: Comentar a tarefa', () => {
     expect(editor(host)?.textContent ?? '').toBe('')
   })
 
-  it('Ctrl+Enter no editor de comentário envia, e o Ctrl+S continua salvando a tarefa', async () => {
+  it('Ctrl+Enter no editor de comentário envia', async () => {
     const store = await storeWithT1()
     const host = await mount(portOver(store))
     await openT1(host)

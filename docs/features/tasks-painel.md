@@ -55,8 +55,8 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-06T16:00:00-03:00 }
   vai junto quando a tarefa é apagada e nunca aparece no Daily Log nem no `GET
   /entries` (RN14). O corpo é o markdown do editor.
 - `GET /tasks/:key/comments` (por `created_at`, desempate pelo id), `POST` com `{ body }`
-  (201) e `DELETE /tasks/:key/comments/:id` (204). Vazio ou um campo além de `body` é
-  400 ("o comentário é obrigatório"); a tarefa ou o comentário que não existe, ou o
+  (201) e `DELETE /tasks/:key/comments/:id` (204). Vazio é 400 ("o comentário é
+  obrigatório"), e um campo além de `body` é 400 nomeando o campo; a tarefa ou o comentário que não existe, ou o
   comentário de outra tarefa, é 404. A regra do corpo é pura
   (`normalizeCommentBody`) e roda na tela e no servidor.
 - Os comentários são lidos num `GET` próprio ao abrir o painel, fora do `GET /tasks`
