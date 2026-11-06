@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import type { Label } from '@shared'
+import LabelChips from '../labels/LabelChips.vue'
 import { PRIORITY_LABELS, formatKey, type Task } from '@dailly/tasks-core'
 
 /** One task in the list: key, title and priority, as Linear's list row. */
-defineProps<{ task: Task; completion: string | null }>()
+defineProps<{ task: Task; completion: string | null; labels: readonly Label[] }>()
 const emit = defineEmits<{ open: [key: number] }>()
 </script>
 
@@ -19,6 +21,7 @@ const emit = defineEmits<{ open: [key: number] }>()
     >
       {{ task.title }}
     </button>
+    <LabelChips :ids="task.labelIds" :labels="labels" />
     <span v-if="completion" class="shrink-0 text-xs text-emerald-300">{{ completion }}</span>
     <span class="shrink-0 text-xs text-[#747e8f]">Prioridade: {{ PRIORITY_LABELS[task.priority] }}</span>
   </li>

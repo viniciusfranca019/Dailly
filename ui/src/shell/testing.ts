@@ -12,16 +12,18 @@ import type { ShellDeps } from './own-deps.js'
 export function testShellDeps(
   options: { seed?: readonly Entry[]; zone?: TimeZone; now?: string; requests?: RequestsPort } = {},
 ): ShellDeps {
+  // One labels port for both modules, as the root builds it (card #46, RN13).
+  const dailyLog = testEntryDeps(options)
   return {
     shared: testSharedDeps(options),
     own: {
-      'daily-log': testEntryDeps(options),
+      'daily-log': dailyLog,
       requests: {
         requests: options.requests ?? testRequestsPort(),
         ids: sequentialIds('request'),
         vault: testVaultPort(),
       },
-      tasks: { tasks: tasksOver(inMemoryTaskStore({ newId: sequentialIds('task').next, now: () => options.now ?? '2026-09-16T12:00:00.000Z' })) },
+      tasks: { labels: dailyLog.labels, tasks: tasksOver(inMemoryTaskStore({ newId: sequentialIds('task').next, now: () => options.now ?? '2026-09-16T12:00:00.000Z' })) },
     },
   }
 }

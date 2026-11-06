@@ -65,7 +65,9 @@ const parseTask = (value: unknown): Task => {
     typeof value['rank'] !== 'string' ||
     (value['completedAt'] !== null && typeof value['completedAt'] !== 'string') ||
     typeof value['createdAt'] !== 'string' ||
-    typeof value['body'] !== 'string'
+    typeof value['body'] !== 'string' ||
+    !Array.isArray(value['labelIds']) ||
+    !value['labelIds'].every((id) => typeof id === 'string')
   ) {
     throw wrongShape('uma tarefa')
   }
@@ -81,6 +83,7 @@ const parseTask = (value: unknown): Task => {
     completedAt: value['completedAt'],
     createdAt: value['createdAt'],
     body: value['body'],
+    labelIds: value['labelIds'] as string[],
   }
 }
 
@@ -197,6 +200,7 @@ export function httpTasksClient(deps: HttpTasksClientDeps): TasksPort {
               ...(patch.priority !== undefined ? { priority: patch.priority } : {}),
               ...(patch.body !== undefined ? { body: patch.body } : {}),
               ...(patch.placement ? { statusId: patch.placement.statusId, rank: patch.placement.rank } : {}),
+              ...(patch.labelIds !== undefined ? { labelIds: patch.labelIds } : {}),
             }),
           }),
         )

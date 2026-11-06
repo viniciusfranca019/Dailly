@@ -24,6 +24,8 @@ const host = document.querySelector<HTMLElement>('#app')!
 
 async function boot(): Promise<void> {
   const config = API_CONFIG
+  /** One labels client for every module that puts the global labels on an Entry (card #46). */
+  const labels = httpLabelsClient({ config })
   const entries = httpEntryRepository({ config })
 
   // The zone belongs to the API process (ADR 0007), so the renderer asks rather
@@ -49,7 +51,7 @@ async function boot(): Promise<void> {
           queryEntries: queryEntries({ entries }),
           updateEntry: updateEntry({ entries, clock: systemClock }),
           deleteEntry: deleteEntry({ entries }),
-          labels: httpLabelsClient({ config }),
+          labels,
           properties: httpPropertiesClient({ config }),
         },
         requests: {
@@ -57,7 +59,8 @@ async function boot(): Promise<void> {
           ids: uuidIds,
           vault: httpVaultClient({ config }),
         },
-        tasks: { tasks: httpTasksClient({ config }) },
+        // The Daily Log's labels: one client, the same labels on entries and tasks (RN13).
+        tasks: { tasks: httpTasksClient({ config }), labels },
       },
     },
   })

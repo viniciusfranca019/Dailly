@@ -9,6 +9,7 @@ const task = (key: number, statusId: string): Task => ({
   boardId: 'tasks',
   key,
   keyPrefix: 'T',
+  labelIds: [],
   title: `tarefa ${key}`,
   statusId,
   priority: 0,
