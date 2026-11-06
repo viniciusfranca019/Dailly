@@ -195,3 +195,27 @@ describe('gate #46: a label deleted while the panel is open', () => {
     expect((await w.store.board(SEED_BOARD.id))!.tasks[0]).toMatchObject({ title: 'novo', labelIds: [] })
   })
 })
+
+describe('gate #46, round 2: a labels read that failed strips nothing', () => {
+  it('saves only the title, and T-1 keeps "trabalho"', async () => {
+    const w = await world([{ id: 'l1', name: 'trabalho', color: 'blue' }])
+    await w.store.update({ prefix: 'T', key: 1 }, { labelIds: ['l1'] })
+    const host = await mount({
+      store: w.store,
+      labels: {
+        ...w.labels,
+        list: async () => {
+          throw new Error('não consegui falar com a API local')
+        },
+      },
+    })
+    await openT1(host)
+    const title = panel(host)!.querySelector<HTMLInputElement>('input[aria-label="Título"]')!
+    title.value = 'novo'
+    title.dispatchEvent(new Event('input'))
+
+    await save(host)
+
+    expect((await w.store.board(SEED_BOARD.id))!.tasks[0]).toMatchObject({ title: 'novo', labelIds: ['l1'] })
+  })
+})

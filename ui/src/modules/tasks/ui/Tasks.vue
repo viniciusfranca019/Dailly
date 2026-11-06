@@ -38,6 +38,8 @@ type Read = { state: 'loading' } | { state: 'failed'; message: string } | { stat
 const read = ref<Read>({ state: 'loading' })
 /** The global labels (card #46), read with the board. */
 const labels = ref<readonly Label[]>([])
+/** Whether `labels` came from a read that succeeded (and not the empty start or a failure). */
+const labelsRead = ref(false)
 const boards = ref<readonly Board[]>([])
 /** The board on the screen. */
 const current = ref<string | null>(null)
@@ -85,8 +87,10 @@ let ticket = 0
 async function loadLabels(): Promise<void> {
   try {
     labels.value = await props.deps.labels.list()
+    labelsRead.value = true
   } catch {
     // the next write reads them again
+    labelsRead.value = false
   }
 }
 
@@ -285,7 +289,7 @@ async function save(key: number, draft: Draft): Promise<boolean> {
       title: draft.title,
       priority: draft.priority,
       body: draft.body,
-      labelIds: draft.labelIds,
+      ...(draft.labelIds !== undefined ? { labelIds: draft.labelIds } : {}),
       ...(current && current.statusId !== draft.statusId
         ? { placement: placeAt(board, key, draft.statusId, top) }
         : {}),
@@ -511,6 +515,7 @@ async function drop(statusId: string, beforeKey: number | null): Promise<void> {
         :width="panelWidth.width.value"
         :comments="commentsOf(panelTask)"
         :labels="labels"
+        :labels-read="labelsRead"
         :choose-label="chooseLabel"
         :zone="deps.zone"
         @resize="panelWidth.follow"

@@ -41,6 +41,8 @@ const props = defineProps<{
   zone: TimeZone
   /** The global labels (card #46). */
   labels: readonly Label[]
+  /** Whether `labels` is a read that succeeded, the only one an id can be judged gone by. */
+  labelsRead: boolean
   /** The id of the label with that name, the existing one or a new one; `null` for an empty name. */
   chooseLabel: (name: string) => Promise<string | null>
 }>()
@@ -101,8 +103,11 @@ async function submit(): Promise<void> {
   }
   // A label deleted while the panel was open (from the Daily Log's manager)
   // has no chip left to take it off: it leaves the draft here, or every save
-  // would be refused for it.
-  labelIds.value = labelIds.value.filter((id) => props.labels.some((label) => label.id === id))
+  // would be refused for it. Only against a read that succeeded: a failed or
+  // pending one would make every label look gone.
+  if (props.labelsRead) labelIds.value = labelIds.value.filter((id) => props.labels.some((label) => label.id === id))
+  const changed =
+    labelIds.value.length !== props.task.labelIds.length || labelIds.value.some((id) => !props.task.labelIds.includes(id))
   busy.value = true
   error.value = null
   try {
@@ -111,7 +116,7 @@ async function submit(): Promise<void> {
       statusId: statusId.value,
       priority: priority.value,
       body: doc.value?.toMarkdown() ?? props.task.body,
-      labelIds: labelIds.value,
+      ...(changed ? { labelIds: labelIds.value } : {}),
     })
     if (!found) gone.value = true
   } catch (cause) {
