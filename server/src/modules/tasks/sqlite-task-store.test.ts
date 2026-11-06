@@ -27,7 +27,15 @@ const deps = () => ({
   now: () => '2026-11-05T12:00:00.000Z',
 })
 
-taskStoreContract('sqliteTaskStore', { make: () => sqliteTaskStore({ db: migrated(), ...deps() }) })
+taskStoreContract('sqliteTaskStore', {
+  make: (labels = []) => {
+    const db = migrated()
+    // The global labels the contract says exist, as the Daily Log would have made them.
+    const insert = db.prepare('INSERT INTO labels (id, name, name_key, color) VALUES (?, ?, ?, ?)')
+    for (const id of labels) insert.run(id, id, id, 'blue')
+    return sqliteTaskStore({ db, ...deps() })
+  },
+})
 
 describe('sqliteTaskStore — the task is an Entry (RN1)', () => {
   it('writes the Entry with the same id, kind "task", in the same transaction', async () => {

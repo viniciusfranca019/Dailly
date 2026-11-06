@@ -11,6 +11,7 @@ import {
   InvalidPrefixError,
   NameRequiredError,
   PrefixTakenError,
+  InvalidLabelError,
   InvalidPriorityError,
   InvalidRankError,
   StatusNotFoundError,
@@ -32,9 +33,10 @@ const REFUSALS: readonly (readonly [new (...args: never[]) => Error, string])[] 
   [InvalidPriorityError, 'priority'],
   [StatusNotFoundError, 'statusId'],
   [InvalidRankError, 'rank'],
+  [InvalidLabelError, 'labelIds'],
 ]
 
-const PATCHABLE: readonly string[] = ['title', 'priority', 'body', 'statusId', 'rank']
+const PATCHABLE: readonly string[] = ['title', 'priority', 'body', 'statusId', 'rank', 'labelIds']
 
 interface Invalid {
   readonly field: string
@@ -137,7 +139,7 @@ function parsePatch(body: unknown): { patch: TaskPatch } | { errors: Invalid[] }
     errors.push({ field: key, message: 'não é um campo que se edita' })
   }
   if (keys.length === 0) errors.push({ field: '', message: 'nenhum campo para salvar' })
-  const { title, priority, body: text, statusId, rank } = body
+  const { title, priority, body: text, statusId, rank, labelIds } = body
   if (title !== undefined && typeof title !== 'string') errors.push({ field: 'title', message: 'deve ser texto' })
   if (priority !== undefined && typeof priority !== 'number') {
     errors.push({ field: 'priority', message: 'deve ser um número de 0 a 4' })
@@ -146,9 +148,13 @@ function parsePatch(body: unknown): { patch: TaskPatch } | { errors: Invalid[] }
   if ((statusId === undefined) !== (rank === undefined) || (statusId !== undefined && (typeof statusId !== 'string' || typeof rank !== 'string'))) {
     errors.push({ field: 'statusId', message: 'statusId e rank vão juntos, os dois texto' })
   }
+  if (labelIds !== undefined && (!Array.isArray(labelIds) || !labelIds.every((id) => typeof id === 'string'))) {
+    errors.push({ field: 'labelIds', message: 'deve ser uma lista de ids' })
+  }
   if (errors.length > 0) return { errors }
   return {
     patch: {
+      ...(labelIds !== undefined ? { labelIds: labelIds as string[] } : {}),
       ...(title !== undefined ? { title: title as string } : {}),
       ...(priority !== undefined ? { priority: priority as Priority } : {}),
       ...(text !== undefined ? { body: text as string } : {}),

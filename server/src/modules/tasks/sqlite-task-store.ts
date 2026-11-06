@@ -16,6 +16,7 @@ import {
   SEARCH_LIMIT,
   searchKey,
   type TaskSearchResult,
+  InvalidLabelError,
   InvalidPriorityError,
   InvalidRankError,
   PrefixTakenError,
@@ -39,7 +40,7 @@ import {
   type TaskStore,
 } from '@dailly/tasks-core'
 import type { Database } from 'better-sqlite3'
-import { deleteEntryRow, insertEntryRow, updateEntryRow } from '../entries/index.js'
+import { deleteEntryRow, insertEntryRow, labelsExist, setEntryLabels, updateEntryRow } from '../entries/index.js'
 
 export interface SqliteTaskStoreDeps {
   readonly db: Database
@@ -78,6 +79,8 @@ interface TaskRow {
   readonly completed_at: string | null
   readonly created_at: string
   readonly body: string
+  /** `group_concat` of the Entry's labels, or `null` with none. */
+  readonly label_ids: string | null
 }
 
 const toTask = (row: TaskRow): Task => ({
@@ -92,11 +95,14 @@ const toTask = (row: TaskRow): Task => ({
   completedAt: row.completed_at,
   createdAt: row.created_at,
   body: row.body,
+  // Sorted, so the order a set comes back in does not depend on the index.
+  labelIds: row.label_ids === null ? [] : row.label_ids.split(',').sort(),
 })
 
 const SELECT_TASKS = `
   SELECT t.entry_id AS id, t.board_id, t.key, t.key_prefix, t.title, t.status_id, t.priority, t.rank,
-         t.completed_at, e.created_at, e.body
+         t.completed_at, e.created_at, e.body,
+         (SELECT group_concat(label_id) FROM entry_labels WHERE entry_id = t.entry_id) AS label_ids
     FROM tasks t
     JOIN entries e ON e.id = t.entry_id
     JOIN task_statuses s ON s.id = t.status_id`
@@ -208,6 +214,7 @@ export function sqliteTaskStore({ db, newId, now }: SqliteTaskStoreDeps): TaskSt
       completedAt: null,
       createdAt: at,
       body: '',
+      labelIds: [],
     }
     // The body of the Entry is the task's description, empty at capture.
     insertEntryRow(db, { id: task.id, kind: 'task', body: '', occurredAt: at, createdAt: at, updatedAt: at })
@@ -228,6 +235,7 @@ export function sqliteTaskStore({ db, newId, now }: SqliteTaskStoreDeps): TaskSt
     if (patch.priority !== undefined && !isPriority(patch.priority)) {
       throw new InvalidPriorityError(patch.priority)
     }
+    if (patch.labelIds && !labelsExist(db, patch.labelIds)) throw new InvalidLabelError()
     let placed = { status_id: current.status_id, rank: current.rank, completed_at: current.completed_at }
     if (patch.placement) {
       const { statusId, rank } = patch.placement
@@ -246,7 +254,15 @@ export function sqliteTaskStore({ db, newId, now }: SqliteTaskStoreDeps): TaskSt
       'UPDATE tasks SET title = ?, priority = ?, status_id = ?, rank = ?, completed_at = ? WHERE entry_id = ?',
     ).run(title, priority, placed.status_id, placed.rank, placed.completed_at, current.id)
     updateEntryRow(db, current.id, patch.body === undefined ? {} : { body: patch.body }, now())
-    return toTask({ ...current, ...placed, title, priority, body: patch.body ?? current.body })
+    if (patch.labelIds) setEntryLabels(db, current.id, patch.labelIds)
+    return toTask({
+      ...current,
+      ...placed,
+      title,
+      priority,
+      body: patch.body ?? current.body,
+      label_ids: patch.labelIds ? [...new Set(patch.labelIds)].join(',') || null : current.label_ids,
+    })
   })
 
   const addStatus = db.transaction((boardId: string, input: Parameters<TaskStore['addStatus']>[1]) => {
