@@ -23,6 +23,8 @@ export interface Task {
   readonly createdAt: string
   /** The Entry's body: the task's description, markdown, empty at capture. */
   readonly body: string
+  /** The global labels on the task's Entry, the same as the Daily Log's (RN13, card #46). */
+  readonly labelIds: readonly string[]
 }
 
 export type Priority = 0 | 1 | 2 | 3 | 4
@@ -75,6 +77,13 @@ export class InvalidPriorityError extends Error {
 
 export const isPriority = (value: unknown): value is Priority =>
   value === 0 || value === 1 || value === 2 || value === 3 || value === 4
+
+export class InvalidLabelError extends Error {
+  override readonly name = 'InvalidLabelError'
+  constructor() {
+    super('contém uma label que não existe')
+  }
+}
 
 export class InvalidRankError extends Error {
   override readonly name = 'InvalidRankError'

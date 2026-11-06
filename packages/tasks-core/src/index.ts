@@ -43,6 +43,7 @@ export {
 export type { NewStatus, StatusColor, StatusPatch, StoredStatus } from './status.js'
 export type { Placement } from './move.js'
 export {
+  InvalidLabelError,
   InvalidPriorityError,
   InvalidRankError,
   PRIORITY_LABELS,

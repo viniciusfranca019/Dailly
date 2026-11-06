@@ -26,6 +26,7 @@ import {
 } from './status.js'
 import { rankBetween } from './rank.js'
 import {
+  InvalidLabelError,
   InvalidPriorityError,
   InvalidRankError,
   StatusNotFoundError,
@@ -41,6 +42,11 @@ import type { TaskStore } from './task-store.js'
 export interface InMemoryTaskStoreDeps {
   readonly newId: () => string
   readonly now: () => string
+  /**
+   * The ids of the global labels that exist (card #46): the store only reads
+   * them, as the SQLite one reads the `labels` table. None by default.
+   */
+  readonly labels?: () => readonly string[]
 }
 
 /** Statuses by position, then each task by its rank inside the status. */
@@ -54,7 +60,7 @@ export function orderTasks(statuses: readonly TaskStatus[], tasks: readonly Task
 }
 
 /** The fake, held to the same contract as the SQLite store. */
-export function inMemoryTaskStore({ newId, now }: InMemoryTaskStoreDeps): TaskStore {
+export function inMemoryTaskStore({ newId, now, labels = () => [] }: InMemoryTaskStoreDeps): TaskStore {
   const boards: Board[] = [SEED_BOARD]
   /** The last number each board handed out (RN5). */
   const counters = new Map<string, number>([[SEED_BOARD.id, 0]])
@@ -141,6 +147,7 @@ export function inMemoryTaskStore({ newId, now }: InMemoryTaskStoreDeps): TaskSt
         completedAt: null,
         createdAt: now(),
         body: '',
+        labelIds: [],
       }
       tasks.push(task)
       return task
@@ -154,6 +161,7 @@ export function inMemoryTaskStore({ newId, now }: InMemoryTaskStoreDeps): TaskSt
       if (patch.priority !== undefined && !isPriority(patch.priority)) {
         throw new InvalidPriorityError(patch.priority)
       }
+      if (patch.labelIds && !patch.labelIds.every((id) => labels().includes(id))) throw new InvalidLabelError()
       let placed: Pick<Task, 'statusId' | 'rank' | 'completedAt'> = current
       if (patch.placement) {
         const { statusId, rank } = patch.placement
@@ -168,6 +176,7 @@ export function inMemoryTaskStore({ newId, now }: InMemoryTaskStoreDeps): TaskSt
         title,
         priority: patch.priority ?? current.priority,
         body: patch.body ?? current.body,
+        labelIds: patch.labelIds ? [...new Set(patch.labelIds)] : current.labelIds,
       }
       tasks[index] = updated
       return updated

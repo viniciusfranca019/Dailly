@@ -18,6 +18,7 @@ import {
   seedStatusesFor,
 } from '../status.js'
 import {
+  InvalidLabelError,
   InvalidPriorityError,
   InvalidRankError,
   StatusNotFoundError,
@@ -42,8 +43,42 @@ const seedBoard = async (store: TaskStore) => {
   return read
 }
 
-export function taskStoreContract(label: string, { make }: { make: () => TaskStore }): void {
+/**
+ * `make` builds an empty store; `labels` are the ids of the global labels that
+ * exist for it (card #46), which the store only reads.
+ */
+export function taskStoreContract(
+  label: string,
+  { make }: { make: (labels?: readonly string[]) => TaskStore },
+): void {
   describe(`${label} — contrato do TaskStore`, () => {
+    it('#46 C1, C6: aplica e tira labels da tarefa, e o board lê de volta (RN13)', async () => {
+      const store = make(['trabalho', 'casa'])
+      const created = await store.create({ boardId: IN, title: 'um', statusId: 'todo' })
+      expect(created.labelIds).toEqual([])
+
+      const tagged = await store.update(T(1), { labelIds: ['trabalho', 'casa'] })
+      expect([...(tagged?.labelIds ?? [])].sort()).toEqual(['casa', 'trabalho'])
+      expect([...((await seedBoard(store)).tasks[0]?.labelIds ?? [])].sort()).toEqual(['casa', 'trabalho'])
+
+      const untagged = await store.update(T(1), { labelIds: ['casa'] })
+      expect(untagged?.labelIds).toEqual(['casa'])
+      expect((await seedBoard(store)).tasks[0]?.labelIds).toEqual(['casa'])
+      expect((await store.update(T(1), { title: 'dois' }))?.labelIds).toEqual(['casa'])
+    })
+
+    it('#46 C7: recusa uma label que não existe, e a tarefa continua com as que tinha', async () => {
+      const store = make(['trabalho'])
+      await store.create({ boardId: IN, title: 'um', statusId: 'todo' })
+      await store.update(T(1), { labelIds: ['trabalho'] })
+
+      await expect(store.update(T(1), { labelIds: ['nao-existe'] })).rejects.toThrow(InvalidLabelError)
+      await expect(store.update(T(1), { title: 'x', labelIds: ['trabalho', 'nao-existe'] })).rejects.toThrow(
+        'contém uma label que não existe',
+      )
+      expect((await seedBoard(store)).tasks[0]).toMatchObject({ title: 'um', labelIds: ['trabalho'] })
+    })
+
     it('#47 C4: acha pela chave, em qualquer caixa, mesmo com o prefixo antigo do board (RN5)', async () => {
       const store = make()
       const casa = await store.createBoard({ name: 'Casa', prefix: 'CASA' })
