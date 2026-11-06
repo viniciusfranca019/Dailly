@@ -176,3 +176,22 @@ describe('C6: Tirar a label da tarefa', () => {
     expect(await w.labels.list()).toHaveLength(1)
   })
 })
+
+describe('gate #46: a label deleted while the panel is open', () => {
+  it('leaves the draft on the next save, so the edit still saves', async () => {
+    const w = await world([{ id: 'l1', name: 'trabalho', color: 'blue' }])
+    await w.store.update({ prefix: 'T', key: 1 }, { labelIds: ['l1'] })
+    const host = await mount(w)
+    await openT1(host)
+    const title = panel(host)!.querySelector<HTMLInputElement>('input[aria-label="Título"]')!
+    title.value = 'novo'
+    title.dispatchEvent(new Event('input'))
+
+    await w.labels.delete('l1')
+    await w.labels.list()
+    await save(host)
+    await save(host)
+
+    expect((await w.store.board(SEED_BOARD.id))!.tasks[0]).toMatchObject({ title: 'novo', labelIds: [] })
+  })
+})

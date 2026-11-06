@@ -99,6 +99,10 @@ async function submit(): Promise<void> {
     }
     throw cause
   }
+  // A label deleted while the panel was open (from the Daily Log's manager)
+  // has no chip left to take it off: it leaves the draft here, or every save
+  // would be refused for it.
+  labelIds.value = labelIds.value.filter((id) => props.labels.some((label) => label.id === id))
   busy.value = true
   error.value = null
   try {

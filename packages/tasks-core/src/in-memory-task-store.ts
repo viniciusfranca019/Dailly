@@ -176,7 +176,8 @@ export function inMemoryTaskStore({ newId, now, labels = () => [] }: InMemoryTas
         title,
         priority: patch.priority ?? current.priority,
         body: patch.body ?? current.body,
-        labelIds: patch.labelIds ? [...new Set(patch.labelIds)] : current.labelIds,
+        // Sorted, as the SQLite store gives them back.
+        labelIds: patch.labelIds ? [...new Set(patch.labelIds)].sort() : current.labelIds,
       }
       tasks[index] = updated
       return updated
