@@ -1,5 +1,6 @@
 import {
   BoardNotFoundError,
+  CommentRequiredError,
   InvalidPrefixError,
   NameRequiredError,
   PrefixTakenError,
@@ -64,6 +65,18 @@ function refuseBoard(error: unknown): { code: number; body: unknown } | null {
   }
   if (error instanceof PrefixTakenError) return { code: 409, body: { error: error.message } }
   return null
+}
+
+const TASK_NOT_FOUND = { error: 'tarefa não encontrada' }
+
+/** A comment's POST body: `body`, text, and nothing else (card #45's Latitude). */
+function parseComment(body: unknown): { text: string } | { errors: Invalid[] } {
+  if (!isRecord(body)) return { errors: [{ field: '', message: 'o corpo deve ser um objeto JSON' }] }
+  const errors: Invalid[] = Object.keys(body)
+    .filter((name) => name !== 'body')
+    .map((field) => ({ field, message: 'não é um campo do comentário' }))
+  if (typeof body.body !== 'string') errors.push({ field: 'body', message: 'deve ser texto' })
+  return errors.length > 0 ? { errors } : { text: body.body as string }
 }
 
 const BOARD_REQUIRED = { errors: [{ field: 'boardId', message: 'o board é obrigatório' }] }
@@ -193,6 +206,40 @@ export function registerTaskRoutes(app: FastifyInstance, store: TaskStore): void
       }
       throw error
     }
+  })
+
+  // The comments of a task (card #45): read in a GET of their own, so the
+  // board and the list stay one query (RN4) and never carry them.
+  app.get('/tasks/:key/comments', async (request, reply) => {
+    const key = parseKey((request.params as { key: string }).key)
+    const comments = key === null ? null : await store.comments(key)
+    if (!comments) return reply.code(404).send(TASK_NOT_FOUND)
+    return comments
+  })
+
+  app.post('/tasks/:key/comments', async (request, reply) => {
+    const key = parseKey((request.params as { key: string }).key)
+    const parsed = parseComment(request.body)
+    if ('errors' in parsed) return reply.code(400).send({ errors: parsed.errors })
+    try {
+      const comment = key === null ? null : await store.addComment(key, parsed.text)
+      if (!comment) return reply.code(404).send(TASK_NOT_FOUND)
+      return reply.code(201).send(comment)
+    } catch (error) {
+      if (error instanceof CommentRequiredError) {
+        return reply.code(400).send({ errors: [{ field: 'body', message: error.message }] })
+      }
+      throw error
+    }
+  })
+
+  app.delete('/tasks/:key/comments/:id', async (request, reply) => {
+    const params = request.params as { key: string; id: string }
+    const key = parseKey(params.key)
+    const outcome = key === null ? 'task-not-found' : await store.deleteComment(key, params.id)
+    if (outcome === 'task-not-found') return reply.code(404).send(TASK_NOT_FOUND)
+    if (outcome === 'comment-not-found') return reply.code(404).send({ error: 'comentário não encontrado' })
+    return reply.code(204).send()
   })
 
   app.delete('/tasks/:key', async (request, reply) => {
