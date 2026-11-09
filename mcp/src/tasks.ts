@@ -14,7 +14,6 @@ import {
 } from '@dailly/tasks-core'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
-import type { Label } from '@dailly/domain'
 import { ApiRefusal, type Api } from './api.js'
 import { answer } from './answer.js'
 import type { LabelBook } from './labels.js'
@@ -42,7 +41,7 @@ function keyOf(text: string): TaskKey {
 const taskPath = (key: TaskKey) => `/tasks/${encodeURIComponent(formatKey(key.prefix, key.key))}`
 
 /** A task in the words of the screen: the key whole, and the status, the priority and the labels by name. */
-function view(task: Task, statuses: readonly TaskStatus[], labels: readonly Label[]) {
+function view(task: Task, statuses: readonly TaskStatus[], labels: readonly string[]) {
   return {
     key: formatKey(task.keyPrefix, task.key),
     title: task.title,
@@ -50,7 +49,7 @@ function view(task: Task, statuses: readonly TaskStatus[], labels: readonly Labe
     statusId: task.statusId,
     priority: PRIORITY_LABELS[task.priority],
     body: task.body,
-    labels: task.labelIds.map((id) => labels.find((label) => label.id === id)?.name ?? id),
+    labels,
     completedAt: task.completedAt,
     createdAt: task.createdAt,
   }
@@ -122,7 +121,7 @@ export function registerTaskTools(server: McpServer, api: Api, labels: LabelBook
       return answer({
         board,
         statuses: read.statuses.map(({ id, name: status, category }) => ({ id, name: status, category })),
-        tasks: read.tasks.map((task) => view(task, read.statuses, known)),
+        tasks: read.tasks.map((task) => view(task, read.statuses, labels.namesOf(task.labelIds, known))),
       })
     },
   )
@@ -162,7 +161,7 @@ export function registerTaskTools(server: McpServer, api: Api, labels: LabelBook
         method: 'POST',
         body: { boardId: board.id, title, statusId: status.id, ...(priority ? { priority: priorityOf(priority) } : {}) },
       })) as Task
-      return answer(view(task, read.statuses, await labels.list()))
+      return answer(view(task, read.statuses, labels.namesOf(task.labelIds, await labels.list())))
     },
   )
 
@@ -216,7 +215,7 @@ export function registerTaskTools(server: McpServer, api: Api, labels: LabelBook
           }),
         `a tarefa ${formatKey(key.prefix, key.key)}`,
       )) as Task
-      return answer(view(task, read.statuses, known))
+      return answer(view(task, read.statuses, labels.namesOf(task.labelIds, known)))
     },
   )
 

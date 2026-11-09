@@ -58,6 +58,26 @@ describe('C5: Registrar no Daily Log', () => {
   })
 })
 
+describe('gate #58: propriedades no registro e no filtro', () => {
+  it('create_entry grava a propriedade, update_entry a troca, e list_entries filtra por ela', async () => {
+    const { server, mcp } = await harness()
+    await fetch(`${server.url}/property-defs`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ key: 'humor', type: 'text' }),
+    })
+    const good = (await mcp.call('create_entry', { body: 'Dia bom', props: { humor: 'bom' } })).ok as EntryView & { props: Record<string, unknown> }
+    const bad = (await mcp.call('create_entry', { body: 'Dia ruim', props: { humor: 'ruim' } })).ok as EntryView
+
+    expect(good.props).toEqual({ humor: 'bom' })
+    expect(((await mcp.call('list_entries', { props: { humor: 'bom' } })).ok as EntryView[]).map((entry) => entry.body)).toEqual(['Dia bom'])
+
+    await mcp.call('update_entry', { id: bad.id, props: { humor: 'bom' } })
+    expect(((await mcp.call('list_entries', { props: { humor: 'bom' } })).ok as EntryView[]).map((entry) => entry.body).sort()).toEqual(['Dia bom', 'Dia ruim'])
+    expect((await mcp.call('create_entry', { body: 'x', props: { humor: 3 } })).error).toBeDefined()
+  })
+})
+
 describe('C6: Corrigir e apagar um registro', () => {
   it('update_entry corrige o texto, e delete_entry o tira da timeline', async () => {
     const { mcp } = await harness()

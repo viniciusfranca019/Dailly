@@ -1,4 +1,4 @@
-import { EntryNotFoundError, createEntry, systemClock, updateEntry, uuidIds, type Clock, type Entry, type IdGenerator, type Label } from '@dailly/domain'
+import { EntryNotFoundError, LABEL_COLORS, createEntry, systemClock, updateEntry, uuidIds, type Clock, type Entry, type IdGenerator, type Label } from '@dailly/domain'
 import { dayOf, timeOf } from '@dailly/periods'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
@@ -163,7 +163,7 @@ export function registerDailyLogTools(server: McpServer, api: Api, labels: Label
     {
       title: 'Criar label',
       description: 'Cria uma label global. Sem cor, a primeira da paleta que nenhuma outra usa.',
-      inputSchema: { name: z.string(), color: z.string().optional() },
+      inputSchema: { name: z.string(), color: z.enum(LABEL_COLORS).optional() },
       annotations: { destructiveHint: false },
     },
     async ({ name, color }) => answer(await labels.create(name, color)),
