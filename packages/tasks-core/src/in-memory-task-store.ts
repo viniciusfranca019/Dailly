@@ -126,11 +126,12 @@ export function inMemoryTaskStore({ newId, now, labels = () => [] }: InMemoryTas
       return { statuses: ordered, tasks: orderTasks(ordered, own) }
     },
 
-    async create({ boardId, title, statusId }) {
+    async create({ boardId, title, statusId, priority = 0 }) {
       const board = boards.find((candidate) => candidate.id === boardId)
       if (!board) throw new BoardNotFoundError(boardId)
       const normalized = normalizeTitle(title)
       if (!statusIn(boardId, statusId)) throw new StatusNotFoundError(statusId)
+      if (!isPriority(priority)) throw new InvalidPriorityError(priority)
       const own = tasks.filter((task) => task.boardId === boardId)
       const top = orderTasks(statusesOf(boardId), own).find((task) => task.statusId === statusId)
       const key = (counters.get(boardId) ?? 0) + 1
@@ -142,7 +143,7 @@ export function inMemoryTaskStore({ newId, now, labels = () => [] }: InMemoryTas
         keyPrefix: board.prefix,
         title: normalized,
         statusId,
-        priority: 0,
+        priority,
         rank: rankBetween(undefined, top?.rank),
         completedAt: null,
         createdAt: now(),

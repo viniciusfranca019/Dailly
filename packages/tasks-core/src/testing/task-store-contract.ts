@@ -380,6 +380,28 @@ export function taskStoreContract(
       )
     })
 
+    it('#48 C3: cria com a prioridade escolhida, e sem ela nasce "sem" (RN8)', async () => {
+      const store = make()
+
+      const chosen = await store.create({ boardId: IN, title: 'Comprar tinta', statusId: 'todo', priority: 2 })
+      const plain = await store.create({ boardId: IN, title: 'Lavar o carro', statusId: 'todo' })
+
+      expect(chosen.priority).toBe(2)
+      expect(plain.priority).toBe(0)
+      const read = await seedBoard(store)
+      expect(read.tasks.find((task) => task.key === chosen.key)?.priority).toBe(2)
+    })
+
+    it('#48: recusa uma prioridade fora de 0 a 4, e não gasta a chave', async () => {
+      const store = make()
+
+      await expect(
+        store.create({ boardId: IN, title: 'x', statusId: 'todo', priority: 7 as never }),
+      ).rejects.toThrow(InvalidPriorityError)
+
+      expect((await store.create({ boardId: IN, title: 'y', statusId: 'todo' })).key).toBe(1)
+    })
+
     it('C6: a chave é sequencial dentro do board, independente dos outros (RN5)', async () => {
       const store = make()
       const casa = await store.createBoard({ name: 'Casa', prefix: 'CASA' })
