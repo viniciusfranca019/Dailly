@@ -137,3 +137,46 @@ describe('#48: o aviso curto do comando fica depois de ele fechar', () => {
     expect(host.querySelector('[role="status"]')?.textContent).toBe('CASA-2 criada')
   })
 })
+
+describe('gate #48: o close de um comando que já fechou não fecha o que abriu depois', () => {
+  it('a resposta lenta do primeiro formulário não leva o segundo, nem o que se digitou nele', async () => {
+    let finish: (() => void) | undefined
+    const Slow = defineComponent({
+      props: { deps: Object, focusTick: Number, navigate: Function, close: Function, notify: Function },
+      setup(props: CommandProps<unknown>) {
+        return () =>
+          h('div', { role: 'dialog', 'aria-label': 'Nova tarefa' }, [
+            h('input', { 'aria-label': 'Título' }),
+            h(
+              'button',
+              {
+                type: 'button',
+                // The create in flight: the reply closes the form when it arrives.
+                onClick: () => {
+                  finish = () => props.close()
+                },
+              },
+              'Criar',
+            ),
+          ])
+      },
+    })
+    const slow = modules()
+    slow[1] = { ...slow[1]!, load: async () => ({ component: defineComponent({ setup: () => () => h('p') }), commands: { create: Slow } }) }
+    shell = await mountShell(host, { modules: slow, deps: testShellDeps() })
+    press({ key: 'c' })
+    await settle()
+    dialogs()[0]!.querySelector<HTMLButtonElement>('button')!.click()
+    press({ key: 'Escape' }, window)
+    await settle()
+    press({ key: 'c' })
+    await settle()
+    dialogs()[0]!.querySelector<HTMLInputElement>('input')!.value = 'Lavar o pincel'
+
+    finish!()
+    await settle()
+
+    expect(dialogs()).toHaveLength(1)
+    expect(dialogs()[0]!.querySelector<HTMLInputElement>('input')!.value).toBe('Lavar o pincel')
+  })
+})

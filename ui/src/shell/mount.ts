@@ -220,7 +220,14 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
    * took is given back on close (C3 of #47), and pressing its shortcut again
    * only bumps `focusTick`, so the command takes the focus back.
    */
-  const command = shallowRef<{ key: string; component: Component; moduleId: string; focusTick: number } | null>(null)
+  const command = shallowRef<{
+    key: string
+    component: Component
+    moduleId: string
+    focusTick: number
+    /** Which opening this is: a `close()` from an earlier one, arriving late, closes nothing (gate #48). */
+    opened: number
+  } | null>(null)
   let returnFocus: HTMLElement | null = null
   let opening = 0
 
@@ -229,6 +236,13 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
     const target = returnFocus
     returnFocus = null
     if (target?.isConnected) target.focus()
+  }
+
+  /** The `close` one opening gets: it closes the layer only while that opening is still the one on it. */
+  function closeOpened(opened: number): () => void {
+    return () => {
+      if (command.value?.opened === opened) closeCommand()
+    }
   }
 
   async function openCommand(descriptor: ModuleDescriptor<VueModule>, id: string): Promise<void> {
@@ -248,7 +262,7 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
     }
     const component = module.commands?.[id]
     if (!component || ticket !== opening || destroyed) return
-    command.value = { key, component, moduleId: descriptor.id, focusTick: 0 }
+    command.value = { key, component, moduleId: descriptor.id, focusTick: 0, opened: ticket }
   }
 
   let layer: HTMLElement | null = null
@@ -327,7 +341,7 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
               deps: moduleDeps(command.value.moduleId),
               focusTick: command.value.focusTick,
               navigate: (route: string) => void go(route),
-              close: closeCommand,
+              close: closeOpened(command.value.opened),
               notify,
             }),
           )
