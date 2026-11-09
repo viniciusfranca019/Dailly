@@ -20,7 +20,8 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-09T18:30:00-03:00 }
 - O MCP vem na imagem: `docker exec -i <container> dailly-mcp` fala com a API do mesmo
   container.
 - `make image-check` prova os cinco cenários contra o Docker de verdade (fora do `make
-  check`, que roda sem Docker).
+  check`, que roda sem Docker). A regra das tags (só a `main` move `dailly:<versão>` e
+  `latest`) roda no `make check`, com um docker falso.
 
 Rodar à mão, no diário de verdade:
 
@@ -49,7 +50,9 @@ unless-stopped`.
 
 # Onde mora
 
-- `Dockerfile`, `.dockerignore`, `docker/dailly-mcp`, `docker/image-check.sh`
+- `Dockerfile`, `.dockerignore`, `docker/dailly-mcp`, `docker/image-check.sh` (os
+  cenários, com Docker), `docker/image-tags.test.sh` (a regra das tags, sem Docker, no
+  `make check`)
 - os alvos `image` e `image-check` do `Makefile`
 - `server/src/shell/app.ts` (`uiDir`, `/api`), `server/src/dev.ts` (`DAILLY_HOST`,
   `DAILLY_UI_DIR`), `server/src/serves-ui.test.ts`

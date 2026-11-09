@@ -63,10 +63,12 @@ start-ui:
 mcp: ## O servidor MCP do dailly, por stdio, para o Claude Code (a API tem de estar de pé)
 	@pnpm --silent --filter @dailly/mcp start
 
-check: ## Typecheck + testes, com e sem as flags de módulo
+check: ## Typecheck + testes, com e sem as flags de módulo, e a regra das tags da imagem
 	pnpm -r typecheck
 	$(MAKE) test
 	$(MAKE) test-all
+	@# Sem Docker (um docker falso): só a main move dailly:<versão> e latest (gate #61).
+	bash docker/image-tags.test.sh
 
 clean-db: ## Apaga o banco de desenvolvimento (o que `make dev` usa)
 	@rm -f $(DEV_DB) $(DEV_DB)-wal $(DEV_DB)-shm
