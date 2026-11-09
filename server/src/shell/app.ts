@@ -1,3 +1,4 @@
+import fastifyStatic from '@fastify/static'
 import Fastify, { type FastifyInstance } from 'fastify'
 import { MODULES } from '../modules.js'
 import { createVault, type KdfParams } from './vault.js'
@@ -23,6 +24,12 @@ export interface AppDeps extends ServerModuleDeps {
   readonly db?: Database
   /** A metade do cofre que vem do `.env` (ADR 0013). Ausente, o cofre só abre pela recuperação. */
   readonly secretKey?: string
+  /**
+   * The built screen (`ui/dist`), served by this same process with the API
+   * under `/api` (card #61, the image). Absent in `make dev` and `make start`,
+   * where vite serves the screen and proxies `/api` here.
+   */
+  readonly uiDir?: string
   /** Custo do scrypt para cofres novos; só os testes o baixam. */
   readonly kdf?: KdfParams
 }
@@ -40,7 +47,7 @@ export interface AppDeps extends ServerModuleDeps {
  * socket de verdade (ADR 0009) seja a exceção, não a regra.
  */
 export function buildApp(
-  { zone, token, db, secretKey, kdf }: AppDeps,
+  { zone, token, db, secretKey, kdf, uiDir }: AppDeps,
   modules: readonly AnyServerModule[] = MODULES,
 ): FastifyInstance {
   assertManifest(modules)
@@ -50,7 +57,12 @@ export function buildApp(
     ? { db, zone, vault: createVault({ db, secretKey, ...(kdf ? { kdf } : {}) }) }
     : undefined
 
-  const app = Fastify({ logger: false })
+  const app = Fastify({
+    logger: false,
+    // With the screen in this process (card #61), the API answers under `/api`,
+    // the one path the renderer ever fetches, as the vite proxy strips it.
+    ...(uiDir ? { rewriteUrl: (request: { url?: string }) => stripApi(request.url ?? '/') } : {}),
+  })
 
   /**
    * Só a própria máquina fala com esta API (ADR 0012).
@@ -118,6 +130,10 @@ export function buildApp(
     module.register(app, { zone }, module.provide(context))
   }
 
+  // The screen's files, behind the same Host guard as the API (C4). The plugin
+  // owns the path rules: nothing outside `uiDir` is served, `..` included.
+  if (uiDir) void app.register(fastifyStatic, { root: uiDir, prefix: '/' })
+
   return app
 }
 
@@ -140,4 +156,10 @@ function hostnameOf(value: string | undefined, scheme = 'http://'): string | und
   } catch {
     return undefined
   }
+}
+
+/** `/api/boards?x=1` → `/boards?x=1`; anything else stays (the screen's files). */
+export function stripApi(url: string): string {
+  if (url === '/api' || url.startsWith('/api?')) return `/${url.slice(4)}`
+  return url.startsWith('/api/') ? url.slice(4) : url
 }

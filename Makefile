@@ -1,4 +1,4 @@
-.PHONY: help install dev dev-api dev-ui dev-all start start-api start-ui mcp test test-all test-watch build build-all check clean-db clean-db-app clean
+.PHONY: help install dev dev-api dev-ui dev-all start start-api start-ui mcp image image-check test test-all test-watch build build-all check clean-db clean-db-app clean
 
 # Os dois bancos, que têm riscos bem diferentes.
 DEV_DB  := server/dailly.dev.sqlite
@@ -63,10 +63,12 @@ start-ui:
 mcp: ## O servidor MCP do dailly, por stdio, para o Claude Code (a API tem de estar de pé)
 	@pnpm --silent --filter @dailly/mcp start
 
-check: ## Typecheck + testes, com e sem as flags de módulo
+check: ## Typecheck + testes, com e sem as flags de módulo, e a regra das tags da imagem
 	pnpm -r typecheck
 	$(MAKE) test
 	$(MAKE) test-all
+	@# Sem Docker (um docker falso): só a main move dailly:<versão> e latest (gate #61).
+	bash .docker/image-tags.test.sh
 
 clean-db: ## Apaga o banco de desenvolvimento (o que `make dev` usa)
 	@rm -f $(DEV_DB) $(DEV_DB)-wal $(DEV_DB)-shm
@@ -84,3 +86,21 @@ clean-db-app: ## Apaga o banco do app instalado. É o diário de verdade: pede c
 
 clean: ## Apaga build e dependências. Não toca em banco nenhum
 	rm -rf ui/dist node_modules ui/node_modules server/node_modules mcp/node_modules packages/*/node_modules
+
+# A imagem sai de um ref do git (a `main` por padrão), nunca da pasta de trabalho:
+# `git archive` manda só o que está commitado nele, então um WIP não entra (card #61).
+# Só a `main` escreve `dailly:<versão>` e `dailly:latest`, as tags que o deamon roda
+# contra o diário de verdade; outro ref (uma branch testada antes do merge) ganha
+# `dailly:ref-<sha>` e não mexe nelas (gate #61). A última linha diz a tag.
+IMAGE_REF ?= main
+
+image: ## Builda dailly:<VERSION da main> a partir da main (git archive), sem registry
+	@if [ "$(IMAGE_REF)" = main ]; then \
+	  v=$$(git show main:VERSION | tr -d '[:space:]'); tags="-t dailly:$$v -t dailly:latest"; tag="dailly:$$v"; \
+	else \
+	  tag="dailly:ref-$$(git rev-parse --short $(IMAGE_REF))"; tags="-t $$tag"; \
+	fi; \
+	git archive --format=tar $(IMAGE_REF) | docker build -f .docker/Dockerfile $$tags - >&2 && echo "$$tag"
+
+image-check: ## Prova os cenários da imagem com Docker de verdade (IMAGE_REF=main)
+	IMAGE_REF=$(IMAGE_REF) bash .docker/image-check.sh

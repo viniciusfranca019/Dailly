@@ -45,6 +45,8 @@ export interface ConfigInput {
   readonly token?: string
   readonly host?: string
   readonly port?: number
+  /** The built screen to serve with the API (card #61); see `AppDeps.uiDir`. */
+  readonly uiDir?: string
 }
 
 /**

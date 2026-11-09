@@ -1,0 +1,10 @@
+# The ignore file of .docker/Dockerfile (Docker reads `<Dockerfile>.dockerignore`
+# next to it). `make image` sends `git archive` (only what is committed), so this
+# only matters for a plain `docker build -f .docker/Dockerfile .`, which should
+# behave the same way.
+**/node_modules
+**/dist
+WIP
+*.sqlite
+*.sqlite-*
+.env

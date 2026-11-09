@@ -1,6 +1,7 @@
 # Directory Update Log
 
 ## 2026-11-09
+* **Creation**: [Imagem Docker do dailly](/features/imagem.md) (card #61). [Arquitetura](/conventions/architecture.md) revê a ADR 0012: na imagem, o Fastify serve a UI.
 * **Update**: [MCP do dailly](/features/mcp.md) ganha o Daily Log e as labels (card #58).
 * **Creation**: [MCP do dailly](/features/mcp.md), as tools do Tasks (card #57). [Arquitetura](/conventions/architecture.md) ganha o projeto `mcp/`, o terceiro cliente da API.
 * **Creation**: [Tasks, criar rápido com C](/features/tasks-criar-rapido.md), a F10 do [Tasks](/prd/tasks.md) (card #48), que fecha a v2. A RN8 do [Tasks](/prd/tasks.md) passa a ler "nasce sem quando ninguém escolhe" (P1 do #48), e [Módulos](/conventions/modules.md) ganha o `notify` e o atalho de letra solta.

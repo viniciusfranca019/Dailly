@@ -15,6 +15,10 @@ const server = await createServer({
   ...(process.env['DAILLY_TZ'] ? { zone: process.env['DAILLY_TZ'] } : {}),
   ...(process.env['DAILLY_SECRET_KEY'] ? { secretKey: process.env['DAILLY_SECRET_KEY'] } : {}),
   port,
+  // Only the image sets these two (card #61): inside the container the bind is
+  // `0.0.0.0`, and Docker publishes the port on 127.0.0.1 alone.
+  ...(process.env['DAILLY_HOST'] ? { host: process.env['DAILLY_HOST'] } : {}),
+  ...(process.env['DAILLY_UI_DIR'] ? { uiDir: process.env['DAILLY_UI_DIR'] } : {}),
 })
 
 console.log(`dailly api: ${server.url}  ·  fuso: ${server.config.zone}`)
