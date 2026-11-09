@@ -13,7 +13,7 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-09T18:30:00-03:00 }
 - `make image` builda `dailly:<versão>` (e `dailly:latest`), com a versão do `VERSION`
   da `main`, a partir da `main` por `git archive`: só o que está commitado nela entra, e
   um arquivo solto na pasta não. `IMAGE_REF=<ref>` builda outro ref, para testar antes
-  do merge.
+  do merge, como `dailly:ref-<sha>`: só a `main` escreve as tags que o deamon roda.
 - Um container serve a tela em `/` e a API em `/api`, na mesma origem, com o Tasks e o
   Requests ligados, como no `make start`.
 - O diário fica em `/data/dailly.sqlite`, um volume. Recriar o container não perde nada.
@@ -26,8 +26,9 @@ Rodar à mão, no diário de verdade:
 
 ```bash
 make image
+mkdir -p ~/.config/dailly   # sem ela, o Docker a cria de root e o node não grava o diário
 docker run -d --name dailly -p 127.0.0.1:4318:4318 \
-  -v ~/.config/dailly:/data -e DAILLY_TZ=America/Sao_Paulo dailly:latest
+  -v ~/.config/dailly:/data --env-file .env dailly:latest   # .env: o DAILLY_SECRET_KEY do cofre
 ```
 
 O deamon da Workstation (`make install-deamon dailly`) faz isso com `restart:

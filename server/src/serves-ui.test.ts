@@ -41,9 +41,14 @@ describe('C2: Um container serve a tela e a API', () => {
     expect(boards.json()).toEqual([expect.objectContaining({ name: 'Tasks' })])
   })
 
-  it('não serve nada fora da ui/dist', async () => {
-    const response = await app().inject({ method: 'GET', url: '/../../etc/passwd', headers: local })
-    expect(response.statusCode).toBe(404)
+  it('não serve nada fora da ui/dist, nem com o .. escondido no encoding', async () => {
+    const ui = builtUi()
+    writeFileSync(join(ui, '..', 'segredo-ao-lado.txt'), 'não era para sair')
+    const server = buildApp({ zone: UTC, db: openDatabase(':memory:'), uiDir: ui })
+    for (const url of ['/%2e%2e/segredo-ao-lado.txt', '/..%2fsegredo-ao-lado.txt', '/assets/%2e%2e/%2e%2e/segredo-ao-lado.txt']) {
+      const response = await server.inject({ method: 'GET', url, headers: local })
+      expect(response.body, url).not.toContain('não era para sair')
+    }
   })
 
   it('sem uiDir, a API continua na raiz e não há tela, como no make dev', async () => {

@@ -87,11 +87,18 @@ clean: ## Apaga build e dependências. Não toca em banco nenhum
 
 # A imagem sai de um ref do git (a `main` por padrão), nunca da pasta de trabalho:
 # `git archive` manda só o que está commitado nele, então um WIP não entra (card #61).
+# Só a `main` escreve `dailly:<versão>` e `dailly:latest`, as tags que o deamon roda
+# contra o diário de verdade; outro ref (uma branch testada antes do merge) ganha
+# `dailly:ref-<sha>` e não mexe nelas (gate #61). A última linha diz a tag.
 IMAGE_REF ?= main
 
 image: ## Builda dailly:<VERSION da main> a partir da main (git archive), sem registry
-	@v=$$(git show $(IMAGE_REF):VERSION | tr -d '[:space:]'); \
-	  git archive --format=tar $(IMAGE_REF) | docker build -t dailly:$$v -t dailly:latest - && echo "dailly:$$v"
+	@if [ "$(IMAGE_REF)" = main ]; then \
+	  v=$$(git show main:VERSION | tr -d '[:space:]'); tags="-t dailly:$$v -t dailly:latest"; tag="dailly:$$v"; \
+	else \
+	  tag="dailly:ref-$$(git rev-parse --short $(IMAGE_REF))"; tags="-t $$tag"; \
+	fi; \
+	git archive --format=tar $(IMAGE_REF) | docker build $$tags - >&2 && echo "$$tag"
 
 image-check: ## Prova os cenários da imagem com Docker de verdade (IMAGE_REF=main)
 	IMAGE_REF=$(IMAGE_REF) bash docker/image-check.sh

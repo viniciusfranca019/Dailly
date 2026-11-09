@@ -14,17 +14,17 @@ PORT="${CHECK_PORT:-43180}"
 DATA="$(mktemp -d)"
 PROBE="$ROOT/WIP-probe-not-committed.txt"
 fail() { echo "FALHOU: $*" >&2; exit 1; }
+# The body to a file first: `curl | grep -q` under pipefail fails when grep stops early.
+body() { curl -fsS -o "$DATA.body" "$@" && cat "$DATA.body"; }
 ok() { echo "ok: $*"; }
-cleanup() { docker rm -f "$NAME" >/dev/null 2>&1 || true; rm -f "$PROBE"; rm -rf "$DATA"; }
+cleanup() { docker rm -f "$NAME" >/dev/null 2>&1 || true; rm -f "$PROBE" "$DATA.body"; rm -rf "$DATA"; }
 trap cleanup EXIT
 
-version="$(git -C "$ROOT" show "$REF:VERSION" | tr -d '[:space:]')"
-image="dailly:$version"
-
-# C1: the image comes from the ref, never from the folder.
+# C1: the image comes from the ref, never from the folder. `make image` says the
+# tag it wrote: the version for main, `ref-<sha>` for anything else.
 echo "solto na pasta" >"$PROBE"
-make -C "$ROOT" --no-print-directory image IMAGE_REF="$REF" >/dev/null
-docker image inspect "$image" >/dev/null || fail "C1: não existe $image"
+image="$(make -C "$ROOT" --no-print-directory image IMAGE_REF="$REF" 2>/dev/null | tail -1)"
+docker image inspect "$image" >/dev/null 2>&1 || fail "C1: não existe $image"
 docker run --rm --entrypoint sh "$image" -c 'test ! -e /app/WIP-probe-not-committed.txt' || fail "C1: o arquivo WIP entrou na imagem"
 ok "C1 $image buildada de $REF, sem o arquivo WIP"
 
@@ -39,8 +39,8 @@ start() {
 start
 
 # C2: one origin serves the screen and the API, with Tasks and Requests in the build.
-curl -fsS "http://127.0.0.1:$PORT/" | grep -q '<div id="app"' || fail "C2: a raiz não é a tela"
-curl -fsS "http://127.0.0.1:$PORT/api/health" | grep -q '"status":"ok"' || fail "C2: /api/health"
+body "http://127.0.0.1:$PORT/" | grep -q '<div id="app"' || fail "C2: a raiz não é a tela"
+body "http://127.0.0.1:$PORT/api/health" | grep -q '"status":"ok"' || fail "C2: /api/health"
 docker exec "$NAME" sh -c 'grep -l "Buscar tarefa" /app/ui/dist/assets/*.js >/dev/null' || fail "C2: o Tasks não está na tela"
 docker exec "$NAME" sh -c 'grep -l "Nova request" /app/ui/dist/assets/*.js >/dev/null' || fail "C2: o Requests não está na tela"
 ok "C2 tela e API na mesma origem, com Tasks e Requests"
@@ -68,5 +68,5 @@ ok "C5 o MCP da imagem lista as tools e registra"
 # C3: the diary lives in the volume, not in the image.
 docker rm -f "$NAME" >/dev/null
 start
-curl -fsS "http://127.0.0.1:$PORT/api/entries" | grep -q 'Registro que sobrevive' || fail "C3: o registro sumiu com o container"
+body "http://127.0.0.1:$PORT/api/entries" | grep -q 'Registro que sobrevive' || fail "C3: o registro sumiu com o container"
 ok "C3 o registro continua depois de recriar o container"
