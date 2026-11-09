@@ -39,6 +39,8 @@ navegador ── http://localhost:4173 (make start) · :5173 (make dev)
                  ├──► SQLite   ~/.config/dailly/dailly.sqlite (start)
                  │             server/dailly.dev.sqlite (dev)
                  └──► rede     só o executor do Requests, para a URL que a pessoa mandou
+
+Claude Code ── stdio ── mcp/ (make mcp) ── HTTP, sem Origin ──► a mesma API (:4318 por padrão)
 ```
 
 `make dev` e `make start` sobem dois processos cada, em portas diferentes, para
@@ -54,12 +56,14 @@ do outro.
                       │ importa                 │ importa
                       │                         │
      ui/ (Vue, navegador) ─── HTTP /api ───► server/ (Fastify + SQLite)
+     mcp/ (stdio, Claude Code) ─── HTTP ─────────┘
         shell → manifest → modules/             shell → manifest → modules/
         shared/ · adapters/ · capabilities/      shell/vault
 ```
 
 - `packages/` não importa `ui/` nem `server/`; `ui/` e `server/` importam
-  `packages/` e **nunca um ao outro**. O `architecture.test.ts` da raiz prende
+  `packages/` e **nunca um ao outro**. O `mcp/` (card #57) é um terceiro cliente:
+  importa só `packages/`, tem o próprio cliente HTTP, e ninguém o importa. O `architecture.test.ts` da raiz prende
   essas setas.
 - Cada lado tem um **shell** que só conhece o **manifest**, e o manifest é o
   único lugar que nomeia os módulos.
@@ -71,6 +75,7 @@ do outro.
 | `packages/whiteboard-core` | o modelo do editor de blocos: blocos, parser e serializer de markdown, edições estruturais; sem DOM |
 | `packages/requests-core` | o modelo do Requests: `RequestSpec`, `ProtocolRegistry`, import de curl, `resolve(spec, env)`, a port `RequestStore`; sem rede |
 | `server/src` | `shell/` (config, banco, migrations, cofre, guarda de Host e Origin, `/health`), `modules/` (`entries`, `requests`, `vault`, `tasks`), cada um com o próprio store construído no `provide` |
+| `mcp/src` | o servidor MCP por stdio (`main.ts`), o cliente HTTP da API (`api.ts`) e as tools de cada módulo (`tasks.ts`); roda as regras de `packages/` como a tela, e o `e2e/mcp-*.test.ts` o prende à API de verdade |
 | `ui/src` | `shell/` (composition root, manifest com flags, rotas), `shared/` (contratos e ports), `adapters/` (HTTP), `capabilities/whiteboard` (o adapter DOM), `capabilities/labels` (o seletor e a paleta das labels globais), `modules/` (`daily-log`, `requests`, `analyse`), `playground/` |
 
 ## Os módulos

@@ -83,4 +83,4 @@ clean-db-app: ## Apaga o banco do app instalado. É o diário de verdade: pede c
 	  fi
 
 clean: ## Apaga build e dependências. Não toca em banco nenhum
-	rm -rf ui/dist node_modules ui/node_modules server/node_modules packages/*/node_modules
+	rm -rf ui/dist node_modules ui/node_modules server/node_modules mcp/node_modules packages/*/node_modules

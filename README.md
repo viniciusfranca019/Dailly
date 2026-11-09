@@ -22,6 +22,7 @@ Não há `.env`: a configuração é por variável de ambiente, toda opcional.
 | `DAILLY_PORT` | porta da API em dev | `4317` |
 | `DAILLY_DB` | arquivo SQLite da API em dev | `server/dailly.dev.sqlite` |
 | `VITE_REQUESTS` · `VITE_ANALYSE` | ligam os módulos por flag de build | desligados |
+| `DAILLY_API_URL` | a API que o servidor MCP opera | `http://127.0.0.1:4318` (o diário de verdade) |
 
 ## Comandos
 
@@ -37,6 +38,20 @@ Não há `.env`: a configuração é por variável de ambiente, toda opcional.
 | `make test-watch` | testes em watch |
 | `make check` | typecheck + testes, com e sem as flags |
 | `make build` · `make build-all` | builda o renderer, só os módulos prontos · com todos |
+| `make mcp` | o servidor MCP, por stdio, para o Claude Code operar o Tasks (a API tem de estar de pé) |
+
+## MCP: o Claude Code operando o dailly
+
+O `.mcp.json` da raiz registra o servidor `dailly` para toda sessão do Claude Code
+aberta neste repo. Ele fala com a API do `make start` (o diário de verdade); para
+o de dev, `DAILLY_API_URL=http://127.0.0.1:4317`. Para tê-lo em qualquer sessão,
+fora do repo:
+
+```bash
+claude mcp add -s user dailly -- make -s -C ~/Workstation/Workspaces/labs/dailly --no-print-directory mcp
+```
+
+As tools e as regras estão em [MCP do dailly](docs/features/mcp.md).
 
 Os dados vivem em dois lugares, e os comandos que os apagam são separados de
 propósito:
