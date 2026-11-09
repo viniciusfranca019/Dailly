@@ -253,6 +253,16 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
 
   let layer: HTMLElement | null = null
 
+  /** The short notice a command leaves (card #48), shown for a few seconds over any screen. */
+  const NOTICE_MS = 4000
+  const notice = shallowRef<string | null>(null)
+  let noticeTimer: ReturnType<typeof setTimeout> | undefined
+  function notify(text: string): void {
+    clearTimeout(noticeTimer)
+    notice.value = text
+    noticeTimer = setTimeout(() => (notice.value = null), NOTICE_MS)
+  }
+
   /**
    * The layer is modal: a focus that leaves it is taken back, and Esc from
    * anywhere, or a click on the backdrop, closes it (J10.1a).
@@ -275,6 +285,8 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
     for (const descriptor of modules) {
       for (const declared of descriptor.commands ?? []) {
         if (!matchesShortcut(event, declared.shortcut) || blockedByFocus(declared.shortcut, event.target)) continue
+        // With a command open, a bare letter is its text, wherever its focus is (card #48).
+        if (command.value && !declared.shortcut.mod) continue
         // Before the browser takes it (Ctrl+K is its address bar) or a field types it (C2).
         event.preventDefault()
         void openCommand(descriptor, declared.id)
@@ -316,7 +328,19 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
               focusTick: command.value.focusTick,
               navigate: (route: string) => void go(route),
               close: closeCommand,
+              notify,
             }),
+          )
+        : null,
+      notice.value
+        ? h(
+            'div',
+            {
+              role: 'status',
+              class:
+                'fixed bottom-4 left-4 z-50 rounded-md border border-[#1e2638] bg-[#0b101b] px-3 py-2 text-sm text-gray-100 shadow-lg',
+            },
+            notice.value,
           )
         : null,
     ],
@@ -336,6 +360,7 @@ export async function mountShell(host: HTMLElement, options: ShellOptions): Prom
       destroyed = true
       window.removeEventListener('keydown', onKeydown)
       document.removeEventListener('focusin', onFocusin)
+      clearTimeout(noticeTimer)
       command.value = null
       app.unmount()
       current.value = ''
