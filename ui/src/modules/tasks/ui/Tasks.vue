@@ -5,6 +5,7 @@ import { findByName, nextColor, normalizeLabelName } from '@dailly/domain'
 import type { StatusCategory } from '@dailly/tasks-core'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { TasksDeps } from '../deps.js'
+import { onTaskCreated } from '../model/created.js'
 import { firstToDo, groupByStatus } from '../model/list.js'
 import { onOpenRequest, takeOpen } from '../model/open-request.js'
 import BoardColumn from './board/BoardColumn.vue'
@@ -168,6 +169,14 @@ async function openRequested(): Promise<void> {
 
 const stopListening = onOpenRequest(() => void openRequested())
 onBeforeUnmount(stopListening)
+
+/** A task the quick create made (card #48): the board on the screen takes it when it is its own, and reads again. */
+const stopCreated = onTaskCreated((task) => {
+  if (task.boardId !== current.value) return false
+  void load()
+  return true
+})
+onBeforeUnmount(stopCreated)
 
 onMounted(async () => {
   await load()
