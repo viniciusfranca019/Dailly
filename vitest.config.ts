@@ -16,6 +16,7 @@ export default defineConfig({
       // que não é config — a suíte inteira não sobe.
       'packages/*/vitest.config.ts',
       'server',
+      'mcp',
       'ui',
       // The rules *between* projects have no project of their own, so they run
       // from the root: no single package can see the arrows it is part of.

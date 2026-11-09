@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "dailly": {
+      "command": "make",
+      "args": ["--silent", "--no-print-directory", "mcp"]
+    }
+  }
+}

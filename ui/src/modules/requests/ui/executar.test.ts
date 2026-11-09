@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   settle,
   mount,
@@ -105,7 +105,9 @@ describe('C8, C9: o corpo comprimido', () => {
     await click(allAt(host, 'request')[0]!)
     await click(at(host, 'execute'))
 
-    expect(text(host, 'response-body')).toContain('"ok":true')
+    // The gunzip runs in native zlib, off the event loop: a fixed count of
+    // ticks was not enough under the full suite's load, so wait with a deadline.
+    await vi.waitFor(() => expect(text(host, 'response-body')).toContain('"ok":true'))
     expect(at(host, 'response-opaque')).toBeNull()
   })
 

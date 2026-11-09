@@ -2,6 +2,7 @@ packages:
   - packages/*
   - ui
   - server
+  - mcp
 
 # Dependências autorizadas a rodar script de instalação. Sem isto o pnpm 11 as
 # ignora em silêncio, e o sintoma aparece longe da causa: o better-sqlite3 sem
