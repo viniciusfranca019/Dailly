@@ -66,6 +66,7 @@ export async function createServer(
       // Fora do `ServerConfig` de propósito: a config é devolvida por
       // `createServer`, e um segredo não deve viajar com ela.
       ...(input.secretKey ? { secretKey: input.secretKey } : {}),
+      ...(input.uiDir ? { uiDir: input.uiDir } : {}),
     },
     modules,
   )
