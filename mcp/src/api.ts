@@ -20,13 +20,25 @@ export class ApiRefusal extends Error {
 
 export type Api = (path: string, init?: { method?: string; body?: unknown }) => Promise<unknown>
 
-export function apiClient(baseUrl: string, doFetch: typeof fetch = globalThis.fetch.bind(globalThis)): Api {
+/**
+ * How long a call waits: an API that took the connection and never answers (a
+ * suspended process) is "nobody answered" too, and the harness must hear it in
+ * seconds, not after undici's five minutes (gate #57).
+ */
+export const API_TIMEOUT_MS = 10_000
+
+export function apiClient(
+  baseUrl: string,
+  doFetch: typeof fetch = globalThis.fetch.bind(globalThis),
+  timeoutMs: number = API_TIMEOUT_MS,
+): Api {
   const base = baseUrl.replace(/\/+$/, '')
   return async (path, { method = 'GET', body } = {}) => {
     let response: Response
     try {
       response = await doFetch(`${base}${path}`, {
         method,
+        signal: AbortSignal.timeout(timeoutMs),
         // Only with a body: Fastify refuses an empty JSON body (the `ui/` learned it on DELETE).
         ...(body === undefined ? {} : { headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
       })
@@ -37,7 +49,8 @@ export function apiClient(baseUrl: string, doFetch: typeof fetch = globalThis.fe
     let payload: unknown
     try {
       payload = await response.json()
-    } catch {
+    } catch (cause) {
+      if (cause instanceof DOMException && cause.name === 'TimeoutError') throw new Error(`não consegui falar com a API local em ${base}`)
       throw new ApiRefusal(response.status, `a API respondeu ${response.status} com um corpo que não é JSON`)
     }
     if (!response.ok) throw new ApiRefusal(response.status, refusal(payload, response.status))

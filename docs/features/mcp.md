@@ -15,8 +15,8 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-09T15:30:00-03:00 }
 - Tools do Tasks:
   - **ler:** `list_boards`, `get_board` (status e tarefas, na ordem da tela) e
     `search_tasks` (pela chave ou por parte do título, em todos os boards);
-  - **escrever:** `create_task`, `update_task` (título, corpo, prioridade, labels e
-    status, numa gravação), `delete_task`;
+  - **escrever:** `create_task`, `update_task` (título, corpo, prioridade e status,
+    numa gravação), `delete_task`;
   - **comentários:** `list_comments`, `add_comment`, `delete_comment`.
 - Um board ou status é dado pelo nome, sem caixa, ou pelo id; uma tarefa, pela chave
   (`casa-2` vale). Sem board, a tarefa vai para o primeiro ("Tasks"); sem status, para
@@ -25,7 +25,8 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-09T15:30:00-03:00 }
   tela (RN3).
 - Uma recusa da API volta como erro da tool, nas palavras dela ("o título é
   obrigatório"). Com a API fora, a tool diz "não consegui falar com a API local em
-  <url>", e o servidor MCP continua de pé.
+  <url>", e o servidor MCP continua de pé. A API que aceita a conexão e não responde
+  (um processo suspenso) dá o mesmo erro em 10 s.
 
 # Regras
 
@@ -60,4 +61,4 @@ No card #57, em 2026-11-09.
 
 - Não cria nem edita boards e status: isso fica na tela.
 - Não expõe o Requests nem o cofre.
-- O Daily Log e as labels entram no card #58.
+- O Daily Log e as labels, inclusive as das tarefas, entram no card #58.

@@ -14,11 +14,13 @@ export interface DaillyMcpDeps {
   /** `http://127.0.0.1:4318` is the real diary (`make start`); `:4317`, the dev one. */
   readonly apiUrl: string
   readonly fetch?: typeof fetch
+  /** The deadline of each call to the API (`API_TIMEOUT_MS` by default). */
+  readonly timeoutMs?: number
 }
 
-export function createDaillyMcp({ apiUrl, fetch }: DaillyMcpDeps): McpServer {
+export function createDaillyMcp({ apiUrl, fetch, timeoutMs }: DaillyMcpDeps): McpServer {
   const server = new McpServer({ name: 'dailly', version: '0.1.0' })
-  const api = apiClient(apiUrl, fetch)
+  const api = apiClient(apiUrl, fetch, timeoutMs)
   registerTaskTools(server, api)
   return server
 }

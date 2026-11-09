@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import { createServer, type Server } from 'node:net'
+import { afterEach, describe, expect, it } from 'vitest'
 import { createDaillyMcp } from './server.js'
 import { connected } from './testing.js'
 
@@ -11,6 +12,33 @@ describe('C7: API fora', () => {
     expect((await mcp.call('list_boards')).error).toBe('não consegui falar com a API local em http://127.0.0.1:9')
     expect((await mcp.call('get_board', { board: 'Casa' })).error).toContain('não consegui falar com a API local')
     expect((await mcp.tools()).length).toBeGreaterThan(0)
+  })
+})
+
+describe('gate #57: C7 com a API presa, que aceita a conexão e não responde', () => {
+  let silent: Server | undefined
+  afterEach(() => silent?.close())
+
+  it('a tool falha no prazo, com a mesma mensagem, em vez de esperar minutos', async () => {
+    const sockets: import('node:net').Socket[] = []
+    silent = createServer((socket) => sockets.push(socket))
+    await new Promise<void>((resolve) => silent!.listen(0, '127.0.0.1', resolve))
+    const { port } = silent.address() as { port: number }
+    const mcp = await connected(createDaillyMcp({ apiUrl: `http://127.0.0.1:${port}`, timeoutMs: 200 }))
+
+    const started = performance.now()
+    expect((await mcp.call('list_boards')).error).toBe(`não consegui falar com a API local em http://127.0.0.1:${port}`)
+    expect(performance.now() - started).toBeLessThan(2000)
+    for (const socket of sockets) socket.destroy()
+  })
+})
+
+describe('gate #57: labels nas tarefas são do card #58', () => {
+  it('update_task não aceita labelIds', async () => {
+    const mcp = await connected(createDaillyMcp({ apiUrl: 'http://127.0.0.1:9' }))
+    const update = (await mcp.tools()).find((tool) => tool.name === 'update_task')!
+
+    expect(Object.keys(update.inputSchema.properties ?? {})).not.toContain('labelIds')
   })
 })
 

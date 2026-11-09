@@ -168,18 +168,17 @@ export function registerTaskTools(server: McpServer, api: Api): void {
     'update_task',
     {
       title: 'Mudar tarefa',
-      description: 'Muda o título, o corpo (markdown), a prioridade, as labels (ids, o conjunto inteiro) e o status, numa gravação. Um status novo põe a tarefa no topo dele.',
+      description: 'Muda o título, o corpo (markdown), a prioridade e o status, numa gravação. Um status novo põe a tarefa no topo dele.',
       inputSchema: {
         key: keyArg,
         title: z.string().optional(),
         body: z.string().optional(),
         status: z.string().describe('O status, pelo nome ou pelo id').optional(),
         priority: z.enum(PRIORITY_NAMES).optional(),
-        labelIds: z.array(z.string()).optional(),
       },
       annotations: { destructiveHint: false },
     },
-    async ({ key: text, title, body, status: statusName, priority, labelIds }) => {
+    async ({ key: text, title, body, status: statusName, priority }) => {
       const key = keyOf(text)
       const { board, read } = await boardOfKey(key)
       const current = read.tasks.find((task) => task.keyPrefix === key.prefix && task.key === key.key)
@@ -199,7 +198,6 @@ export function registerTaskTools(server: McpServer, api: Api): void {
               ...(title !== undefined ? { title } : {}),
               ...(body !== undefined ? { body } : {}),
               ...(priority !== undefined ? { priority: priorityOf(priority) } : {}),
-              ...(labelIds !== undefined ? { labelIds } : {}),
               ...(placement ?? {}),
             },
           }),
