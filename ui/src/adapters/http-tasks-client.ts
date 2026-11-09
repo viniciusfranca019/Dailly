@@ -186,7 +186,12 @@ export function httpTasksClient(deps: HttpTasksClientDeps): TasksPort {
       return parseTask(
         await call('/tasks', {
           method: 'POST',
-          body: JSON.stringify({ boardId: input.boardId, title: input.title, statusId: input.statusId }),
+          body: JSON.stringify({
+            boardId: input.boardId,
+            title: input.title,
+            statusId: input.statusId,
+            ...(input.priority !== undefined ? { priority: input.priority } : {}),
+          }),
         }),
       )
     },
