@@ -1,8 +1,0 @@
-# `make image` sends `git archive` (only what is committed), so this file only
-# matters for a plain `docker build .`, which should behave the same way.
-**/node_modules
-**/dist
-WIP
-*.sqlite
-*.sqlite-*
-.env

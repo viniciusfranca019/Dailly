@@ -3,6 +3,8 @@
 # The dailly image (card #61): the API, the built screen and the MCP in one
 # process tree, served on one origin. Built from a git ref by `make image`
 # (`git archive`), never from the working folder, and never pushed anywhere.
+# Everything Docker of this repo lives in `.docker/`, as in the Workstation; the
+# build context is still the repo root (`docker build -f .docker/Dockerfile`).
 #
 # The diary is not in here: it lives in /data (DAILLY_DB), a volume the
 # Workstation deamon binds to ~/.config/dailly. Inside the container the bind is
@@ -28,7 +30,7 @@ RUN VITE_REQUESTS=true VITE_TASKS=true pnpm --filter @dailly/ui build
 FROM ${NODE_IMAGE}
 WORKDIR /app
 COPY --from=build --chown=node:node /app /app
-COPY --chmod=755 docker/dailly-mcp /usr/local/bin/dailly-mcp
+COPY --chmod=755 .docker/dailly-mcp /usr/local/bin/dailly-mcp
 RUN mkdir -p /data && chown node:node /data
 ENV DAILLY_HOST=0.0.0.0 \
     DAILLY_PORT=4318 \

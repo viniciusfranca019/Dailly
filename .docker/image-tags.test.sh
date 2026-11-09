@@ -3,7 +3,7 @@
 # version tag and `latest`, the ones the deamon runs against the real diary. Any
 # other ref (a branch tried before the merge) gets a tag of its own. A fake
 # `docker` on the PATH records the build; nothing is built.
-#   bash docker/image-tags.test.sh
+#   bash .docker/image-tags.test.sh
 set -u
 ROOT="$(git rev-parse --show-toplevel)"
 fails=0

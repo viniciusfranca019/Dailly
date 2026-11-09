@@ -68,7 +68,7 @@ check: ## Typecheck + testes, com e sem as flags de módulo, e a regra das tags 
 	$(MAKE) test
 	$(MAKE) test-all
 	@# Sem Docker (um docker falso): só a main move dailly:<versão> e latest (gate #61).
-	bash docker/image-tags.test.sh
+	bash .docker/image-tags.test.sh
 
 clean-db: ## Apaga o banco de desenvolvimento (o que `make dev` usa)
 	@rm -f $(DEV_DB) $(DEV_DB)-wal $(DEV_DB)-shm
@@ -100,7 +100,7 @@ image: ## Builda dailly:<VERSION da main> a partir da main (git archive), sem re
 	else \
 	  tag="dailly:ref-$$(git rev-parse --short $(IMAGE_REF))"; tags="-t $$tag"; \
 	fi; \
-	git archive --format=tar $(IMAGE_REF) | docker build $$tags - >&2 && echo "$$tag"
+	git archive --format=tar $(IMAGE_REF) | docker build -f .docker/Dockerfile $$tags - >&2 && echo "$$tag"
 
 image-check: ## Prova os cenários da imagem com Docker de verdade (IMAGE_REF=main)
-	IMAGE_REF=$(IMAGE_REF) bash docker/image-check.sh
+	IMAGE_REF=$(IMAGE_REF) bash .docker/image-check.sh

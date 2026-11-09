@@ -50,8 +50,9 @@ unless-stopped`.
 
 # Onde mora
 
-- `Dockerfile`, `.dockerignore`, `docker/dailly-mcp`, `docker/image-check.sh` (os
-  cenários, com Docker), `docker/image-tags.test.sh` (a regra das tags, sem Docker, no
+- `.docker/`, tudo de Docker do repo, como na Workstation: `Dockerfile`,
+  `Dockerfile.dockerignore`, `dailly-mcp`, `image-check.sh` (os cenários, com Docker),
+  `image-tags.test.sh` (a regra das tags, sem Docker, no
   `make check`)
 - os alvos `image` e `image-check` do `Makefile`
 - `server/src/shell/app.ts` (`uiDir`, `/api`), `server/src/dev.ts` (`DAILLY_HOST`,
