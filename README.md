@@ -38,6 +38,7 @@ Não há `.env`: a configuração é por variável de ambiente, toda opcional.
 | `make test-watch` | testes em watch |
 | `make check` | typecheck + testes, com e sem as flags |
 | `make build` · `make build-all` | builda o renderer, só os módulos prontos · com todos |
+| `make image` | builda `dailly:<versão>` a partir da `main` (sem registry); `make image-check` prova a imagem com Docker |
 | `make mcp` | o servidor MCP, por stdio, para o Claude Code operar o Tasks e o Daily Log (a API tem de estar de pé) |
 
 ## MCP: o Claude Code operando o dailly

@@ -1,0 +1,4 @@
+#!/bin/sh
+# The MCP of this image, on stdio, for `docker exec -i dailly dailly-mcp`
+# (card #61): it talks to the API of the same container (DAILLY_API_URL).
+cd /app && exec /app/mcp/node_modules/.bin/tsx /app/mcp/src/main.ts

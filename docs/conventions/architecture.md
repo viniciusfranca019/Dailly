@@ -41,6 +41,13 @@ navegador ── http://localhost:4173 (make start) · :5173 (make dev)
                  └──► rede     só o executor do Requests, para a URL que a pessoa mandou
 
 Claude Code ── stdio ── mcp/ (make mcp) ── HTTP, sem Origin ──► a mesma API (:4318 por padrão)
+
+imagem dailly (make image, deamon da Workstation): um processo só
+   Fastify 0.0.0.0:4318 no container, publicado só em 127.0.0.1:4318
+     ├─ /        a ui/dist (@fastify/static)
+     ├─ /api/*   a API (o mesmo /api do proxy do vite)
+     └─ /data    o diário, volume ligado a ~/.config/dailly
+   docker exec -i dailly dailly-mcp ── o MCP, contra a API do mesmo container
 ```
 
 `make dev` e `make start` sobem dois processos cada, em portas diferentes, para
@@ -333,8 +340,15 @@ dois runtimes custava em tudo que atravessava o shell. Sem o Electron, a ameaça
 passou a ser outros sites abertos no mesmo navegador, não um processo local, que
 de todo modo leria o SQLite direto.
 
-**Descartado:** manter desktop e web; servir a UI pelo próprio Fastify (uma
-dependência nova; volta se o `make start` incomodar); token por cookie da página
+**Revisto (card #61):** a imagem Docker serve a UI pelo próprio Fastify, com o
+`@fastify/static` (a dependência nova que esta decisão adiava): um container é um
+processo, e o deamon da Workstation precisa do app de pé sem um terminal aberto. A API
+responde em `/api`, como o proxy do vite sempre a expôs, e a guarda de Host cobre a tela
+e a API. O `make dev` e o `make start` não mudam. A imagem sai da `main` por `git archive`
+(`make image`), com a versão do `VERSION` da `main`, e não vai para registry nenhum.
+
+**Descartado:** manter desktop e web; servir a UI pelo próprio Fastify fora da imagem
+(o `make start` não incomoda); token por cookie da página
 (um processo local pegaria o cookie). **Limites:** outra aplicação web em
 `localhost` passa pela regra de Origin, porque as portas não foram fixadas (o Vite
 cai para a 5174). Hospedar é outra decisão (auth de pessoa, outro banco, TLS). O

@@ -1,4 +1,4 @@
-.PHONY: help install dev dev-api dev-ui dev-all start start-api start-ui mcp test test-all test-watch build build-all check clean-db clean-db-app clean
+.PHONY: help install dev dev-api dev-ui dev-all start start-api start-ui mcp image image-check test test-all test-watch build build-all check clean-db clean-db-app clean
 
 # Os dois bancos, que têm riscos bem diferentes.
 DEV_DB  := server/dailly.dev.sqlite
@@ -84,3 +84,14 @@ clean-db-app: ## Apaga o banco do app instalado. É o diário de verdade: pede c
 
 clean: ## Apaga build e dependências. Não toca em banco nenhum
 	rm -rf ui/dist node_modules ui/node_modules server/node_modules mcp/node_modules packages/*/node_modules
+
+# A imagem sai de um ref do git (a `main` por padrão), nunca da pasta de trabalho:
+# `git archive` manda só o que está commitado nele, então um WIP não entra (card #61).
+IMAGE_REF ?= main
+
+image: ## Builda dailly:<VERSION da main> a partir da main (git archive), sem registry
+	@v=$$(git show $(IMAGE_REF):VERSION | tr -d '[:space:]'); \
+	  git archive --format=tar $(IMAGE_REF) | docker build -t dailly:$$v -t dailly:latest - && echo "dailly:$$v"
+
+image-check: ## Prova os cenários da imagem com Docker de verdade (IMAGE_REF=main)
+	IMAGE_REF=$(IMAGE_REF) bash docker/image-check.sh

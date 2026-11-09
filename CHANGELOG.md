@@ -1,4 +1,4 @@
-version: 0.1.24
+version: 0.1.25
 
-- MCP do dailly (#58): o Claude Code também opera o Daily Log e as labels. `list_entries` (um período, por padrão hoje no fuso da API, com filtro por labels e propriedades), `get_entry`, `create_entry`, `update_entry` e `delete_entry` rodam os use-cases da tela; `list_labels` e `create_label` cuidam das labels globais. Labels vão pelo nome, e uma que não existe é recusada.
-- `update_task` põe e tira labels pelo nome (`addLabels`, `removeLabels`) sem apagar as outras, e as tarefas mostram as labels pelo nome.
+- Imagem Docker do dailly (#61): `make image` builda `dailly:<versão>` a partir da `main` por `git archive`, sem registry. Um container serve a tela e a API na mesma origem (`/` e `/api`), guarda o diário num volume (`/data`) e traz o MCP (`docker exec -i <container> dailly-mcp`). `make image-check` prova os cenários com Docker de verdade.
+- O servidor serve a `ui/dist` quando recebe `DAILLY_UI_DIR`, com o `@fastify/static`, atrás da mesma guarda de Host; `DAILLY_HOST` muda o bind (só a imagem usa). O `make dev` e o `make start` não mudam.

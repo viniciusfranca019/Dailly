@@ -25,6 +25,7 @@ importam e onde mora no código. O Analyse ainda é só uma tela-esqueleto atrá
 * [Tasks, vários boards](/features/tasks-boards.md) - boards com prefixo próprio, a troca entre eles e a chave <PREFIXO>-<n> congelada
 
 ## O app
+* [Imagem Docker do dailly](/features/imagem.md) - make image builda da main, sem registry; um container serve tela, API e MCP, com o diário num volume
 * [MCP do dailly](/features/mcp.md) - o Claude Code opera tarefas, registros do dia e labels pelo MCP, por stdio, como mais um cliente da API
 * [Ordem da barra lateral](/features/ordem-da-barra.md) - arrastar ou Alt+↑/↓ para pôr os módulos na ordem do uso, lembrada no navegador
 * [App local](/features/app-local.md) - só web, só nesta máquina: os dois bancos, as portas e a guarda da API
