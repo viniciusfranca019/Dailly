@@ -87,6 +87,22 @@ describe('the arrow between projects only points into packages/', () => {
   })
 })
 
+describe('the MCP is a third client: it imports packages/ only (card #57)', () => {
+  it('finds source to inspect', () => {
+    expect(filesUnder('mcp').length).toBeGreaterThan(3)
+  })
+
+  it('reaches the server and the renderer only over HTTP, and nobody imports it', () => {
+    // Its own HTTP client, not the `ui/` adapters, and no store of the server:
+    // the use-cases run in the client and the API validates (P1 A).
+    expect(violations('mcp', reaches('ui', '@dailly/ui'))).toEqual([])
+    expect(violations('mcp', reaches('server', '@dailly/server'))).toEqual([])
+    for (const project of ['packages', 'server', 'ui']) {
+      expect(violations(project, reaches('mcp', '@dailly/mcp'))).toEqual([])
+    }
+  })
+})
+
 /**
  * O envelope de `POST /requests/:id/execute` é o contrato da fita entre o
  * `server/` e a `ui/` — e um contrato declarado duas vezes é duas verdades.

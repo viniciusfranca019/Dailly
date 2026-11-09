@@ -1,4 +1,4 @@
-.PHONY: help install dev dev-api dev-ui dev-all start start-api start-ui test test-all test-watch build build-all check clean-db clean-db-app clean
+.PHONY: help install dev dev-api dev-ui dev-all start start-api start-ui mcp test test-all test-watch build build-all check clean-db clean-db-app clean
 
 # Os dois bancos, que têm riscos bem diferentes.
 DEV_DB  := server/dailly.dev.sqlite
@@ -56,6 +56,12 @@ start-api:
 
 start-ui:
 	DAILLY_PORT=$(START_PORT) pnpm --filter @dailly/ui exec vite preview --port 4173 --strictPort
+
+# O MCP fala pelo stdio: nada além do protocolo pode sair no stdout, por isso o
+# `@` e o `--silent`. Padrão: o diário de verdade (`make start`); o de dev é
+# `DAILLY_API_URL=http://127.0.0.1:4317 make mcp`.
+mcp: ## O servidor MCP do dailly, por stdio, para o Claude Code (a API tem de estar de pé)
+	@pnpm --silent --filter @dailly/mcp start
 
 check: ## Typecheck + testes, com e sem as flags de módulo
 	pnpm -r typecheck
