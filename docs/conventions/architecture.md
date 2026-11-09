@@ -75,7 +75,7 @@ do outro.
 | `packages/whiteboard-core` | o modelo do editor de blocos: blocos, parser e serializer de markdown, edições estruturais; sem DOM |
 | `packages/requests-core` | o modelo do Requests: `RequestSpec`, `ProtocolRegistry`, import de curl, `resolve(spec, env)`, a port `RequestStore`; sem rede |
 | `server/src` | `shell/` (config, banco, migrations, cofre, guarda de Host e Origin, `/health`), `modules/` (`entries`, `requests`, `vault`, `tasks`), cada um com o próprio store construído no `provide` |
-| `mcp/src` | o servidor MCP por stdio (`main.ts`), o cliente HTTP da API (`api.ts`) e as tools de cada módulo (`tasks.ts`); roda as regras de `packages/` como a tela, e o `e2e/mcp-*.test.ts` o prende à API de verdade |
+| `mcp/src` | o servidor MCP por stdio (`main.ts`), o cliente HTTP da API (`api.ts`) e as tools de cada módulo (`tasks.ts`, `daily-log.ts`, `labels.ts`); roda as regras de `packages/` como a tela, e o `e2e/mcp-*.test.ts` o prende à API de verdade |
 | `ui/src` | `shell/` (composition root, manifest com flags, rotas), `shared/` (contratos e ports), `adapters/` (HTTP), `capabilities/whiteboard` (o adapter DOM), `capabilities/labels` (o seletor e a paleta das labels globais), `modules/` (`daily-log`, `requests`, `analyse`), `playground/` |
 
 ## Os módulos

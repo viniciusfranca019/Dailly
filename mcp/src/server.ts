@@ -1,5 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { apiClient } from './api.js'
+import { registerDailyLogTools, type DailyLogDeps } from './daily-log.js'
+import { labelBook } from './labels.js'
 import { registerTaskTools } from './tasks.js'
 
 /**
@@ -16,11 +18,15 @@ export interface DaillyMcpDeps {
   readonly fetch?: typeof fetch
   /** The deadline of each call to the API (`API_TIMEOUT_MS` by default). */
   readonly timeoutMs?: number
+  /** The clock and ids `createEntry` uses; the system's by default. */
+  readonly dailyLog?: DailyLogDeps
 }
 
-export function createDaillyMcp({ apiUrl, fetch, timeoutMs }: DaillyMcpDeps): McpServer {
+export function createDaillyMcp({ apiUrl, fetch, timeoutMs, dailyLog }: DaillyMcpDeps): McpServer {
   const server = new McpServer({ name: 'dailly', version: '0.1.0' })
   const api = apiClient(apiUrl, fetch, timeoutMs)
-  registerTaskTools(server, api)
+  const labels = labelBook(api)
+  registerTaskTools(server, api, labels)
+  registerDailyLogTools(server, api, labels, dailyLog)
   return server
 }
