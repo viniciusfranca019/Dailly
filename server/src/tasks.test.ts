@@ -56,6 +56,23 @@ describe('POST /tasks', () => {
     expect((await board()).tasks[0].title).toBe('Comprar café')
   })
 
+  it('#48 C3: creates with the priority chosen in the quick create', async () => {
+    const response = await create({ title: 'Comprar tinta', statusId: 'todo', priority: 2 })
+
+    expect(response.statusCode).toBe(201)
+    expect(response.json()).toMatchObject({ key: 1, title: 'Comprar tinta', priority: 2 })
+    expect((await board()).tasks[0].priority).toBe(2)
+  })
+
+  it('#48: refuses a priority that is not 0 to 4, naming the field, as the PATCH does, and writes nothing', async () => {
+    for (const priority of [7, -1, 1.5, 'alta', null]) {
+      const response = await create({ title: 'x', statusId: 'todo', priority })
+      expect(response.statusCode, JSON.stringify(priority)).toBe(400)
+      expect(response.json().errors[0].field).toBe('priority')
+    }
+    expect((await board()).tasks).toEqual([])
+  })
+
   it('C5: refuses an empty title or one of spaces, and writes nothing', async () => {
     for (const title of ['', '   ']) {
       const response = await create({ title, statusId: 'todo' })

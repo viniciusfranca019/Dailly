@@ -77,6 +77,14 @@ describe('httpTasksClient', () => {
     expect(JSON.parse(seen.init?.body as string)).toEqual({ boardId: 'casa', title: 'Comprar café', statusId: 'todo' })
   })
 
+  it('#48 C3: posts the priority chosen in the quick create', async () => {
+    const seen: { url?: string; init?: RequestInit } = {}
+    const client = httpTasksClient({ config, fetch: answering(201, { ...task, priority: 2 }, seen) })
+
+    await client.create({ boardId: 'casa', title: 'Comprar tinta', statusId: 'todo', priority: 2 })
+    expect(JSON.parse(seen.init?.body as string)).toEqual({ boardId: 'casa', title: 'Comprar tinta', statusId: 'todo', priority: 2 })
+  })
+
   it('refuses a board in a shape it does not know, at the boundary', async () => {
     const client = httpTasksClient({ config, fetch: answering(200, { statuses: [status], tasks: [{ ...task, key: '1' }] }) })
     await expect(client.board('casa')).rejects.toThrow(ApiError)

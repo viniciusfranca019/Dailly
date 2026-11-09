@@ -26,12 +26,15 @@ export interface CommandProps<TDeps> {
   readonly focusTick: number
   navigate(route: string): void
   close(): void
+  /** A short notice the shell shows for a few seconds, after the command has closed ("CASA-2 criada", card #48). */
+  notify(text: string): void
 }
 
 export function matchesShortcut(event: KeyboardEvent, shortcut: Shortcut): boolean {
   const mod = event.ctrlKey || event.metaKey
-  // Shift too: Ctrl+Shift+K is the browser's, not this shortcut.
-  return event.key.toLowerCase() === shortcut.key && !event.altKey && !event.shiftKey && mod === (shortcut.mod ?? false)
+  // Shift only on a bare letter, where C is c (card #48): Ctrl+Shift+K is the browser's, not this shortcut.
+  const shiftOk = !event.shiftKey || !shortcut.mod
+  return event.key.toLowerCase() === shortcut.key && !event.altKey && shiftOk && mod === (shortcut.mod ?? false)
 }
 
 /** RN15: a shortcut without Ctrl/Meta would be typed into a field, so it waits outside one. */

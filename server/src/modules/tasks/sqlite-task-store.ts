@@ -190,7 +190,7 @@ export function sqliteTaskStore({ db, newId, now }: SqliteTaskStoreDeps): TaskSt
     return next
   })
 
-  const create = db.transaction((boardId: string, title: string, statusId: string): Task => {
+  const create = db.transaction((boardId: string, title: string, statusId: string, priority: Priority): Task => {
     if (!findBoard(boardId)) throw new BoardNotFoundError(boardId)
     if (!statusIn(boardId, statusId)) throw new StatusNotFoundError(statusId)
     const top = db
@@ -209,7 +209,7 @@ export function sqliteTaskStore({ db, newId, now }: SqliteTaskStoreDeps): TaskSt
       keyPrefix: prefix,
       title,
       statusId,
-      priority: 0,
+      priority,
       rank: rankBetween(undefined, top?.rank),
       completedAt: null,
       createdAt: at,
@@ -377,9 +377,11 @@ export function sqliteTaskStore({ db, newId, now }: SqliteTaskStoreDeps): TaskSt
       return { statuses: statusesOf(boardId), tasks: ordered(boardId, rows).map(toTask) }
     },
 
-    async create({ boardId, title, statusId }) {
+    async create({ boardId, title, statusId, priority = 0 }) {
       // Validated before the transaction, so a refusal costs no key.
-      return create(boardId, normalizeTitle(title), statusId)
+      const normalized = normalizeTitle(title)
+      if (!isPriority(priority)) throw new InvalidPriorityError(priority)
+      return create(boardId, normalized, statusId, priority)
     },
 
     async update(key, patch) {

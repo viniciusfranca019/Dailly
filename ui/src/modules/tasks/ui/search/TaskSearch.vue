@@ -22,6 +22,7 @@ const props = defineProps<{
   focusTick: number
   navigate: (route: string) => void
   close: () => void
+  notify: (text: string) => void
 }>()
 
 const PAUSE_MS = 150

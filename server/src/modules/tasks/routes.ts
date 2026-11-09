@@ -280,12 +280,25 @@ export function registerTaskRoutes(app: FastifyInstance, store: TaskStore): void
         errors: [{ field: '', message: 'o corpo deve ter boardId, title e statusId, os três texto' }],
       })
     }
+    // Optional (card #48): the quick create chooses it; absent, the task is born "sem" (RN8).
+    const { priority } = body
+    if (priority !== undefined && typeof priority !== 'number') {
+      return reply.code(400).send({ errors: [{ field: 'priority', message: 'deve ser um número de 0 a 4' }] })
+    }
     try {
-      return reply
-        .code(201)
-        .send(await store.create({ boardId: body.boardId as string, title: body.title, statusId: body.statusId }))
+      return reply.code(201).send(
+        await store.create({
+          boardId: body.boardId as string,
+          title: body.title,
+          statusId: body.statusId,
+          ...(priority !== undefined ? { priority: priority as Priority } : {}),
+        }),
+      )
     } catch (error) {
       if (error instanceof BoardNotFoundError) return reply.code(404).send(BOARD_NOT_FOUND)
+      if (error instanceof InvalidPriorityError) {
+        return reply.code(400).send({ errors: [{ field: 'priority', message: error.message }] })
+      }
       if (error instanceof TitleRequiredError) {
         return reply.code(400).send({ errors: [{ field: 'title', message: error.message }] })
       }

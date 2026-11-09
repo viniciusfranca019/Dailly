@@ -9,6 +9,8 @@ export interface NewTask {
   readonly boardId: string
   readonly title: string
   readonly statusId: string
+  /** Chosen in the quick create (card #48); absent, the task is born "sem" (RN8). */
+  readonly priority?: Priority
 }
 
 /**

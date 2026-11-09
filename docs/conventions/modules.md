@@ -73,7 +73,10 @@ ui/src/modules/<id>/
   módulo exporta `commands = { <id>: <Componente> }`. O shell escuta o `keydown` em
   `window`, aplica a RN15 (`shared/command.ts`: sem `mod`, não dispara num campo),
   carrega o módulo pelo mesmo `load()` e mostra o componente numa camada, com as
-  props `deps`, `focusTick`, `navigate(route)` e `close()`. Um pedido para o próprio
+  props `deps`, `focusTick`, `navigate(route)`, `close()` e `notify(texto)`, um aviso
+  curto que o shell mostra por alguns segundos depois de o comando fechar (card #48).
+  Um atalho de letra solta (o `C` da F10) aceita Shift, e com um comando aberto é
+  texto dele, onde quer que esteja o foco. Um pedido para o próprio
   módulo (abrir a tarefa escolhida) vai por um estado em `model/` dele, nunca pelo
   shell. Os atalhos de uma tela só (o Ctrl+S do painel) ficam nela.
 - **As dependências** chegam em duas metades: o comum a todos (`SharedDeps`,
