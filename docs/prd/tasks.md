@@ -138,7 +138,7 @@ RN4: Board e lista são a mesma consulta, na mesma ordem; só a forma muda, porq
 RN5: A chave é <PREFIXO>-<n>, com o n sequencial dentro do board e nunca reaproveitado depois de apagar, e fica congelada na tarefa: trocar o prefixo do board vale só para as tarefas novas, porque uma chave citada no Daily Log não pode passar a apontar outra tarefa
 RN6: A timeline do Daily Log mostra só as entries de registro, nunca as de tarefa, porque uma tarefa não é um fato do dia até ser concluída, e isso é decisão do Analyse
 RN7: Uma gravação recusada faz a tela reler e voltar ao que o servidor tem, porque é a regra que o Requests já usa (reler é voltar) e evita desfazer à mão
-RN8: A prioridade é um de cinco níveis (sem, urgente, alta, média, baixa) e toda tarefa nasce "sem", porque são os níveis do Linear e o Analyse lê um inteiro de 0 a 4
+RN8: A prioridade é um de cinco níveis (sem, urgente, alta, média, baixa) e a tarefa nasce "sem" quando ninguém escolhe outra, porque são os níveis do Linear e o Analyse lê um inteiro de 0 a 4; o criar rápido (J11.1) escolhe na criação, numa gravação só (P1 do #48, decidida pela recomendação em 2026-11-09)
 RN9: Um prefixo usado por um board nunca é usado por outro, nem depois de trocado, porque as chaves congeladas com ele (RN5) colidiriam com as do board novo
 RN10: As tarefas de antes da v2 ficam num board "Tasks" de prefixo T, com as chaves e os status que já tinham, porque T-<n> já pode estar citada no Daily Log
 RN11: Todo status pertence a um board, e o board tem ao menos um; o nome é único no board e a coluna fica junto da categoria (RN2), na ordem em que o status foi criado, porque a tarefa precisa de uma coluna e duas colunas com o mesmo nome não se distinguem

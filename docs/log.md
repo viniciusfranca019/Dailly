@@ -1,5 +1,8 @@
 # Directory Update Log
 
+## 2026-11-09
+* **Creation**: [Tasks, criar rápido com C](/features/tasks-criar-rapido.md), a F10 do [Tasks](/prd/tasks.md) (card #48), que fecha a v2. A RN8 do [Tasks](/prd/tasks.md) passa a ler "nasce sem quando ninguém escolhe" (P1 do #48), e [Módulos](/conventions/modules.md) ganha o `notify` e o atalho de letra solta.
+
 ## 2026-11-06
 * **Update**: [Tasks, painel da tarefa](/features/tasks-painel.md) põe as labels globais na tarefa, a F8 do [Tasks](/prd/tasks.md) (card #46). [Arquitetura](/conventions/architecture.md) e [Módulos](/conventions/modules.md) ganham a capacidade `labels`.
 * **Creation**: [Tasks, busca com Ctrl+K](/features/tasks-busca.md), a F9 do [Tasks](/prd/tasks.md) (card #47). [Módulos](/conventions/modules.md) ganha a costura de comandos do shell.
