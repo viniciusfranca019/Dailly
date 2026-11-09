@@ -16,6 +16,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { ApiRefusal, type Api } from './api.js'
 import { answer } from './answer.js'
+import type { LabelBook } from './labels.js'
 
 /**
  * The Tasks tools (card #57): read boards and tasks, and create, change, move
@@ -39,8 +40,8 @@ function keyOf(text: string): TaskKey {
 }
 const taskPath = (key: TaskKey) => `/tasks/${encodeURIComponent(formatKey(key.prefix, key.key))}`
 
-/** A task in the words of the screen: the key whole, and the status and the priority by name. */
-function view(task: Task, statuses: readonly TaskStatus[]) {
+/** A task in the words of the screen: the key whole, and the status, the priority and the labels by name. */
+function view(task: Task, statuses: readonly TaskStatus[], labels: readonly string[]) {
   return {
     key: formatKey(task.keyPrefix, task.key),
     title: task.title,
@@ -48,13 +49,13 @@ function view(task: Task, statuses: readonly TaskStatus[]) {
     statusId: task.statusId,
     priority: PRIORITY_LABELS[task.priority],
     body: task.body,
-    labelIds: task.labelIds,
+    labels,
     completedAt: task.completedAt,
     createdAt: task.createdAt,
   }
 }
 
-export function registerTaskTools(server: McpServer, api: Api): void {
+export function registerTaskTools(server: McpServer, api: Api, labels: LabelBook): void {
   const boards = async () => (await api('/boards')) as Board[]
 
   async function boardNamed(name: string | undefined): Promise<Board> {
@@ -116,11 +117,11 @@ export function registerTaskTools(server: McpServer, api: Api): void {
     },
     async ({ board: name }) => {
       const board = await boardNamed(name)
-      const read = await readBoard(board)
+      const [read, known] = await Promise.all([readBoard(board), labels.list()])
       return answer({
         board,
         statuses: read.statuses.map(({ id, name: status, category }) => ({ id, name: status, category })),
-        tasks: read.tasks.map((task) => view(task, read.statuses)),
+        tasks: read.tasks.map((task) => view(task, read.statuses, labels.namesOf(task.labelIds, known))),
       })
     },
   )
@@ -160,7 +161,7 @@ export function registerTaskTools(server: McpServer, api: Api): void {
         method: 'POST',
         body: { boardId: board.id, title, statusId: status.id, ...(priority ? { priority: priorityOf(priority) } : {}) },
       })) as Task
-      return answer(view(task, read.statuses))
+      return answer(view(task, read.statuses, labels.namesOf(task.labelIds, await labels.list())))
     },
   )
 
@@ -168,17 +169,19 @@ export function registerTaskTools(server: McpServer, api: Api): void {
     'update_task',
     {
       title: 'Mudar tarefa',
-      description: 'Muda o título, o corpo (markdown), a prioridade e o status, numa gravação. Um status novo põe a tarefa no topo dele.',
+      description: 'Muda o título, o corpo (markdown), a prioridade e o status, e põe ou tira labels pelo nome (as outras ficam), numa gravação. Um status novo põe a tarefa no topo dele.',
       inputSchema: {
         key: keyArg,
         title: z.string().optional(),
         body: z.string().optional(),
         status: z.string().describe('O status, pelo nome ou pelo id').optional(),
         priority: z.enum(PRIORITY_NAMES).optional(),
+        addLabels: z.array(z.string()).describe('Labels a pôr, pelo nome; as que a tarefa já tem ficam').optional(),
+        removeLabels: z.array(z.string()).describe('Labels a tirar, pelo nome').optional(),
       },
       annotations: { destructiveHint: false },
     },
-    async ({ key: text, title, body, status: statusName, priority }) => {
+    async ({ key: text, title, body, status: statusName, priority, addLabels, removeLabels }) => {
       const key = keyOf(text)
       const { board, read } = await boardOfKey(key)
       const current = read.tasks.find((task) => task.keyPrefix === key.prefix && task.key === key.key)
@@ -190,6 +193,14 @@ export function registerTaskTools(server: McpServer, api: Api): void {
           placement = placeAt(read, current.key, status.id, top)
         }
       }
+      const known = await labels.list()
+      let labelIds: string[] | undefined
+      if ((addLabels?.length || removeLabels?.length) && current) {
+        // The set is computed here from the names, so labels nobody named stay (gate #57).
+        const add = await labels.idsOf(addLabels ?? [], known)
+        const remove = new Set(await labels.idsOf(removeLabels ?? [], known))
+        labelIds = [...new Set([...current.labelIds, ...add])].filter((id) => !remove.has(id))
+      }
       const task = (await orMissing(
         () =>
           api(taskPath(key), {
@@ -198,12 +209,13 @@ export function registerTaskTools(server: McpServer, api: Api): void {
               ...(title !== undefined ? { title } : {}),
               ...(body !== undefined ? { body } : {}),
               ...(priority !== undefined ? { priority: priorityOf(priority) } : {}),
+              ...(labelIds !== undefined ? { labelIds } : {}),
               ...(placement ?? {}),
             },
           }),
         `a tarefa ${formatKey(key.prefix, key.key)}`,
       )) as Task
-      return answer(view(task, read.statuses))
+      return answer(view(task, read.statuses, labels.namesOf(task.labelIds, known)))
     },
   )
 

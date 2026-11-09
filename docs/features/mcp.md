@@ -1,7 +1,7 @@
 ---
 type: Feature
 title: MCP do dailly
-description: Um servidor MCP por stdio para o Claude Code operar o dailly, lendo boards e criando, mudando, movendo e apagando tarefas e comentários pela API local, como mais um cliente dela.
+description: Um servidor MCP por stdio para o Claude Code operar o dailly pela API local, como mais um cliente dela - tarefas e comentários do Tasks, registros do Daily Log e as labels globais.
 tags: [mcp, tasks, harness, claude-code]
 status: stable
 since: 0.1.23
@@ -18,6 +18,15 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-09T15:30:00-03:00 }
   - **escrever:** `create_task`, `update_task` (título, corpo, prioridade e status,
     numa gravação), `delete_task`;
   - **comentários:** `list_comments`, `add_comment`, `delete_comment`.
+- Tools do Daily Log (card #58):
+  - **ler:** `list_entries` (um período de dias, por padrão hoje, com filtro por labels e
+    propriedades) e `get_entry`;
+  - **escrever:** `create_entry` (markdown, instante opcional, labels e propriedades),
+    `update_entry` (o que não vier fica), `delete_entry`.
+- Labels: `list_labels` e `create_label` (sem cor, a primeira livre da paleta). Uma label
+  é dada pelo nome, sem caixa; uma que não existe é recusada, nomeando-a, e criar é só
+  pelo `create_label`. Na tarefa, `update_task` põe (`addLabels`) e tira
+  (`removeLabels`) labels, e as outras ficam.
 - Um board ou status é dado pelo nome, sem caixa, ou pelo id; uma tarefa, pela chave
   (`casa-2` vale). Sem board, a tarefa vai para o primeiro ("Tasks"); sem status, para
   o primeiro "a fazer"; sem prioridade, nasce "sem" (RN8).
@@ -40,6 +49,13 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-09T15:30:00-03:00 }
   e as que só leem, `readOnlyHint`; o Claude Code pede permissão por tool.
 - **Mover usa o `placeAt`** do `@dailly/tasks-core`, o mesmo da tela: a regra da ordem
   tem um lugar só.
+- **Registrar roda os use-cases da tela** (`createEntry`, `updateEntry` do
+  `@dailly/domain`): o corpo é normalizado uma vez, no MCP, e a API só valida.
+- **"Hoje" é o fuso da API** (`/health`), e os dias e as horas que as tools mostram
+  passam pelo `@dailly/periods`.
+- **Labels não somem por engano.** Nenhuma tool troca o conjunto de labels de uma tarefa
+  inteiro: põe e tira pelo nome. No registro, `update_entry` com `labels` troca o
+  conjunto, como a tela faz.
 - O cliente HTTP é próprio, e não os adapters da `ui/` (as setas não deixam). O
   `e2e/mcp-tasks.test.ts` o roda contra o Fastify de verdade, então um campo renomeado
   de um lado quebra ali.
@@ -49,16 +65,17 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-09T15:30:00-03:00 }
 # Onde mora
 
 - `mcp/src/main.ts` (stdio), `server.ts` (a fábrica), `api.ts` (o cliente),
-  `tasks.ts` (as tools), `testing.ts` (o cliente MCP em memória dos testes)
+  `tasks.ts`, `daily-log.ts` e `labels.ts` (as tools), `entries.ts` (o `EntryRepository`
+  sobre HTTP), `testing.ts` (o cliente MCP em memória dos testes)
 - `.mcp.json`, o alvo `mcp` do `Makefile`
-- `e2e/mcp-tasks.test.ts`, `mcp/src/server.test.ts`
+- `e2e/mcp-tasks.test.ts`, `e2e/mcp-daily-log.test.ts`, `mcp/src/server.test.ts`
 
 # Entregue
 
-No card #57, em 2026-11-09.
+Nos cards #57 (Tasks) e #58 (Daily Log e labels), em 2026-11-09.
 
 # Limites
 
-- Não cria nem edita boards e status: isso fica na tela.
+- Não cria nem edita boards, status nem definições de propriedade: isso fica na tela.
+- Não renomeia nem apaga labels.
 - Não expõe o Requests nem o cofre.
-- O Daily Log e as labels, inclusive as das tarefas, entram no card #58.

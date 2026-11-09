@@ -12,6 +12,8 @@
     "start": "tsx src/main.ts"
   },
   "dependencies": {
+    "@dailly/domain": "workspace:*",
+    "@dailly/periods": "workspace:*",
     "@dailly/tasks-core": "workspace:*",
     "@modelcontextprotocol/sdk": "1.32.2",
     "zod": "4.6.7"

@@ -58,6 +58,13 @@ describe('C8: Requests não aparece', () => {
         'list_comments',
         'add_comment',
         'delete_comment',
+        'list_entries',
+        'get_entry',
+        'create_entry',
+        'update_entry',
+        'delete_entry',
+        'list_labels',
+        'create_label',
       ]),
     )
     expect(names.filter((name) => /request|secret|vault|cofre/i.test(name))).toEqual([])
@@ -69,6 +76,8 @@ describe('C8: Requests não aparece', () => {
 
     expect(tools['delete_task']?.destructiveHint).toBe(true)
     expect(tools['delete_comment']?.destructiveHint).toBe(true)
+    expect(tools['delete_entry']?.destructiveHint).toBe(true)
+    expect(tools['list_entries']?.readOnlyHint).toBe(true)
     expect(tools['get_board']?.readOnlyHint).toBe(true)
     expect(tools['create_task']?.destructiveHint).toBe(false)
   })

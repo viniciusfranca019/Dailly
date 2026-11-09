@@ -23,6 +23,12 @@ importers:
 
   mcp:
     dependencies:
+      '@dailly/domain':
+        specifier: workspace:*
+        version: link:../packages/domain
+      '@dailly/periods':
+        specifier: workspace:*
+        version: link:../packages/periods
       '@dailly/tasks-core':
         specifier: workspace:*
         version: link:../packages/tasks-core
