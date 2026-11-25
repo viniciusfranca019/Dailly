@@ -62,6 +62,24 @@ describe('parseInline', () => {
     ])
   })
 
+  it('a bracketed word before a link stays as written; the label ends at its own ]', () => {
+    expect(shape('[LAB-5] ver [PR](https://example.com)')).toEqual([
+      ['[LAB-5] ver ', []],
+      ['PR', ['link'], 'https://example.com'],
+    ])
+    expect(shape('veja [nota] e [docs](https://x.com)')).toEqual([
+      ['veja [nota] e ', []],
+      ['docs', ['link'], 'https://x.com'],
+    ])
+  })
+
+  it('a URL with balanced parentheses keeps them', () => {
+    expect(shape('[w](https://en.wikipedia.org/wiki/Foo_(bar)) fim')).toEqual([
+      ['w', ['link'], 'https://en.wikipedia.org/wiki/Foo_(bar)'],
+      [' fim', []],
+    ])
+  })
+
   it('LAB-5 C6: an unpaired marker or an unsafe link stays as written', () => {
     const raw = '2 ** 3, `aberto e [x](javascript:alert(1))'
     expect(shape(raw)).toEqual([[raw, []]])

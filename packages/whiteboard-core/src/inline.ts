@@ -108,10 +108,21 @@ function matchAt(raw: string, i: number, to: number, marks: ReadonlySet<InlineMa
   }
 
   if (char === '[' && !marks.has('link')) {
-    const labelEnd = raw.indexOf('](', i + 1)
-    if (labelEnd < 0 || labelEnd === i + 1) return undefined
-    const urlEnd = raw.indexOf(')', labelEnd + 2)
-    if (urlEnd < 0 || urlEnd >= to) return undefined
+    // The label ends at its own `]`, which has to be followed by `(`: a plain
+    // `[LAB-5]` before a link is text, not the start of that link's label.
+    const labelEnd = raw.indexOf(']', i + 1)
+    if (labelEnd < 0 || labelEnd === i + 1 || raw[labelEnd + 1] !== '(') return undefined
+    // The URL ends at the `)` that closes its `(`, so `Foo_(bar)` keeps its pair.
+    let depth = 0
+    let urlEnd = -1
+    for (let j = labelEnd + 1; j < to; j += 1) {
+      if (raw[j] === '(') depth += 1
+      else if (raw[j] === ')' && (depth -= 1) === 0) {
+        urlEnd = j
+        break
+      }
+    }
+    if (urlEnd < 0) return undefined
     const href = raw.slice(labelEnd + 2, urlEnd)
     if (!SAFE_HREF.test(href) || /\s/.test(href)) return undefined
     return { mark: 'link', innerStart: i + 1, innerEnd: labelEnd, end: urlEnd + 1, href }
