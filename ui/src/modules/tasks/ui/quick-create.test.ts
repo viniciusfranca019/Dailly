@@ -25,12 +25,12 @@ afterEach(() => {
   document.body.innerHTML = ''
 })
 
-/** The board "Casa" with CASA-1 in "A fazer", and "Casa" as the last board used. */
+/** The board "Casa" with CASA-1 in "To Do", and "Casa" as the last board used. */
 async function seeded(): Promise<{ store: TaskStore; casa: string; todo: string }> {
   let n = 0
   const store = inMemoryTaskStore({ newId: () => `id-${(n += 1)}`, now: () => '2026-11-09T12:00:00.000Z' })
   const casa = (await store.createBoard({ name: 'Casa', prefix: 'CASA' })).id
-  const todo = (await store.board(casa))!.statuses.find((status) => status.name === 'A fazer')!.id
+  const todo = (await store.board(casa))!.statuses.find((status) => status.name === 'To Do')!.id
   await store.create({ boardId: casa, title: 'Lixar a parede', statusId: todo })
   localStorage.setItem('dailly.tasks.board', casa)
   return { store, casa, todo }
@@ -68,14 +68,14 @@ const confirm = async (host: HTMLElement) => {
 }
 
 describe('C1: C abre o formulário no último board usado (J11.1, RN15)', () => {
-  it('abre no board "Casa", com o foco no título vazio, o status "A fazer" e a prioridade "sem"', async () => {
+  it('abre no board "Casa", com o foco no título vazio, o status "To Do" e a prioridade "sem"', async () => {
     const { store } = await seeded()
     const { host } = await mountForm(port(store))
 
     expect(host.querySelector('[role="dialog"]')?.getAttribute('aria-label')).toBe('Nova tarefa em Casa')
     expect(document.activeElement).toBe(title(host))
     expect(title(host).value).toBe('')
-    expect(chosen(select(host, 'Status'))).toBe('A fazer')
+    expect(chosen(select(host, 'Status'))).toBe('To Do')
     expect(chosen(select(host, 'Prioridade'))).toBe('sem')
   })
 
@@ -89,7 +89,7 @@ describe('C1: C abre o formulário no último board usado (J11.1, RN15)', () => 
 })
 
 describe('C3: Confirmar cria no topo do status escolhido (J11.2)', () => {
-  it('fecha, e CASA-2 "Comprar tinta" entra no topo de "A fazer", com a prioridade "alta"', async () => {
+  it('fecha, e CASA-2 "Comprar tinta" entra no topo de "To Do", com a prioridade "alta"', async () => {
     const { store, casa, todo } = await seeded()
     const announced: Task[] = []
     const stop = onTaskCreated((task) => {

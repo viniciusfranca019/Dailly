@@ -24,6 +24,7 @@ import {
   LastStatusError,
   SEED_STATUS_IDS,
   STATUS_SEED,
+  TASKS_BOARD_STATUSES,
   StatusHasTasksError,
   StatusNameTakenError,
   isStatusColor,
@@ -32,6 +33,7 @@ import {
   orderStatuses,
   parseNewStatus,
   sameStatusName,
+  type NewStatus,
   type StoredStatus,
 } from './status.js'
 import { rankBetween } from './rank.js'
@@ -78,9 +80,9 @@ export function inMemoryTaskStore({ newId, now, labels = () => [] }: InMemoryTas
   const prefixes = new Map<string, string>([[SEED_BOARD.prefix, SEED_BOARD.id]])
   const tasks: Task[] = []
   let createdOrder = 0
-  const seedOf = (boardId: string, ids: readonly string[]): StoredStatus[] =>
-    STATUS_SEED.map((seed, index) => ({ ...seed, id: ids[index] as string, boardId, createdOrder: (createdOrder += 1) }))
-  const statuses: StoredStatus[] = seedOf(SEED_BOARD.id, SEED_STATUS_IDS)
+  const seedOf = (seeds: readonly NewStatus[], boardId: string, ids: readonly string[]): StoredStatus[] =>
+    seeds.map((seed, index) => ({ ...seed, id: ids[index] as string, boardId, createdOrder: (createdOrder += 1) }))
+  const statuses: StoredStatus[] = seedOf(TASKS_BOARD_STATUSES, SEED_BOARD.id, SEED_STATUS_IDS)
   const statusesOf = (boardId: string) => orderStatuses(statuses.filter((status) => status.boardId === boardId))
   /** A status of that board, or nothing: a status of another board is not found (#43). */
   const statusIn = (boardId: string, statusId: string) =>
@@ -135,7 +137,7 @@ export function inMemoryTaskStore({ newId, now, labels = () => [] }: InMemoryTas
       const board: Board = { id: newId(), name, prefix }
       boards.push(board)
       counters.set(board.id, 0)
-      statuses.push(...seedOf(board.id, STATUS_SEED.map(() => newId())))
+      statuses.push(...seedOf(STATUS_SEED, board.id, STATUS_SEED.map(() => newId())))
       prefixes.set(prefix, board.id)
       return board
     },

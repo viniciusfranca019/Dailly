@@ -30,6 +30,7 @@ export {
   SEED_STATUS_IDS,
   STATUS_COLORS,
   STATUS_SEED,
+  TASKS_BOARD_STATUSES,
   StatusHasTasksError,
   StatusNameTakenError,
   isStatusCategory,

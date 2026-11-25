@@ -284,7 +284,7 @@ export function sqliteTaskStore({ db, newId, now }: SqliteTaskStoreDeps): TaskSt
       now(),
     )
     reserve(prefix, board.id)
-    // Every board is born with the five of the seed, ids of its own (RN11).
+    // Every new board is born with the six of the seed, ids of its own (RN11, LAB-7).
     for (const seed of STATUS_SEED) insertStatus(newId(), board.id, seed)
     return board
   })

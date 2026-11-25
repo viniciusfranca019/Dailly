@@ -40,7 +40,7 @@ async function start(): Promise<{ store: TaskStore; casa: string }> {
   let n = 0
   const store = inMemoryTaskStore({ newId: () => `id-${(n += 1)}`, now: () => '2026-11-09T12:00:00.000Z' })
   const casa = (await store.createBoard({ name: 'Casa', prefix: 'CASA' })).id
-  const todo = (await store.board(casa))!.statuses.find((status) => status.name === 'A fazer')!.id
+  const todo = (await store.board(casa))!.statuses.find((status) => status.name === 'To Do')!.id
   await store.create({ boardId: casa, title: 'Lixar a parede', statusId: todo })
   localStorage.setItem('dailly.tasks.board', casa)
   const base = testShellDeps()
@@ -94,7 +94,7 @@ describe('C1, C3: no Daily Log, C cria no board "Casa" e deixa o aviso', () => {
 })
 
 describe('C3: com o Tasks na tela, no board "Casa", o board relê', () => {
-  it('CASA-2 "Comprar tinta" aparece no topo de "A fazer", sem aviso', async () => {
+  it('CASA-2 "Comprar tinta" aparece no topo de "To Do", sem aviso', async () => {
     await start()
     await shell!.go('/tasks')
     await until(() => ((host.textContent ?? '').includes('Lixar a parede') ? true : null))
