@@ -54,9 +54,19 @@ describe('parseNewProgram (LAB-9 C1, C2)', () => {
     )
   })
 
-  it('refuses a date that is not YYYY-MM-DD or does not exist', () => {
+  it('refuses a date that is not YYYY-MM-DD or does not exist, naming its field', () => {
     for (const windowStart of ['25/11/2026', '2026-02-30', 'amanhã']) {
       expect(() => parseNewProgram({ name: 'x', windowStart })).toThrow(InvalidWindowError)
+    }
+    try {
+      parseNewProgram({ name: 'x', windowStart: '2026-11-25', windowEnd: '2026-11-31' })
+    } catch (error) {
+      expect((error as InvalidWindowError).field).toBe('windowEnd')
+    }
+    try {
+      parseNewProgram({ name: 'x', windowStart: '2026-12-19', windowEnd: '2026-11-25' })
+    } catch (error) {
+      expect((error as InvalidWindowError).field).toBe('windowEnd')
     }
   })
 })
