@@ -22,6 +22,12 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-25T12:00:00-03:00 }
   "Tirar do foco" em cada item. Uma tarefa sem programa entra pela chave e pelo nível.
 - O painel de uma tarefa de programa diz o programa ("Dailly v1"), e o nível quando o
   programa está em foco ("foco P0 · Dailly v1").
+- No Board e na Lista, acima das colunas, dois filtros ao lado do de label: **programa**
+  (um chip por programa) e **foco** (P0, P1 e P2). O de programa mostra as tarefas dos
+  programas ligados, com todos os status. O de foco mostra as avulsas do nível e as
+  tarefas dos programas do nível, sem as de status concluído ou cancelado. Os chips de
+  um filtro somam; os filtros juntos mostram o que passa em todos. "Limpar filtro"
+  desliga os três.
 
 | Recusa | Mensagem |
 |--------|----------|
@@ -46,21 +52,30 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-25T12:00:00-03:00 }
   `GET /focus` e `PUT /focus {program | task, level}` (`level: null` tira do foco).
   Recusa de formato é 400 com o campo; tarefa noutro programa e tarefa de programa em
   foco são 409; programa ou tarefa que não existe é 404.
+- O filtro de foco esconde o que acabou pela categoria do status (`completed`,
+  `canceled`), nunca pelo nome, então renomear "Done" não muda nada. O corte é feito na
+  tela, sobre o board, os programas e o foco já lidos. Uma leitura de programas ou de
+  foco que falha mostra o erro no lugar dos chips e desliga aquele filtro; o board
+  continua.
 
 # Onde mora
 
 - `packages/tasks-core/src/program.ts` (modelo e recusas) e o `TaskStore`, com a suíte de
   contrato
 - `server/src/modules/tasks/` (migration 11, store SQLite, rotas)
+- `ui/src/modules/tasks/model/scope-filter.ts` (os cortes dos filtros, sem DOM)
 - `ui/src/modules/tasks/ui/programs/`, `ui/src/shared/programs.ts`,
   `ui/src/adapters/http-programs-client.ts`
 
 # Entregue
 
-No card LAB-9, em 2026-11-25, numa pilha de dois PRs: a API em 0.1.29 (#65), as telas em 0.1.30.
+No card LAB-9, em 2026-11-25, numa pilha de dois PRs: a API em 0.1.29 (#65), as telas em 0.1.30. Os filtros de
+programa e de foco em 0.1.31 (#68).
 
 # Limites
 
 - Não fecha nem arquiva programa, e não tem resultado, Ativo nem avaliação.
 - Não tira uma tarefa de um programa, e não tem programa dentro de programa.
 - Não está no MCP.
+- Uma tarefa criada com o filtro de programa ou de foco ligado não entra no programa nem no
+  foco, então some da tela até o filtro ser limpo.
