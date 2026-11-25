@@ -191,6 +191,7 @@ export function httpTasksClient(deps: HttpTasksClientDeps): TasksPort {
             title: input.title,
             statusId: input.statusId,
             ...(input.priority !== undefined ? { priority: input.priority } : {}),
+            ...(input.labelIds !== undefined ? { labelIds: input.labelIds } : {}),
           }),
         }),
       )
