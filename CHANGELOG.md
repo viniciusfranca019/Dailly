@@ -1,5 +1,4 @@
-version: 0.1.26
+version: 0.1.29
 
-- Filtro por label no Tasks: acima do board e da lista, as labels globais viram botões; ligar uma mostra só as tarefas com ela, ligar outra soma (OU), e todas as colunas continuam. "Limpar filtro" volta o board inteiro; um filtro que esconde tudo diz "nenhuma tarefa com esse filtro". O filtro sobrevive à troca de board e some ao recarregar, como o do Daily Log.
-- Criar pelo + com o filtro ligado faz a tarefa nascer com as labels dele: `POST /tasks` (e o `TaskStore`) aceita `labelIds` opcional, numa gravação só, e recusa com 400 uma label que não existe, sem gastar a chave.
-- Os botões de filtro por label viram `LabelFilter`, na capacidade `labels`, usado pelo Daily Log e pelo Tasks.
+- Programas e foco na API do Tasks (LAB-9, primeira parte, sem tela ainda): `POST /programs` cria um programa com objetivo, janela e "sai quando"; `POST /programs/:id/tasks` põe nele tarefas de qualquer board, uma tarefa em um programa só; `PUT /focus` põe um programa ou uma tarefa avulsa em P0, P1 ou P2, ou tira do foco; `GET /programs`, `GET /focus` e `GET /tasks/:key/program` leem.
+- Migration 11, aditiva: as tabelas de programa, de membros e de foco, sem mexer em tarefas nem em entries.
