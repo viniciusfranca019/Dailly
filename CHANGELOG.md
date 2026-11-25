@@ -1,3 +1,3 @@
-version: 0.1.30
+version: 0.1.31
 
-- O Tasks ganha as visões Programas e Foco (LAB-9): criar um programa com objetivo, janela e "sai quando", pôr nele tarefas de qualquer board pela chave e escolher o nível de foco dele; ver P0, P1 e P2, pôr uma tarefa avulsa em foco e tirar do foco. O painel de uma tarefa de programa diz o programa e o nível. (#67)
+- O Board e a Lista do Tasks ganham dois filtros ao lado do de label: por programa (as tarefas dos programas ligados, com todos os status) e por foco (P0, P1, P2: as avulsas e as tarefas dos programas do nível, sem as concluídas e canceladas). Os filtros se combinam, e "Limpar filtro" desliga os três. (#68)
