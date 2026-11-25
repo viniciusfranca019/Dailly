@@ -11,6 +11,8 @@ export interface NewTask {
   readonly statusId: string
   /** Chosen in the quick create (card #48); absent, the task is born "sem" (RN8). */
   readonly priority?: Priority
+  /** Born with them (the label filter's C8): one write, refused whole on a label that does not exist. */
+  readonly labelIds?: readonly string[]
 }
 
 /**
