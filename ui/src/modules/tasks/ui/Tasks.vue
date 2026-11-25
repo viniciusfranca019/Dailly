@@ -15,6 +15,8 @@ import type { Draft } from '../model/draft.js'
 import { useLastBoard } from './board-choice.js'
 import BoardForm from './boards/BoardForm.vue'
 import TaskPanel from './detail/TaskPanel.vue'
+import FocusView from './programs/FocusView.vue'
+import ProgramsView from './programs/ProgramsView.vue'
 import StatusDelete from './statuses/StatusDelete.vue'
 import StatusForm from './statuses/StatusForm.vue'
 import StatusGroup from './list/StatusGroup.vue'
@@ -64,6 +66,7 @@ const moveError = ref<string | null>(null)
  */
 const grabbed = ref<number | null>(null)
 const { view, choose } = useTasksView()
+const VIEW_NAMES = { board: 'Board', list: 'Lista', programs: 'Programas', focus: 'Foco' } as const
 /**
  * The panel's width lives with the page, not with the panel (card #44): the
  * panel is remounted for every task, and without storage (C5) the width must
@@ -304,6 +307,39 @@ const panelTask = computed(() => openedTask.value ?? (opened.value === null ? un
 function open(key: number): void {
   opened.value = key
   lastOpened.value = read.value.state === 'ready' ? read.value.board.tasks.find((task) => task.key === key) : undefined
+  void loadProgramLine()
+}
+
+/** The open task's program, as the panel shows it (LAB-9); nothing when it has none or it cannot be read. */
+const programLine = ref<string | null>(null)
+async function loadProgramLine(): Promise<void> {
+  programLine.value = null
+  const task = panelTask.value
+  if (!task) return
+  try {
+    const found = await props.deps.programs.programOf({ prefix: task.keyPrefix, key: task.key })
+    const program = found?.program
+    if (program && panelTask.value === task) {
+      programLine.value = program.focus ? `foco ${program.focus} · ${program.name}` : program.name
+    }
+  } catch {
+    // Sem a leitura do programa, o painel abre sem a linha dele.
+  }
+}
+
+/** A task picked in the Programas view (LAB-9): its board comes on the screen in the board view, and its panel opens. */
+async function openFromProgram(task: { key: string; boardId: string }): Promise<void> {
+  const number = Number(task.key.slice(task.key.lastIndexOf('-') + 1))
+  choose('board')
+  if (task.boardId !== current.value && boards.value.some((board) => board.id === task.boardId)) {
+    current.value = task.boardId
+    lastBoard.remember(task.boardId)
+    composing.value = null
+    moveError.value = null
+    close()
+  }
+  await load()
+  open(number)
 }
 
 function close(): void {
@@ -424,10 +460,10 @@ async function drop(statusId: string, beforeKey: number | null): Promise<void> {
         +
       </button>
       <span class="text-[#1e2638]">/</span>
-      <span class="text-gray-300">{{ view === 'board' ? 'Board' : 'Lista' }}</span>
+      <span class="text-gray-300">{{ VIEW_NAMES[view] }}</span>
       <div class="ml-auto flex rounded-md border border-[#1e2638] p-0.5" role="group" aria-label="Visualização">
         <button
-          v-for="option in (['board', 'list'] as const)"
+          v-for="option in (['board', 'list', 'programs', 'focus'] as const)"
           :key="option"
           type="button"
           :aria-pressed="view === option ? 'true' : 'false'"
@@ -435,7 +471,7 @@ async function drop(statusId: string, beforeKey: number | null): Promise<void> {
           :class="view === option ? 'bg-white/10 text-gray-100' : 'text-[#747e8f] hover:text-gray-200'"
           @click="choose(option)"
         >
-          {{ option === 'board' ? 'Board' : 'Lista' }}
+          {{ VIEW_NAMES[option] }}
         </button>
       </div>
     </nav>
@@ -476,7 +512,9 @@ async function drop(statusId: string, beforeKey: number | null): Promise<void> {
     />
 
     <div class="min-h-0 flex-1 overflow-auto px-6 pb-6">
-      <p v-if="read.state === 'loading'" class="text-sm text-[#747e8f]">Carregando as tarefas…</p>
+      <ProgramsView v-if="view === 'programs'" :programs="deps.programs" @open="openFromProgram" />
+      <FocusView v-else-if="view === 'focus'" :programs="deps.programs" />
+      <p v-else-if="read.state === 'loading'" class="text-sm text-[#747e8f]">Carregando as tarefas…</p>
 
       <p
         v-else-if="read.state === 'failed'"
@@ -570,6 +608,7 @@ async function drop(statusId: string, beforeKey: number | null): Promise<void> {
         :labels="labels"
         :labels-read="labelsRead"
         :choose-label="chooseLabel"
+        :program="programLine"
         :zone="deps.zone"
         @resize="panelWidth.follow"
         @resized="panelWidth.settle"
