@@ -2,7 +2,7 @@ import { sequentialIds, type Entry } from '@dailly/domain'
 import type { TimeZone } from '@dailly/periods'
 import type { RequestsPort } from '@shared'
 import { inMemoryTaskStore } from '@dailly/tasks-core/testing'
-import { testEntryDeps, testRequestsPort, testSharedDeps, testVaultPort } from '@shared/testing.js'
+import { programsOver, testEntryDeps, testRequestsPort, testSharedDeps, testVaultPort } from '@shared/testing.js'
 import type { ShellDeps } from './own-deps.js'
 
 /**
@@ -23,7 +23,10 @@ export function testShellDeps(
         ids: sequentialIds('request'),
         vault: testVaultPort(),
       },
-      tasks: { labels: dailyLog.labels, tasks: tasksOver(inMemoryTaskStore({ newId: sequentialIds('task').next, now: () => options.now ?? '2026-09-16T12:00:00.000Z' })) },
+      tasks: (() => {
+        const store = inMemoryTaskStore({ newId: sequentialIds('task').next, now: () => options.now ?? '2026-09-16T12:00:00.000Z' })
+        return { labels: dailyLog.labels, tasks: tasksOver(store), programs: programsOver(store) }
+      })(),
     },
   }
 }

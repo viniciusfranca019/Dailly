@@ -48,7 +48,7 @@ async function start(): Promise<{ store: TaskStore; casa: string }> {
   const tasks = Object.fromEntries(
     Object.keys(port).map((name) => [name, (...args: unknown[]) => (store as unknown as Record<string, (...a: unknown[]) => unknown>)[name]!(...args)]),
   ) as unknown as TasksPort
-  const deps = { ...base, own: { ...base.own, tasks: { labels: base.own.tasks.labels, tasks: { ...tasks, deleteComment: async () => true } } } }
+  const deps = { ...base, own: { ...base.own, tasks: { labels: base.own.tasks.labels, programs: base.own.tasks.programs, tasks: { ...tasks, deleteComment: async () => true } } } }
   const modules: ModuleDescriptor<VueModule>[] = [
     {
       id: 'daily-log',
