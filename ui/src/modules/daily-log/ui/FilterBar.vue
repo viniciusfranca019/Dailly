@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { formatPropertyValue, type Label, type PropertyDef, type PropertyValue } from '@dailly/domain'
 import { ref } from 'vue'
-import { CHIP } from '@capabilities/labels'
+import { LabelFilter } from '@capabilities/labels'
 
 /**
  * Cutting the timeline (card #36): labels toggled on combine with OR, each
@@ -27,20 +27,7 @@ function add(): void {
 
 <template>
   <div class="mb-4 flex flex-col gap-2 text-xs" data-testid="filter">
-    <div v-if="props.labels.length > 0" class="flex flex-wrap gap-1" role="group" aria-label="Filtrar por label">
-      <button
-        v-for="label in props.labels"
-        :key="label.id"
-        type="button"
-        class="rounded-full border px-2 py-0.5 font-medium transition-opacity"
-        :class="[CHIP[label.color], props.labelIds.includes(label.id) ? 'opacity-100 ring-1 ring-current' : 'opacity-50 hover:opacity-80']"
-        :aria-pressed="props.labelIds.includes(label.id) ? 'true' : 'false'"
-        data-testid="filter-label"
-        @click="emit('toggle', label.id)"
-      >
-        {{ label.name }}
-      </button>
-    </div>
+    <LabelFilter :labels="props.labels" :label-ids="props.labelIds" @toggle="emit('toggle', $event)" />
 
     <div v-if="props.defs.length > 0" class="flex flex-wrap items-center gap-1.5">
       <select

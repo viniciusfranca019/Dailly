@@ -27,6 +27,10 @@ import type { FastifyInstance } from 'fastify'
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
+/** `labelIds` on the wire: a list of text ids, on the create and on the patch. */
+const isIdList = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.every((id) => typeof id === 'string')
+
 /** The store's refusals, each naming the field the person can fix. */
 const REFUSALS: readonly (readonly [new (...args: never[]) => Error, string])[] = [
   [TitleRequiredError, 'title'],
@@ -148,7 +152,7 @@ function parsePatch(body: unknown): { patch: TaskPatch } | { errors: Invalid[] }
   if ((statusId === undefined) !== (rank === undefined) || (statusId !== undefined && (typeof statusId !== 'string' || typeof rank !== 'string'))) {
     errors.push({ field: 'statusId', message: 'statusId e rank vão juntos, os dois texto' })
   }
-  if (labelIds !== undefined && (!Array.isArray(labelIds) || !labelIds.every((id) => typeof id === 'string'))) {
+  if (labelIds !== undefined && !isIdList(labelIds)) {
     errors.push({ field: 'labelIds', message: 'deve ser uma lista de ids' })
   }
   if (errors.length > 0) return { errors }
@@ -281,9 +285,13 @@ export function registerTaskRoutes(app: FastifyInstance, store: TaskStore): void
       })
     }
     // Optional (card #48): the quick create chooses it; absent, the task is born "sem" (RN8).
-    const { priority } = body
+    const { priority, labelIds } = body
     if (priority !== undefined && typeof priority !== 'number') {
       return reply.code(400).send({ errors: [{ field: 'priority', message: 'deve ser um número de 0 a 4' }] })
+    }
+    // Optional too (the label filter's C8): a task created inside a filter is born with its labels.
+    if (labelIds !== undefined && !isIdList(labelIds)) {
+      return reply.code(400).send({ errors: [{ field: 'labelIds', message: 'deve ser uma lista de ids' }] })
     }
     try {
       return reply.code(201).send(
@@ -292,6 +300,7 @@ export function registerTaskRoutes(app: FastifyInstance, store: TaskStore): void
           title: body.title,
           statusId: body.statusId,
           ...(priority !== undefined ? { priority: priority as Priority } : {}),
+          ...(labelIds !== undefined ? { labelIds } : {}),
         }),
       )
     } catch (error) {
@@ -304,6 +313,9 @@ export function registerTaskRoutes(app: FastifyInstance, store: TaskStore): void
       }
       if (error instanceof StatusNotFoundError) {
         return reply.code(400).send({ errors: [{ field: 'statusId', message: error.message }] })
+      }
+      if (error instanceof InvalidLabelError) {
+        return reply.code(400).send({ errors: [{ field: 'labelIds', message: error.message }] })
       }
       throw error
     }

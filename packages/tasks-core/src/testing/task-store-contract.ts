@@ -79,6 +79,22 @@ export function taskStoreContract(
       expect((await seedBoard(store)).tasks[0]).toMatchObject({ title: 'um', labelIds: ['trabalho'] })
     })
 
+    it('filtro por label C8: cria já com as labels, numa gravação só, e o board lê de volta', async () => {
+      const store = make(['trabalho', 'casa'])
+      const created = await store.create({ boardId: IN, title: 'um', statusId: 'todo', labelIds: ['trabalho', 'casa'] })
+      expect([...created.labelIds].sort()).toEqual(['casa', 'trabalho'])
+      expect([...((await seedBoard(store)).tasks[0]?.labelIds ?? [])].sort()).toEqual(['casa', 'trabalho'])
+    })
+
+    it('filtro por label C8: recusa criar com uma label que não existe, e a chave não é gasta', async () => {
+      const store = make(['trabalho'])
+      await expect(
+        store.create({ boardId: IN, title: 'um', statusId: 'todo', labelIds: ['trabalho', 'nao-existe'] }),
+      ).rejects.toThrow(InvalidLabelError)
+      expect((await seedBoard(store)).tasks).toEqual([])
+      expect((await store.create({ boardId: IN, title: 'dois', statusId: 'todo' })).key).toBe(1)
+    })
+
     it('#47 C4: acha pela chave, em qualquer caixa, mesmo com o prefixo antigo do board (RN5)', async () => {
       const store = make()
       const casa = await store.createBoard({ name: 'Casa', prefix: 'CASA' })

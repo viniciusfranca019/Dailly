@@ -74,3 +74,32 @@ describe('PATCH /tasks/:key with labelIds', () => {
     expect((await task()).labelIds).toEqual([])
   })
 })
+
+describe('POST /tasks with labelIds (the label filter, C8)', () => {
+  const create = (payload: object) =>
+    app.inject({ method: 'POST', url: '/tasks', payload: { boardId: 'tasks', title: 'dois', statusId: 'todo', ...payload } })
+
+  it('creates the task already carrying the labels, and GET /tasks gives them back', async () => {
+    const response = await create({ labelIds: [trabalho.id] })
+
+    expect(response.statusCode).toBe(201)
+    expect(response.json().labelIds).toEqual([trabalho.id])
+    const read = (await app.inject({ method: 'GET', url: '/tasks?boardId=tasks' })).json().tasks
+    expect(read.find((t: { key: number }) => t.key === 2).labelIds).toEqual([trabalho.id])
+  })
+
+  it('refuses a label that does not exist with 400, and creates nothing', async () => {
+    const response = await create({ labelIds: ['nao-existe'] })
+
+    expect(response.statusCode).toBe(400)
+    expect(response.json().errors).toEqual([{ field: 'labelIds', message: 'contém uma label que não existe' }])
+    expect((await app.inject({ method: 'GET', url: '/tasks?boardId=tasks' })).json().tasks).toHaveLength(1)
+  })
+
+  it('refuses labelIds that is not a list of text', async () => {
+    const response = await create({ labelIds: 'trabalho' })
+
+    expect(response.statusCode).toBe(400)
+    expect(response.json().errors).toEqual([{ field: 'labelIds', message: 'deve ser uma lista de ids' }])
+  })
+})

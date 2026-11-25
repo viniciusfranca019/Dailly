@@ -5,7 +5,9 @@ import { findByName, nextColor, normalizeLabelName } from '@dailly/domain'
 import type { StatusCategory } from '@dailly/tasks-core'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { TasksDeps } from '../deps.js'
+import { LabelFilter } from '@capabilities/labels'
 import { onTaskCreated } from '../model/created.js'
+import { filterByLabels } from '../model/label-filter.js'
 import { firstToDo, groupByStatus } from '../model/list.js'
 import { onOpenRequest, takeOpen } from '../model/open-request.js'
 import BoardColumn from './board/BoardColumn.vue'
@@ -95,6 +97,8 @@ async function loadLabels(): Promise<void> {
     if (mine !== labelsTicket) return
     labels.value = read
     labelsRead.value = true
+    // A label deleted elsewhere leaves the filter too: one with no chip would hide tasks for nothing.
+    filterLabels.value = filterLabels.value.filter((id) => read.some((label) => label.id === id))
   } catch {
     // the next write reads them again
     if (mine === labelsTicket) labelsRead.value = false
@@ -247,7 +251,25 @@ function keyOf(key: number): TaskKey | null {
   return task && task.key === key ? { prefix: task.keyPrefix, key } : null
 }
 
-const groups = computed(() => (read.value.state === 'ready' ? groupByStatus(read.value.board) : []))
+/**
+ * The labels toggled on above the board: they cut the board and the list
+ * alike (OR between them), outlive a board switch, since a label is global
+ * (RN13), and live only while the screen does, like the Daily Log's filter.
+ */
+const filterLabels = ref<string[]>([])
+
+function toggleFilterLabel(id: string): void {
+  filterLabels.value = filterLabels.value.includes(id)
+    ? filterLabels.value.filter((x) => x !== id)
+    : [...filterLabels.value, id]
+}
+
+const shown = computed(() => (read.value.state === 'ready' ? filterByLabels(read.value.board, filterLabels.value) : null))
+const groups = computed(() => (shown.value ? groupByStatus(shown.value) : []))
+/** A board with tasks the filter hides all of: said as such, never as an empty board. */
+const filteredOut = computed(
+  () => read.value.state === 'ready' && read.value.board.tasks.length > 0 && shown.value?.tasks.length === 0,
+)
 /**
  * An empty board shows the invitation (#20 C2) above its columns, not in
  * their place: since #43 the columns are where the statuses are managed, and
@@ -265,7 +287,9 @@ function inviteFirst(): void {
 /** Throws on refusal, so the form keeps what was typed and shows why (C6 of #20). */
 async function create(statusId: string, title: string): Promise<void> {
   if (current.value === null) throw new Error('board não encontrado')
-  await props.deps.tasks.create({ boardId: current.value, title, statusId })
+  // Inside a filter, the task is born with its labels, or it would vanish as it is created.
+  const labelIds = filterLabels.value.length > 0 ? { labelIds: filterLabels.value } : {}
+  await props.deps.tasks.create({ boardId: current.value, title, statusId, ...labelIds })
   composing.value = null
   await load()
 }
@@ -473,6 +497,20 @@ async function drop(statusId: string, beforeKey: number | null): Promise<void> {
             Criar a primeira tarefa
           </button>
         </div>
+
+        <div v-if="labels.length > 0" class="mb-4 flex flex-wrap items-center gap-2 text-xs">
+          <LabelFilter :labels="labels" :label-ids="filterLabels" @toggle="toggleFilterLabel" />
+          <button
+            v-if="filterLabels.length > 0"
+            type="button"
+            class="text-[#747e8f] underline hover:text-gray-200"
+            @click="filterLabels = []"
+          >
+            Limpar filtro
+          </button>
+        </div>
+
+        <p v-if="filteredOut" class="mb-4 text-sm text-[#747e8f]">nenhuma tarefa com esse filtro</p>
 
         <p
           v-if="moveError"

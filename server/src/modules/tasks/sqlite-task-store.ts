@@ -30,6 +30,7 @@ import {
   normalizeTitle,
   rankBetween,
   type Board,
+  type NewTask,
   type Priority,
   type StatusCategory,
   type Task,
@@ -190,9 +191,10 @@ export function sqliteTaskStore({ db, newId, now }: SqliteTaskStoreDeps): TaskSt
     return next
   })
 
-  const create = db.transaction((boardId: string, title: string, statusId: string, priority: Priority): Task => {
+  const create = db.transaction(({ boardId, title, statusId, priority, labelIds }: Required<NewTask>): Task => {
     if (!findBoard(boardId)) throw new BoardNotFoundError(boardId)
     if (!statusIn(boardId, statusId)) throw new StatusNotFoundError(statusId)
+    if (!labelsExist(db, labelIds)) throw new InvalidLabelError()
     const top = db
       .prepare('SELECT rank FROM tasks WHERE board_id = ? AND status_id = ? ORDER BY rank LIMIT 1')
       .get(boardId, statusId) as { rank: string } | undefined
@@ -214,7 +216,7 @@ export function sqliteTaskStore({ db, newId, now }: SqliteTaskStoreDeps): TaskSt
       completedAt: null,
       createdAt: at,
       body: '',
-      labelIds: [],
+      labelIds: [...new Set(labelIds)].sort(),
     }
     // The body of the Entry is the task's description, empty at capture.
     insertEntryRow(db, { id: task.id, kind: 'task', body: '', occurredAt: at, createdAt: at, updatedAt: at })
@@ -222,6 +224,7 @@ export function sqliteTaskStore({ db, newId, now }: SqliteTaskStoreDeps): TaskSt
       `INSERT INTO tasks (entry_id, board_id, key, key_prefix, title, status_id, priority, rank, completed_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
     ).run(task.id, boardId, key, prefix, task.title, task.statusId, task.priority, task.rank)
+    setEntryLabels(db, task.id, task.labelIds)
     return task
   })
 
@@ -377,11 +380,12 @@ export function sqliteTaskStore({ db, newId, now }: SqliteTaskStoreDeps): TaskSt
       return { statuses: statusesOf(boardId), tasks: ordered(boardId, rows).map(toTask) }
     },
 
-    async create({ boardId, title, statusId, priority = 0 }) {
-      // Validated before the transaction, so a refusal costs no key.
+    async create({ boardId, title, statusId, priority = 0, labelIds = [] }) {
+      // Validated before the transaction, so a refusal costs no key; the labels
+      // are checked inside it, before the counter moves.
       const normalized = normalizeTitle(title)
       if (!isPriority(priority)) throw new InvalidPriorityError(priority)
-      return create(boardId, normalized, statusId, priority)
+      return create({ boardId, title: normalized, statusId, priority, labelIds })
     },
 
     async update(key, patch) {
