@@ -172,3 +172,55 @@ describe('C5: uma leitura que falha deixa o board e diz o erro no lugar dos chip
     expect(levels).toEqual(['P0', 'P1', 'P2'])
   })
 })
+
+describe('C1 e C2: o que muda em Programas ou Foco chega aos filtros ao voltar para o Board', () => {
+  it('uma avulsa posta em P0 no Foco aparece com P0 ligado', async () => {
+    const store = await world()
+    const host = await mount(store)
+    await toggle(host, 'Filtrar por foco', 'P0')
+
+    await click(host, 'Foco')
+    await store.setFocus({ task: { prefix: 'T', key: 5 } }, 'P0')
+    await click(host, 'Board')
+
+    expect(visible(host)).toEqual(['Docs', 'Login', 'Solta'])
+  })
+
+  it('um programa criado em Programas ganha chip ao voltar para a Lista', async () => {
+    const store = await world()
+    const host = await mount(store)
+
+    await click(host, 'Programas')
+    await store.createProgram({ name: 'novo', objective: '', windowStart: null, windowEnd: null, exitWhen: '' })
+    await click(host, 'Lista')
+
+    const chips = [...group(host, 'Filtrar por programa')!.querySelectorAll('button')].map((b) => b.textContent?.trim())
+    expect(chips).toContain('novo')
+  })
+})
+
+describe('C3: o filtro de label também se combina com os de programa e foco', () => {
+  it('a label bug e o programa auth deixam só a tarefa de auth com bug', async () => {
+    let n = 0
+    const bug = { id: 'l-bug', name: 'bug', color: 'red' as const }
+    const store = inMemoryTaskStore({ newId: () => `id-${(n += 1)}`, now: () => '2026-11-25T12:00:00.000Z', labels: () => ['l-bug'] })
+    await store.create({ boardId: SEED_BOARD.id, title: 'Login', statusId: 'todo', labelIds: ['l-bug'] })
+    await store.create({ boardId: SEED_BOARD.id, title: 'Logout', statusId: 'todo' })
+    await store.create({ boardId: SEED_BOARD.id, title: 'Cor', statusId: 'todo', labelIds: ['l-bug'] })
+    const auth = await store.createProgram({ name: 'auth', objective: '', windowStart: null, windowEnd: null, exitWhen: '' })
+    await store.addToProgram(auth.id, { prefix: 'T', key: 1 })
+    await store.addToProgram(auth.id, { prefix: 'T', key: 2 })
+    const host = document.createElement('div')
+    document.body.append(host)
+    app = createApp(Tasks, {
+      deps: { ...testSharedDeps(), tasks: tasksOver(store), labels: testLabelsPort([bug]), programs: programsOver(store) },
+    })
+    app.mount(host)
+    await settle()
+
+    await toggle(host, 'Filtrar por label', 'bug')
+    await toggle(host, 'Filtrar por programa', 'auth')
+
+    expect(visible(host)).toEqual(['Login'])
+  })
+})

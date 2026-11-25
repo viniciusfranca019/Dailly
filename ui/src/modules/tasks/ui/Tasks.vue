@@ -70,9 +70,17 @@ const grabbed = ref<number | null>(null)
 const { view, choose } = useTasksView()
 const VIEW_NAMES = { board: 'Board', list: 'Lista', programs: 'Programas', focus: 'Foco' } as const
 
-/** The panel belongs to the board and the list: Programas and Foco cross boards, and it would go stale over them. */
+/**
+ * The panel belongs to the board and the list: Programas and Foco cross boards, and it would go stale over them.
+ * Back from them, the programs and the focus are read again, since what was written there cuts the board.
+ */
 function pickView(next: TasksView): void {
-  if (next === 'programs' || next === 'focus') close()
+  const away = next === 'programs' || next === 'focus'
+  if (away) close()
+  else if (view.value === 'programs' || view.value === 'focus') {
+    void loadPrograms()
+    void loadFocus()
+  }
   choose(next)
 }
 /**
