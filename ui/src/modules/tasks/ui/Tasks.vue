@@ -168,6 +168,8 @@ async function openRequested(): Promise<void> {
  * board read has that task, by prefix and number.
  */
 async function showTask(boardId: string, prefix: string, key: number): Promise<void> {
+  // The panel belongs to the board and the list, never over Programas or Foco.
+  if (view.value === 'programs' || view.value === 'focus') choose('board')
   if (boardId !== current.value) {
     try {
       await readBoards()
@@ -347,7 +349,6 @@ async function loadProgramLine(): Promise<void> {
 async function openFromProgram(task: { key: string; boardId: string }): Promise<void> {
   const parsed = parseKey(task.key)
   if (!parsed) return
-  choose('board')
   await showTask(task.boardId, parsed.prefix, parsed.key)
 }
 

@@ -5,6 +5,7 @@ import type { TasksPort } from '@shared'
 import { programsOver, testSharedDeps } from '@shared/testing.js'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createApp, type App } from 'vue'
+import { requestOpen } from '../model/open-request.js'
 import Tasks from './Tasks.vue'
 
 /** LAB-9, C1 to C7: the Programas and Foco views, and the program in the task panel. */
@@ -338,5 +339,21 @@ describe('gate LAB-9 PR 2, iteration 2', () => {
     await show(again, 'Foco')
     expect(again.querySelector('[role="alert"]')?.textContent?.trim()).toBe('não consegui ler o foco')
     expect(again.textContent).not.toContain('nada aqui')
+  })
+})
+
+describe('gate LAB-9 PR 2, iteration 3', () => {
+  it("the search's open request shows the task in the board view, never over Programas", async () => {
+    const store = await world()
+    const labs = (await store.boards())[1]!
+    localStorage.setItem('dailly.tasks.view', 'programs')
+    const host = await mount(store)
+
+    requestOpen({ boardId: labs.id, prefix: 'LAB', key: 5 })
+    await settle()
+
+    expect(labeled(host, 'Visualização').querySelector('[aria-pressed="true"]')?.textContent?.trim()).toBe('Board')
+    expect(labeled<HTMLInputElement>(host, 'Título').value).toBe('LAB 5')
+    expect(host.querySelector('[aria-label="Programas"]')).toBeNull()
   })
 })
