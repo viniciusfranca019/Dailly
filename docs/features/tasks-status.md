@@ -14,13 +14,16 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-06T18:00:00-03:00 }
   com dois botões: ✎ edita e ✕ apaga.
 - "+ status", no topo, adiciona um status ao board atual: nome, categoria (backlog, a
   fazer, em andamento, concluída, cancelada) e cor. Ele entra depois dos outros da sua
-  categoria: "Revisão", em andamento, fica entre "Fazendo" e "Feito".
+  categoria: "Revisão", em andamento, fica entre "Land" e "Done".
 - Editar troca o nome e a cor; a categoria não muda depois de criada. As tarefas do
   status ficam onde estavam, com o "concluída em" que tinham.
 - Apagar um status sem tarefas só pede confirmação. Com tarefas, a pessoa escolhe para
   qual status elas vão: elas entram no topo dele, na ordem em que estavam, e ganham ou
   perdem o "concluída em" conforme a categoria do destino. "Cancelar" não muda nada.
-- Todo board novo nasce com os cinco: Backlog, A fazer, Fazendo, Feito e Cancelado.
+- Todo board novo nasce com os seis do fluxo: Backlog, To Do, In Progress, Review, Land
+  e Done (LAB-7). Nenhum é da categoria cancelada: quem quer um "Cancelado" o adiciona
+  pelo "+ status", e ele vira a última coluna. Os boards que já existiam não mudam: o
+  "Tasks" segue com Backlog, A fazer, Fazendo, Feito e Cancelado.
 - Um board sem tarefa mostra o convite "Nenhuma tarefa ainda" acima das colunas.
 
 | Recusa | Mensagem |
