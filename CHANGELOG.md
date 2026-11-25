@@ -1,5 +1,4 @@
-version: 0.1.26
+version: 0.1.28
 
-- Filtro por label no Tasks: acima do board e da lista, as labels globais viram botões; ligar uma mostra só as tarefas com ela, ligar outra soma (OU), e todas as colunas continuam. "Limpar filtro" volta o board inteiro; um filtro que esconde tudo diz "nenhuma tarefa com esse filtro". O filtro sobrevive à troca de board e some ao recarregar, como o do Daily Log.
-- Criar pelo + com o filtro ligado faz a tarefa nascer com as labels dele: `POST /tasks` (e o `TaskStore`) aceita `labelIds` opcional, numa gravação só, e recusa com 400 uma label que não existe, sem gastar a chave.
-- Os botões de filtro por label viram `LabelFilter`, na capacidade `labels`, usado pelo Daily Log e pelo Tasks.
+- O texto entre crases, entre `**` e entre `*`, e os links em markdown, aparecem formatados no Daily Log, no corpo das tarefas e nos comentários: código em fonte monoespaçada, negrito, itálico e link que abre numa aba nova. O bloco com o cursor mostra os marcadores para editar, e o markdown salvo não muda.
+- Só `http:`, `https:` e `mailto:` viram link; marcador sem par fica como foi escrito.

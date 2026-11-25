@@ -1,5 +1,8 @@
 # Directory Update Log
 
+## 2026-11-25
+* **Update**: [Editor de blocos](/features/whiteboard.md) desenha código, negrito, itálico e link inline, e o bloco com o cursor mostra o texto cru (card LAB-5).
+
 ## 2026-11-24
 * **Creation**: [Tasks, filtro por label](/features/tasks-filtro-por-label.md), sem card. `LabelFilter` entra na capacidade `labels`, usado pelo Daily Log e pelo Tasks.
 
