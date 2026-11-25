@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { placeAt } from '@dailly/tasks-core'
+import { parseKey, placeAt } from '@dailly/tasks-core'
 import type { Board, Label, SharedDeps, StatusColor, Task, TaskBoard, TaskKey, TaskStatus } from '@shared'
 import { findByName, nextColor, normalizeLabelName } from '@dailly/domain'
 import type { StatusCategory } from '@dailly/tasks-core'
@@ -152,7 +152,17 @@ async function load(): Promise<void> {
 async function openRequested(): Promise<void> {
   const request = takeOpen()
   if (!request) return
-  if (request.boardId !== current.value) {
+  await showTask(request.boardId, request.prefix, request.key)
+}
+
+/**
+ * Bring a task's board on the screen and open its panel: the search's request
+ * (card #47) and a task picked in Programas (LAB-9). The boards are read again
+ * when the board is another, since it may be new; the panel opens only when the
+ * board read has that task, by prefix and number.
+ */
+async function showTask(boardId: string, prefix: string, key: number): Promise<void> {
+  if (boardId !== current.value) {
     try {
       await readBoards()
     } catch (cause) {
@@ -160,17 +170,17 @@ async function openRequested(): Promise<void> {
       read.value = { state: 'failed', message: message(cause, 'não consegui ler os boards') }
       return
     }
-    if (boards.value.some((board) => board.id === request.boardId)) {
-      current.value = request.boardId
-      lastBoard.remember(request.boardId)
+    if (boards.value.some((board) => board.id === boardId)) {
+      current.value = boardId
+      lastBoard.remember(boardId)
       composing.value = null
       moveError.value = null
       close()
     }
   }
   await load()
-  if (read.value.state === 'ready' && read.value.board.tasks.some((task) => task.key === request.key && task.keyPrefix === request.prefix)) {
-    open(request.key)
+  if (read.value.state === 'ready' && read.value.board.tasks.some((task) => task.key === key && task.keyPrefix === prefix)) {
+    open(key)
   }
 }
 
@@ -327,19 +337,12 @@ async function loadProgramLine(): Promise<void> {
   }
 }
 
-/** A task picked in the Programas view (LAB-9): its board comes on the screen in the board view, and its panel opens. */
+/** A task picked in the Programas view (LAB-9): its board in the board view, and its panel. */
 async function openFromProgram(task: { key: string; boardId: string }): Promise<void> {
-  const number = Number(task.key.slice(task.key.lastIndexOf('-') + 1))
+  const parsed = parseKey(task.key)
+  if (!parsed) return
   choose('board')
-  if (task.boardId !== current.value && boards.value.some((board) => board.id === task.boardId)) {
-    current.value = task.boardId
-    lastBoard.remember(task.boardId)
-    composing.value = null
-    moveError.value = null
-    close()
-  }
-  await load()
-  open(number)
+  await showTask(task.boardId, parsed.prefix, parsed.key)
 }
 
 function close(): void {

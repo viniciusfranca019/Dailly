@@ -80,6 +80,9 @@ const parseFocus = (value: unknown): FocusBoard => {
   }
 }
 
+/** The API's words for a task that does not exist (`TASK_NOT_FOUND` in the Tasks routes). */
+const TASK_NOT_FOUND = 'tarefa não encontrada'
+
 /** 404 is an answer here: the thing is gone, and the caller says so. */
 async function orGone<T>(call: () => Promise<T>, gone: T): Promise<T> {
   try {
@@ -103,13 +106,16 @@ export function httpProgramsClient(deps: HttpProgramsClientDeps): ProgramsPort {
       return parseProgram(await call('/programs', { method: 'POST', body: JSON.stringify(input) }))
     },
     async addToProgram(programId, key) {
-      return orGone(
-        async () =>
-          parseWithTasks(
-            await call(`/programs/${encodeURIComponent(programId)}/tasks`, { method: 'POST', body: JSON.stringify({ key }) }),
-          ),
-        null,
-      )
+      try {
+        return parseWithTasks(
+          await call(`/programs/${encodeURIComponent(programId)}/tasks`, { method: 'POST', body: JSON.stringify({ key }) }),
+        )
+      } catch (error) {
+        // Two 404s come back here: the program is gone (null), or the task does
+        // not exist, which is a refusal the person can fix and is thrown.
+        if (error instanceof ApiError && error.status === 404 && error.message !== TASK_NOT_FOUND) return null
+        throw error
+      }
     },
     async programOf({ prefix, key }) {
       return orGone(async () => {

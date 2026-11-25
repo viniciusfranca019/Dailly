@@ -15,6 +15,8 @@ const emit = defineEmits<{ open: [task: { key: string; boardId: string }] }>()
 
 const list = ref<readonly ProgramWithTasks[]>([])
 const failed = ref<string | null>(null)
+/** Until the first read answers: the empty state would say something false. */
+const loading = ref(true)
 const creating = ref(false)
 const draft = ref({ name: '', objective: '', windowStart: '', windowEnd: '', exitWhen: '' })
 const formError = ref<string | null>(null)
@@ -30,6 +32,7 @@ async function load(): Promise<void> {
   } catch (cause) {
     failed.value = reason(cause, 'não consegui ler os programas')
   }
+  loading.value = false
 }
 onMounted(load)
 
@@ -73,6 +76,7 @@ async function setFocus(program: ProgramWithTasks, value: string): Promise<void>
   const level = value === '' ? null : (value as FocusLevel)
   try {
     await props.programs.setFocus({ program: program.id }, level)
+    refusals.value = { ...refusals.value, [program.id]: '' }
   } catch (cause) {
     refusals.value = { ...refusals.value, [program.id]: reason(cause, 'não consegui mudar o foco') }
   }
@@ -90,6 +94,7 @@ const FIELDS = [
 
 <template>
   <section aria-label="Programas" class="flex flex-col gap-4">
+    <p v-if="loading" class="text-sm text-[#747e8f]">Carregando os programas…</p>
     <p v-if="failed" role="alert" class="text-sm text-red-300">{{ failed }}</p>
 
     <div>
@@ -126,7 +131,7 @@ const FIELDS = [
       </form>
     </div>
 
-    <p v-if="list.length === 0 && !failed" class="text-sm text-[#747e8f]">Nenhum programa ainda</p>
+    <p v-if="!loading && list.length === 0 && !failed" class="text-sm text-[#747e8f]">Nenhum programa ainda</p>
 
     <article
       v-for="program in list"

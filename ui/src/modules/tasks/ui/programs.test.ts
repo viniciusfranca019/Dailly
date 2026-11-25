@@ -149,6 +149,59 @@ describe('C3: Tarefas de boards diferentes entram num programa', () => {
     button(programCard(host, 'Dailly v1'), 'LAB-5').click()
     await settle()
     expect(labeled(host, 'Programa da tarefa').textContent?.trim()).toBe('Dailly v1')
+    expect(labeled<HTMLInputElement>(host, 'Título').value).toBe('LAB 5')
+
+    await show(host, 'Programas')
+    button(programCard(host, 'Dailly v1'), 'VDT-2').click()
+    await settle()
+    expect(labeled<HTMLSelectElement>(host, 'Board').selectedOptions[0]?.textContent).toBe('VDT')
+    expect(labeled<HTMLInputElement>(host, 'Título').value).toBe('VDT 2')
+    expect(labeled(host, 'Programa da tarefa').textContent?.trim()).toBe('Dailly v1')
+  })
+
+  it('a task of a board created after the screen opened still opens on its own board', async () => {
+    let n = 0
+    const store = inMemoryTaskStore({ newId: () => `id-${(n += 1)}`, now: () => '2026-11-25T12:00:00.000Z' })
+    const labs = await store.createBoard({ name: 'Labs', prefix: 'LAB' })
+    for (let k = 1; k <= 2; k += 1) await store.create({ boardId: labs.id, title: `LAB ${k}`, statusId: (await store.board(labs.id))!.statuses[1]!.id })
+    const host = await mount(store)
+    // Another client makes the board VDT and puts VDT-2 in a program.
+    const vdt = await store.createBoard({ name: 'VDT', prefix: 'VDT' })
+    for (let k = 1; k <= 2; k += 1) await store.create({ boardId: vdt.id, title: `VDT ${k}`, statusId: (await store.board(vdt.id))!.statuses[1]!.id })
+    const program = await store.createProgram({ name: 'Dailly v1', objective: '', windowStart: null, windowEnd: null, exitWhen: '' })
+    await store.addToProgram(program.id, { prefix: 'VDT', key: 2 })
+    await show(host, 'Programas')
+
+    button(programCard(host, 'Dailly v1'), 'VDT-2').click()
+    await settle()
+
+    expect(labeled<HTMLInputElement>(host, 'Título').value).toBe('VDT 2')
+  })
+})
+
+describe('the views say they are reading', () => {
+  it('Programas and Foco show "Carregando…" until the first read answers, never the empty state', async () => {
+    const store = await world()
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => (release = resolve))
+    const programs = programsOver(store)
+    const slow = { ...programs, programs: async () => (await gate, programs.programs()), focus: async () => (await gate, programs.focus()) }
+    const host = document.createElement('div')
+    document.body.append(host)
+    app = createApp(Tasks, { deps: { ...testSharedDeps(), tasks: tasksOver(store), programs: slow } })
+    app.mount(host)
+    await settle()
+
+    await show(host, 'Programas')
+    expect(host.textContent).toContain('Carregando os programas…')
+    expect(host.textContent).not.toContain('Nenhum programa ainda')
+    await show(host, 'Foco')
+    expect(host.textContent).toContain('Carregando o foco…')
+    expect(host.textContent).not.toContain('nada aqui')
+
+    release()
+    await settle()
+    expect(host.textContent).toContain('nada aqui')
   })
 })
 
@@ -168,6 +221,10 @@ describe('C4: Uma tarefa fica em um programa só', () => {
     )
     expect(programCard(host, 'Outro').textContent).toContain('sem tarefas')
     expect((await store.programs())[0]?.tasks.map((task) => task.key)).toEqual(['LAB-5'])
+
+    // A later action that works clears the refusal under the card.
+    await addTask(host, 'Outro', 'LAB-6')
+    expect(programCard(host, 'Outro').querySelector('[role="alert"]')).toBeNull()
   })
 })
 

@@ -56,6 +56,12 @@ describe('httpProgramsClient (LAB-9)', () => {
     ).rejects.toThrow('LAB-5 já está no programa Dailly v1')
   })
 
+  it('a task that does not exist is a refusal, not a program that is gone', async () => {
+    await expect(
+      httpProgramsClient({ config, fetch: answering(404, { error: 'tarefa não encontrada' }) }).addToProgram('p1', 'LAB-999'),
+    ).rejects.toThrow('tarefa não encontrada')
+  })
+
   it("reads a task's program, and null for a task that is gone", async () => {
     const seen: { url?: string } = {}
     expect(

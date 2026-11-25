@@ -12,6 +12,8 @@ const props = defineProps<{ programs: ProgramsPort }>()
 
 const board = ref<FocusBoard>({ P0: [], P1: [], P2: [] })
 const failed = ref<string | null>(null)
+/** Until the first read answers: the empty state would say something false. */
+const loading = ref(true)
 const key = ref('')
 const level = ref<FocusLevel>('P0')
 const refusal = ref<string | null>(null)
@@ -26,6 +28,7 @@ async function load(): Promise<void> {
   } catch (cause) {
     failed.value = reason(cause, 'não consegui ler o foco')
   }
+  loading.value = false
 }
 onMounted(load)
 
@@ -53,8 +56,10 @@ async function takeOut(item: FocusItem): Promise<void> {
 
 <template>
   <section aria-label="Foco" class="flex flex-col gap-4">
+    <p v-if="loading" class="text-sm text-[#747e8f]">Carregando o foco…</p>
     <p v-if="failed" role="alert" class="text-sm text-red-300">{{ failed }}</p>
 
+    <template v-if="!loading">
     <section
       v-for="name in FOCUS_LEVELS"
       :key="name"
@@ -80,6 +85,7 @@ async function takeOut(item: FocusItem): Promise<void> {
         </li>
       </ul>
     </section>
+    </template>
 
     <form aria-label="Pôr tarefa em foco" class="flex flex-wrap items-center gap-2" @submit.prevent="put">
       <input
