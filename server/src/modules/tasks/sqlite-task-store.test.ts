@@ -37,6 +37,22 @@ taskStoreContract('sqliteTaskStore', {
   },
 })
 
+describe('sqliteTaskStore — a refused board (LAB-7 C4)', () => {
+  it('writes no status when the prefix is taken', async () => {
+    const db = migrated()
+    const store = sqliteTaskStore({ db, ...deps() })
+    await store.createBoard({ name: 'Labs', prefix: 'LAB' })
+    const count = () => (db.prepare('SELECT COUNT(*) AS n FROM task_statuses').get() as { n: number }).n
+    const before = count()
+
+    await expect(store.createBoard({ name: 'Outro', prefix: 'LAB' })).rejects.toThrow(
+      'o prefixo LAB já foi usado por um board',
+    )
+
+    expect(count()).toBe(before)
+  })
+})
+
 describe('sqliteTaskStore — the task is an Entry (RN1)', () => {
   it('writes the Entry with the same id, kind "task", in the same transaction', async () => {
     const db = migrated()

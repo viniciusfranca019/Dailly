@@ -51,3 +51,6 @@ export type { SerializeOptions } from './serialize.js'
 
 export { WhiteboardDocument } from './document.js'
 export type { CaretTarget, DocumentListener, DocumentOptions } from './document.js'
+
+export { parseInline, rawOffsetOf } from './inline.js'
+export type { InlineMark, InlineSegment } from './inline.js'

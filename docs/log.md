@@ -2,6 +2,8 @@
 
 ## 2026-11-25
 * **Creation**: [Tasks, programas e foco](/features/tasks-programas-e-foco.md) (card LAB-9). O [PRD do Tasks](/prd/tasks.md) deixa de listar o programa entre os agregados que vêm depois.
+* **Update**: [Editor de blocos](/features/whiteboard.md) desenha código, negrito, itálico e link inline, e o bloco com o cursor mostra o texto cru (card LAB-5).
+* **Update**: [Tasks, status do board](/features/tasks-status.md) e [Tasks, boards](/features/tasks-boards.md): board novo nasce com Backlog, To Do, In Progress, Review, Land e Done, sem Cancelado (card LAB-7).
 
 ## 2026-11-24
 * **Creation**: [Tasks, filtro por label](/features/tasks-filtro-por-label.md), sem card. `LabelFilter` entra na capacidade `labels`, usado pelo Daily Log e pelo Tasks.

@@ -28,9 +28,9 @@ const newStore = (): TaskStore => {
   return inMemoryTaskStore({ newId: () => `id-${(n += 1)}`, now: () => '2026-11-06T12:00:00.000Z' })
 }
 
-/** A board's own "A fazer": since F5 (#43) each board has statuses of its own. */
+/** A board's own "To Do": since F5 (#43) each board has statuses of its own. */
 const todoOf = async (store: TaskStore, boardId: string) =>
-  (await store.board(boardId))!.statuses.find((status) => status.name === 'A fazer')!.id
+  (await store.board(boardId))!.statuses.find((status) => status.name === 'To Do')!.id
 
 const portOver = (store: TaskStore): TasksPort => ({
   boards: () => store.boards(),
@@ -94,7 +94,7 @@ async function switchTo(host: HTMLElement, name: string): Promise<void> {
 }
 
 describe('C1: Criar um board', () => {
-  it('"Casa" aparece na troca de boards e abre vazio, com os cinco status', async () => {
+  it('"Casa" aparece na troca de boards e abre vazio, com os seis status', async () => {
     const host = await mount(newStore())
 
     await submitBoard(host, 'Casa', 'CASA')
@@ -102,7 +102,7 @@ describe('C1: Criar um board', () => {
     expect(boardNames(host)).toEqual(['Tasks', 'Casa'])
     expect(switcher(host)?.selectedOptions[0]?.textContent?.trim()).toBe('Casa')
     expect(host.querySelector('form[aria-label="Novo board"]')).toBeNull()
-    for (const name of ['Backlog', 'A fazer', 'Fazendo', 'Feito', 'Cancelado']) expect(column(host, name)).not.toBeNull()
+    for (const name of ['Backlog', 'To Do', 'In Progress', 'Review', 'Land', 'Done']) expect(column(host, name)).not.toBeNull()
     expect(cards(host)).toEqual([])
   })
 })

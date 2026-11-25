@@ -41,7 +41,7 @@ describe('C7: Escolher abre a tarefa no board dela (J10.3)', () => {
     let n = 0
     const store = inMemoryTaskStore({ newId: () => `id-${(n += 1)}`, now: () => '2026-11-06T12:00:00.000Z' })
     const casa = (await store.createBoard({ name: 'Casa', prefix: 'CASA' })).id
-    const todo = (await store.board(casa))!.statuses.find((status) => status.name === 'A fazer')!.id
+    const todo = (await store.board(casa))!.statuses.find((status) => status.name === 'To Do')!.id
     for (const title of ['um', 'dois', 'Trocar a lâmpada']) await store.create({ boardId: casa, title, statusId: todo })
     await store.create({ boardId: SEED_BOARD.id, title: 'Pagar o condomínio', statusId: 'todo' })
     // Tasks was left on the board "Tasks".
