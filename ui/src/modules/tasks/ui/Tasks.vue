@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { parseKey, placeAt } from '@dailly/tasks-core'
+import { FOCUS_LEVELS, parseKey, placeAt, type FocusBoard, type FocusLevel, type ProgramWithTasks } from '@dailly/tasks-core'
 import type { Board, Label, SharedDeps, StatusColor, Task, TaskBoard, TaskKey, TaskStatus } from '@shared'
 import { findByName, nextColor, normalizeLabelName } from '@dailly/domain'
 import type { StatusCategory } from '@dailly/tasks-core'
@@ -8,6 +8,7 @@ import type { TasksDeps } from '../deps.js'
 import { LabelFilter } from '@capabilities/labels'
 import { onTaskCreated } from '../model/created.js'
 import { filterByLabels } from '../model/label-filter.js'
+import { filterByFocus, filterByPrograms } from '../model/scope-filter.js'
 import { firstToDo, groupByStatus } from '../model/list.js'
 import { onOpenRequest, takeOpen } from '../model/open-request.js'
 import BoardColumn from './board/BoardColumn.vue'
@@ -17,6 +18,7 @@ import BoardForm from './boards/BoardForm.vue'
 import TaskPanel from './detail/TaskPanel.vue'
 import FocusView from './programs/FocusView.vue'
 import ProgramsView from './programs/ProgramsView.vue'
+import ScopeFilter from './programs/ScopeFilter.vue'
 import StatusDelete from './statuses/StatusDelete.vue'
 import StatusForm from './statuses/StatusForm.vue'
 import StatusGroup from './list/StatusGroup.vue'
@@ -130,8 +132,53 @@ async function chooseLabel(name: string): Promise<string | null> {
   }
 }
 
+/**
+ * The programs and the focus behind their filters, read with the board so a
+ * write elsewhere reaches them on the next read. Each read stands alone: one
+ * that fails says so in place of its chips and turns its filter off, since a
+ * cut over nothing read would hide tasks for nothing; the board still shows.
+ */
+const programs = ref<readonly ProgramWithTasks[]>([])
+const programsError = ref<string | null>(null)
+const focus = ref<FocusBoard>({ P0: [], P1: [], P2: [] })
+const focusError = ref<string | null>(null)
+let programsTicket = 0
+let focusTicket = 0
+
+async function loadPrograms(): Promise<void> {
+  const mine = (programsTicket += 1)
+  try {
+    const read = await props.deps.programs.programs()
+    if (mine !== programsTicket) return
+    programs.value = read
+    programsError.value = null
+    // A program gone elsewhere leaves the filter, as a deleted label does.
+    filterPrograms.value = filterPrograms.value.filter((id) => read.some((program) => program.id === id))
+  } catch (cause) {
+    if (mine !== programsTicket) return
+    programsError.value = `não consegui ler os programas: ${message(cause, 'erro desconhecido')}`
+    filterPrograms.value = []
+  }
+}
+
+async function loadFocus(): Promise<void> {
+  const mine = (focusTicket += 1)
+  try {
+    const read = await props.deps.programs.focus()
+    if (mine !== focusTicket) return
+    focus.value = read
+    focusError.value = null
+  } catch (cause) {
+    if (mine !== focusTicket) return
+    focusError.value = `não consegui ler o foco: ${message(cause, 'erro desconhecido')}`
+    filterLevels.value = []
+  }
+}
+
 async function load(): Promise<void> {
   void loadLabels()
+  void loadPrograms()
+  void loadFocus()
   const mine = (ticket += 1)
   let next: Read
   try {
@@ -285,7 +332,35 @@ function toggleFilterLabel(id: string): void {
     : [...filterLabels.value, id]
 }
 
-const shown = computed(() => (read.value.state === 'ready' ? filterByLabels(read.value.board, filterLabels.value) : null))
+/** The programs and the focus levels toggled on: like the labels, OR inside each, AND between them. */
+const filterPrograms = ref<string[]>([])
+const filterLevels = ref<FocusLevel[]>([])
+const LEVEL_OPTIONS = FOCUS_LEVELS.map((level) => ({ id: level, name: level }))
+
+const toggled = <T,>(list: readonly T[], item: T): T[] =>
+  list.includes(item) ? list.filter((x) => x !== item) : [...list, item]
+
+function toggleFilterLevel(id: string): void {
+  const level = FOCUS_LEVELS.find((candidate) => candidate === id)
+  if (level) filterLevels.value = toggled(filterLevels.value, level)
+}
+
+const filtering = computed(
+  () => filterLabels.value.length > 0 || filterPrograms.value.length > 0 || filterLevels.value.length > 0,
+)
+
+function clearFilters(): void {
+  filterLabels.value = []
+  filterPrograms.value = []
+  filterLevels.value = []
+}
+
+const shown = computed(() => {
+  if (read.value.state !== 'ready') return null
+  const byLabels = filterByLabels(read.value.board, filterLabels.value)
+  const byPrograms = filterByPrograms(byLabels, programs.value, filterPrograms.value)
+  return filterByFocus(byPrograms, programs.value, focus.value, filterLevels.value)
+})
 const groups = computed(() => (shown.value ? groupByStatus(shown.value) : []))
 /** A board with tasks the filter hides all of: said as such, never as an empty board. */
 const filteredOut = computed(
@@ -546,13 +621,27 @@ async function drop(statusId: string, beforeKey: number | null): Promise<void> {
           </button>
         </div>
 
-        <div v-if="labels.length > 0" class="mb-4 flex flex-wrap items-center gap-2 text-xs">
-          <LabelFilter :labels="labels" :label-ids="filterLabels" @toggle="toggleFilterLabel" />
+        <div class="mb-4 flex flex-wrap items-center gap-2 text-xs">
+          <LabelFilter v-if="labels.length > 0" :labels="labels" :label-ids="filterLabels" @toggle="toggleFilterLabel" />
+          <ScopeFilter
+            label="Filtrar por programa"
+            :options="programs"
+            :selected="filterPrograms"
+            :error="programsError"
+            @toggle="filterPrograms = toggled(filterPrograms, $event)"
+          />
+          <ScopeFilter
+            label="Filtrar por foco"
+            :options="LEVEL_OPTIONS"
+            :selected="filterLevels"
+            :error="focusError"
+            @toggle="toggleFilterLevel"
+          />
           <button
-            v-if="filterLabels.length > 0"
+            v-if="filtering"
             type="button"
             class="text-[#747e8f] underline hover:text-gray-200"
-            @click="filterLabels = []"
+            @click="clearFilters"
           >
             Limpar filtro
           </button>
