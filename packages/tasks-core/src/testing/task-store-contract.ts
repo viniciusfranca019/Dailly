@@ -98,7 +98,7 @@ export function taskStoreContract(
     it('#47 C4: acha pela chave, em qualquer caixa, mesmo com o prefixo antigo do board (RN5)', async () => {
       const store = make()
       const casa = await store.createBoard({ name: 'Casa', prefix: 'CASA' })
-      const todo = await statusNamed(store, casa.id, 'A fazer')
+      const todo = await statusNamed(store, casa.id, 'To Do')
       for (const title of ['um', 'dois', 'Trocar a lâmpada']) await store.create({ boardId: casa.id, title, statusId: todo.id })
       await store.updateBoard(casa.id, { prefix: 'LAR' })
       for (const title of ['a', 'b', 'Pagar o condomínio']) await store.create({ boardId: IN, title, statusId: 'todo' })
@@ -112,7 +112,7 @@ export function taskStoreContract(
       const store = make()
       const casa = await store.createBoard({ name: 'Casa', prefix: 'CASA' })
       await store.create({ boardId: IN, title: 'Comprar café', statusId: 'todo' })
-      await store.create({ boardId: casa.id, title: 'Café da manhã de domingo', statusId: (await statusNamed(store, casa.id, 'A fazer')).id })
+      await store.create({ boardId: casa.id, title: 'Café da manhã de domingo', statusId: (await statusNamed(store, casa.id, 'To Do')).id })
 
       const found = await store.search('café')
 
@@ -157,9 +157,19 @@ export function taskStoreContract(
 
       const review = await store.addStatus(casa.id, { name: ' Revisão ', category: 'started', color: 'purple' })
 
-      expect(review).toMatchObject({ name: 'Revisão', category: 'started', color: 'purple', boardId: casa.id, position: 3 })
-      expect(await names(store, casa.id)).toEqual(['Backlog', 'A fazer', 'Fazendo', 'Revisão', 'Feito', 'Cancelado'])
-      expect((await store.board(casa.id))?.statuses.map((status) => status.position)).toEqual([0, 1, 2, 3, 4, 5])
+      expect(review).toMatchObject({ name: 'Revisão', category: 'started', color: 'purple', boardId: casa.id, position: 5 })
+      expect(await names(store, casa.id)).toEqual(['Backlog', 'To Do', 'In Progress', 'Review', 'Land', 'Revisão', 'Done'])
+      expect((await store.board(casa.id))?.statuses.map((status) => status.position)).toEqual([0, 1, 2, 3, 4, 5, 6])
+    })
+
+    it('LAB-7 C3: um board novo ainda aceita um status cancelado, que vira a última coluna', async () => {
+      const store = make()
+      const casa = await store.createBoard({ name: 'Casa', prefix: 'CASA' })
+
+      const canceled = await store.addStatus(casa.id, { name: 'Cancelado', category: 'canceled', color: 'gray' })
+
+      expect(canceled).toMatchObject({ name: 'Cancelado', category: 'canceled', position: 6 })
+      expect(await names(store, casa.id)).toEqual(['Backlog', 'To Do', 'In Progress', 'Review', 'Land', 'Done', 'Cancelado'])
     })
 
     it('#43 C2: recusa nome vazio, nome repetido no board e cor fora da paleta, e não grava nada', async () => {
@@ -169,24 +179,24 @@ export function taskStoreContract(
       await expect(store.addStatus(casa.id, { name: ' ', category: 'started', color: 'purple' })).rejects.toThrow(
         NameRequiredError,
       )
-      await expect(store.addStatus(casa.id, { name: 'feito', category: 'completed', color: 'blue' })).rejects.toThrow(
-        new StatusNameTakenError('feito').message,
+      await expect(store.addStatus(casa.id, { name: 'done', category: 'completed', color: 'blue' })).rejects.toThrow(
+        new StatusNameTakenError('done').message,
       )
       await expect(
         store.addStatus(casa.id, { name: 'x', category: 'started', color: 'magenta' as never }),
       ).rejects.toThrow(InvalidColorError)
-      expect(await names(store, casa.id)).toHaveLength(5)
+      expect(await names(store, casa.id)).toHaveLength(6)
       expect(await store.addStatus('nope', { name: 'x', category: 'started', color: 'purple' })).toBeNull()
     })
 
-    it('#43 C3: cada board nasce com os seus cinco status, sem os que outro ganhou (RN11)', async () => {
+    it('#43 C3 / LAB-7 C1: cada board nasce com os seus seis status, sem os que outro ganhou (RN11)', async () => {
       const store = make()
       const casa = await store.createBoard({ name: 'Casa', prefix: 'CASA' })
       await store.addStatus(casa.id, { name: 'Revisão', category: 'started', color: 'purple' })
 
       const lar = await store.createBoard({ name: 'Lar', prefix: 'LAR' })
 
-      expect(await names(store, lar.id)).toEqual(['Backlog', 'A fazer', 'Fazendo', 'Feito', 'Cancelado'])
+      expect(await names(store, lar.id)).toEqual(['Backlog', 'To Do', 'In Progress', 'Review', 'Land', 'Done'])
       expect(await names(store, casa.id)).toContain('Revisão')
       const ids = (await store.board(lar.id))!.statuses.map((status) => status.id)
       expect(ids.some((id) => (SEED_STATUS_IDS as readonly string[]).includes(id))).toBe(false)
@@ -195,7 +205,7 @@ export function taskStoreContract(
     it('#43 C4: renomear e trocar a cor não mexe nas tarefas (RN2)', async () => {
       const store = make()
       const casa = await store.createBoard({ name: 'Casa', prefix: 'CASA' })
-      const done = await statusNamed(store, casa.id, 'Feito')
+      const done = await statusNamed(store, casa.id, 'Done')
       const task = await store.create({ boardId: casa.id, title: 'um', statusId: done.id })
       const closed = await store.update({ prefix: 'CASA', key: task.key }, { placement: { statusId: done.id, rank: 'i' } })
 
@@ -205,7 +215,7 @@ export function taskStoreContract(
         color: 'green',
       })
       expect((await store.board(casa.id))?.tasks).toEqual([closed])
-      await expect(store.updateStatus(done.id, { name: 'fazendo' })).rejects.toThrow(StatusNameTakenError)
+      await expect(store.updateStatus(done.id, { name: 'in progress' })).rejects.toThrow(StatusNameTakenError)
       await expect(store.updateStatus(done.id, { name: '' })).rejects.toThrow(NameRequiredError)
       expect(await store.updateStatus(done.id, { name: 'Entregue' })).toMatchObject({ name: 'Entregue' })
       expect(await store.updateStatus('nope', { name: 'x' })).toBeNull()
@@ -225,20 +235,20 @@ export function taskStoreContract(
       const store = make()
       const casa = await store.createBoard({ name: 'Casa', prefix: 'CASA' })
       const statuses = (await store.board(casa.id))!.statuses
-      for (const status of statuses.filter((candidate) => candidate.name !== 'A fazer')) {
+      for (const status of statuses.filter((candidate) => candidate.name !== 'To Do')) {
         await store.deleteStatus(status.id)
       }
-      const todo = await statusNamed(store, casa.id, 'A fazer')
+      const todo = await statusNamed(store, casa.id, 'To Do')
 
       await expect(store.deleteStatus(todo.id)).rejects.toThrow(LastStatusError)
-      expect(await names(store, casa.id)).toEqual(['A fazer'])
+      expect(await names(store, casa.id)).toEqual(['To Do'])
     })
 
     it('#43 C7: as tarefas do status apagado vão ao topo do destino, na ordem, pelo RN3 (RN12)', async () => {
       const store = make()
       const casa = await store.createBoard({ name: 'Casa', prefix: 'CASA' })
       const review = (await store.addStatus(casa.id, { name: 'Revisão', category: 'started', color: 'purple' }))!
-      const done = await statusNamed(store, casa.id, 'Feito')
+      const done = await statusNamed(store, casa.id, 'Done')
       const third = await store.create({ boardId: casa.id, title: 'três', statusId: done.id })
       const second = await store.create({ boardId: casa.id, title: 'dois', statusId: review.id })
       const first = await store.create({ boardId: casa.id, title: 'um', statusId: review.id })
@@ -274,7 +284,7 @@ export function taskStoreContract(
       await store.create({ boardId: IN, title: 'um', statusId: 'todo' })
 
       await expect(store.create({ boardId: casa.id, title: 'x', statusId: 'todo' })).rejects.toThrow(StatusNotFoundError)
-      const casaTodo = await statusNamed(store, casa.id, 'A fazer')
+      const casaTodo = await statusNamed(store, casa.id, 'To Do')
       await expect(store.update(T(1), { placement: { statusId: casaTodo.id, rank: 'i' } })).rejects.toThrow(
         StatusNotFoundError,
       )
@@ -345,7 +355,7 @@ export function taskStoreContract(
       expect(await make().boards()).toEqual([SEED_BOARD])
     })
 
-    it('C1: cria um board, que aparece depois do "Tasks" e abre vazio, com os cinco status', async () => {
+    it('C1: cria um board, que aparece depois do "Tasks" e abre vazio, com os seis status (LAB-7)', async () => {
       const store = make()
       const casa = await store.createBoard({ name: '  Casa ', prefix: 'CASA' })
 
@@ -380,7 +390,7 @@ export function taskStoreContract(
       const store = make()
       const casa = await store.createBoard({ name: 'Casa', prefix: 'CASA' })
       await store.create({ boardId: IN, title: 'Pagar o condomínio', statusId: 'todo' })
-      await store.create({ boardId: casa.id, title: 'Trocar a lâmpada', statusId: (await statusNamed(store, casa.id, 'A fazer')).id })
+      await store.create({ boardId: casa.id, title: 'Trocar a lâmpada', statusId: (await statusNamed(store, casa.id, 'To Do')).id })
 
       expect((await store.board(casa.id))?.tasks.map((task) => [task.keyPrefix, task.key, task.title])).toEqual([
         ['CASA', 1, 'Trocar a lâmpada'],
@@ -422,10 +432,10 @@ export function taskStoreContract(
       const store = make()
       const casa = await store.createBoard({ name: 'Casa', prefix: 'CASA' })
       for (let n = 0; n < 7; n += 1) await store.create({ boardId: IN, title: `t${n}`, statusId: 'todo' })
-      await store.create({ boardId: casa.id, title: 'um', statusId: (await statusNamed(store, casa.id, 'A fazer')).id })
-      await store.create({ boardId: casa.id, title: 'dois', statusId: (await statusNamed(store, casa.id, 'A fazer')).id })
+      await store.create({ boardId: casa.id, title: 'um', statusId: (await statusNamed(store, casa.id, 'To Do')).id })
+      await store.create({ boardId: casa.id, title: 'dois', statusId: (await statusNamed(store, casa.id, 'To Do')).id })
 
-      const third = await store.create({ boardId: casa.id, title: 'Comprar tinta', statusId: (await statusNamed(store, casa.id, 'A fazer')).id })
+      const third = await store.create({ boardId: casa.id, title: 'Comprar tinta', statusId: (await statusNamed(store, casa.id, 'To Do')).id })
 
       expect(third).toMatchObject({ keyPrefix: 'CASA', key: 3, boardId: casa.id })
       expect((await store.board(casa.id))?.tasks[0]?.title).toBe('Comprar tinta')
@@ -434,10 +444,10 @@ export function taskStoreContract(
     it('C7: trocar o prefixo vale só para as tarefas novas, e a chave antiga continua achando a tarefa', async () => {
       const store = make()
       const casa = await store.createBoard({ name: 'Casa', prefix: 'CASA' })
-      for (const title of ['um', 'dois', 'três']) await store.create({ boardId: casa.id, title, statusId: (await statusNamed(store, casa.id, 'A fazer')).id })
+      for (const title of ['um', 'dois', 'três']) await store.create({ boardId: casa.id, title, statusId: (await statusNamed(store, casa.id, 'To Do')).id })
 
       expect(await store.updateBoard(casa.id, { prefix: 'LAR' })).toEqual({ ...casa, prefix: 'LAR' })
-      const fourth = await store.create({ boardId: casa.id, title: 'Pintar a sala', statusId: (await statusNamed(store, casa.id, 'A fazer')).id })
+      const fourth = await store.create({ boardId: casa.id, title: 'Pintar a sala', statusId: (await statusNamed(store, casa.id, 'To Do')).id })
 
       expect([fourth.keyPrefix, fourth.key]).toEqual(['LAR', 4])
       const keys = (await store.board(casa.id))?.tasks.map((task) => `${task.keyPrefix}-${task.key}`)

@@ -100,17 +100,17 @@ async function listView(host: HTMLElement): Promise<void> {
 }
 
 describe('C1: Adicionar um status entra junto da sua categoria (J6.1, RN2, RN11)', () => {
-  it('"Revisão" aparece roxo depois de "Fazendo" e antes de "Feito", no board e na lista', async () => {
+  it('"Revisão" aparece roxo depois de "Land" e antes de "Done", no board e na lista', async () => {
     const { store } = await casaStore()
     const host = await mount(store)
 
     await addStatus(host, 'Revisão', 'started', 'purple')
 
-    expect(columns(host)).toEqual(['Backlog', 'A fazer', 'Fazendo', 'Revisão', 'Feito', 'Cancelado'])
+    expect(columns(host)).toEqual(['Backlog', 'To Do', 'In Progress', 'Review', 'Land', 'Revisão', 'Done'])
     expect(colorOf(host, 'Revisão')).toBe('purple')
     expect(host.querySelector('form[aria-label="Novo status"]')).toBeNull()
     await listView(host)
-    expect(columns(host)).toEqual(['Backlog', 'A fazer', 'Fazendo', 'Revisão', 'Feito', 'Cancelado'])
+    expect(columns(host)).toEqual(['Backlog', 'To Do', 'In Progress', 'Review', 'Land', 'Revisão', 'Done'])
     expect(colorOf(host, 'Revisão')).toBe('purple')
   })
 })
@@ -118,20 +118,20 @@ describe('C1: Adicionar um status entra junto da sua categoria (J6.1, RN2, RN11)
 describe('C2: Nome vazio ou repetido no board é recusado (J6.1a, RN11)', () => {
   it.each([
     ['', 'o nome é obrigatório'],
-    ['Feito', 'já existe um status "Feito" neste board'],
-  ])('o nome %j mostra "%s", e o board continua com os cinco', async (name, message) => {
+    ['Done', 'já existe um status "Done" neste board'],
+  ])('o nome %j mostra "%s", e o board continua com os seis', async (name, message) => {
     const { store } = await casaStore()
     const host = await mount(store)
 
     const form = await addStatus(host, name, 'started', 'purple')
 
     expect(form.querySelector('[role="alert"]')?.textContent?.trim()).toBe(message)
-    expect(columns(host)).toHaveLength(5)
+    expect(columns(host)).toHaveLength(6)
   })
 })
 
-describe('C3: Cada board nasce com os seus cinco status (RN11)', () => {
-  it('"Lar" mostra só os cinco, e "Casa" continua com "Revisão"', async () => {
+describe('C3: Cada board nasce com os seus seis status (RN11)', () => {
+  it('"Lar" mostra só os seis, e "Casa" continua com "Revisão"', async () => {
     const { store, casa } = await casaStore()
     await store.addStatus(casa, { name: 'Revisão', category: 'started', color: 'purple' })
     const host = await mount(store)
@@ -143,7 +143,7 @@ describe('C3: Cada board nasce com os seus cinco status (RN11)', () => {
     set(form.querySelector('input[aria-label="Prefixo do board"]'), 'LAR')
     await submit(form)
 
-    expect(columns(host)).toEqual(['Backlog', 'A fazer', 'Fazendo', 'Feito', 'Cancelado'])
+    expect(columns(host)).toEqual(['Backlog', 'To Do', 'In Progress', 'Review', 'Land', 'Done'])
     expect((await store.board(casa))!.statuses.map((status) => status.name)).toContain('Revisão')
   })
 })
@@ -151,12 +151,12 @@ describe('C3: Cada board nasce com os seus cinco status (RN11)', () => {
 describe('C4: Renomear e trocar a cor não mexe nas tarefas (J6.2, RN2)', () => {
   it('a coluna e o grupo mostram "Entregue" em verde, e CASA-1 continua nele, concluída', async () => {
     const { store, casa } = await casaStore()
-    const done = await statusId(store, casa, 'Feito')
+    const done = await statusId(store, casa, 'Done')
     await store.create({ boardId: casa, title: 'Trocar a lâmpada', statusId: done })
     await store.update({ prefix: 'CASA', key: 1 }, { placement: { statusId: done, rank: 'i' } })
     const host = await mount(store)
 
-    button(column(host, 'Feito'), 'Editar status Feito')!.click()
+    button(column(host, 'Done'), 'Editar status Done')!.click()
     await settle()
     const form = host.querySelector<HTMLFormElement>('form[aria-label="Editar status"]')!
     expect(form.querySelector('select[aria-label="Categoria"]')).toBeNull()
@@ -193,14 +193,14 @@ describe('C5: Apagar um status sem tarefas (J6.3)', () => {
 })
 
 describe('C6: O último status do board não se apaga (J6.3a, RN11)', () => {
-  it('mostra "o board precisa de ao menos um status", e "A fazer" continua', async () => {
+  it('mostra "o board precisa de ao menos um status", e "To Do" continua', async () => {
     const { store, casa } = await casaStore()
     for (const status of (await store.board(casa))!.statuses) {
-      if (status.name !== 'A fazer') await store.deleteStatus(status.id)
+      if (status.name !== 'To Do') await store.deleteStatus(status.id)
     }
     const host = await mount(store)
 
-    button(column(host, 'A fazer'), 'Apagar status A fazer')!.click()
+    button(column(host, 'To Do'), 'Apagar status To Do')!.click()
     await settle()
     button(host.querySelector('[role="alertdialog"]'), 'Apagar status')!.click()
     await settle()
@@ -208,15 +208,15 @@ describe('C6: O último status do board não se apaga (J6.3a, RN11)', () => {
     expect(host.querySelector('[role="alertdialog"] [role="alert"]')?.textContent?.trim()).toBe(
       'o board precisa de ao menos um status',
     )
-    expect(columns(host)).toEqual(['A fazer'])
+    expect(columns(host)).toEqual(['To Do'])
   })
 })
 
 describe('C7: Apagar um status com tarefas leva elas ao topo do destino (J6.4, RN12, RN3)', () => {
-  it('"Feito" mostra CASA-1, CASA-2 e CASA-3, e CASA-1 e CASA-2 ficam concluídas hoje', async () => {
+  it('"Done" mostra CASA-1, CASA-2 e CASA-3, e CASA-1 e CASA-2 ficam concluídas hoje', async () => {
     const { store, casa } = await casaStore()
     const review = (await store.addStatus(casa, { name: 'Revisão', category: 'started', color: 'purple' }))!
-    const done = await statusId(store, casa, 'Feito')
+    const done = await statusId(store, casa, 'Done')
     await store.create({ boardId: casa, title: 'um', statusId: review.id })
     await store.create({ boardId: casa, title: 'dois', statusId: review.id })
     // CASA-1 above CASA-2 in "Revisão", as the scenario has them.
@@ -233,8 +233,8 @@ describe('C7: Apagar um status com tarefas leva elas ao topo do destino (J6.4, R
     await settle()
 
     expect(columns(host)).not.toContain('Revisão')
-    expect(keysIn(host, 'Feito')).toEqual(['CASA-1', 'CASA-2', 'CASA-3'])
-    const labels = [...column(host, 'Feito')!.querySelectorAll('li')].map((li) => li.textContent ?? '')
+    expect(keysIn(host, 'Done')).toEqual(['CASA-1', 'CASA-2', 'CASA-3'])
+    const labels = [...column(host, 'Done')!.querySelectorAll('li')].map((li) => li.textContent ?? '')
     expect(labels[0]).toContain('concluída em 06/11')
     expect(labels[1]).toContain('concluída em 06/11')
   })
@@ -264,9 +264,9 @@ describe('gate #43: the last status, with tasks, asks for no destination', () =>
   it('sends no moveTo, so the API answers with RN11 and not with a bad moveTo', async () => {
     const { store, casa } = await casaStore()
     for (const status of (await store.board(casa))!.statuses) {
-      if (status.name !== 'A fazer') await store.deleteStatus(status.id)
+      if (status.name !== 'To Do') await store.deleteStatus(status.id)
     }
-    await store.create({ boardId: casa, title: 'um', statusId: await statusId(store, casa, 'A fazer') })
+    await store.create({ boardId: casa, title: 'um', statusId: await statusId(store, casa, 'To Do') })
     const calls: (string | undefined)[] = []
     const host = document.createElement('div')
     document.body.append(host)
@@ -285,7 +285,7 @@ describe('gate #43: the last status, with tasks, asks for no destination', () =>
     app.mount(host)
     await settle()
 
-    button(column(host, 'A fazer'), 'Apagar status A fazer')!.click()
+    button(column(host, 'To Do'), 'Apagar status To Do')!.click()
     await settle()
     const dialog = host.querySelector('[role="alertdialog"]')!
     expect(dialog.querySelector('select')).toBeNull()

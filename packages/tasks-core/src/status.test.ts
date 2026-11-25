@@ -4,6 +4,7 @@ import {
   InvalidColorError,
   STATUS_SEED,
   StatusNameTakenError,
+  TASKS_BOARD_STATUSES,
   normalizeStatusName,
   orderStatuses,
   parseNewStatus,
@@ -11,8 +12,19 @@ import {
 } from './status.js'
 
 describe('the status seed (RN11)', () => {
-  it('is five statuses, one per category, each with its Linear color', () => {
+  it('LAB-7 C1: a new board is born with the six statuses of the flow, none of them canceled', () => {
     expect(STATUS_SEED.map((seed) => [seed.name, seed.category, seed.color])).toEqual([
+      ['Backlog', 'backlog', 'gray'],
+      ['To Do', 'unstarted', 'gray'],
+      ['In Progress', 'started', 'yellow'],
+      ['Review', 'started', 'orange'],
+      ['Land', 'started', 'purple'],
+      ['Done', 'completed', 'blue'],
+    ])
+  })
+
+  it('LAB-7 C2: the "Tasks" board keeps the five statuses migration 10 gave it', () => {
+    expect(TASKS_BOARD_STATUSES.map((seed) => [seed.name, seed.category, seed.color])).toEqual([
       ['Backlog', 'backlog', 'gray'],
       ['A fazer', 'unstarted', 'gray'],
       ['Fazendo', 'started', 'yellow'],

@@ -55,7 +55,7 @@ describe('Tasks, end to end', () => {
     const { tasks } = await overTheWire()
     const casa = await tasks.createBoard({ name: 'Casa', prefix: 'CASA' })
     // Since F5 (#43) every board has statuses of its own.
-    const todo = (await tasks.board(casa.id))!.statuses.find((status) => status.name === 'A fazer')!.id
+    const todo = (await tasks.board(casa.id))!.statuses.find((status) => status.name === 'To Do')!.id
     await tasks.create({ boardId: casa.id, title: 'Trocar a lâmpada', statusId: todo })
     await tasks.updateBoard(casa.id, { prefix: 'LAR' })
     const second = await tasks.create({ boardId: casa.id, title: 'Pintar a sala', statusId: todo })

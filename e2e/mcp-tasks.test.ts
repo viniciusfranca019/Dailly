@@ -20,7 +20,7 @@ async function harness() {
   return { server, mcp }
 }
 
-/** The board "Casa" with CASA-1 "Lixar a parede" in "A fazer", made through the API itself. */
+/** The board "Casa" with CASA-1 "Lixar a parede" in "To Do", made through the API itself. */
 async function withCasa(apiUrl: string): Promise<string> {
   const post = (path: string, body: unknown) =>
     fetch(`${apiUrl}${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then(
@@ -28,7 +28,7 @@ async function withCasa(apiUrl: string): Promise<string> {
     )
   const casa = (await post('/boards', { name: 'Casa', prefix: 'CASA' })) as { id: string }
   const board = (await (await fetch(`${apiUrl}/tasks?boardId=${casa.id}`)).json()) as { statuses: { id: string; name: string }[] }
-  const todo = board.statuses.find((status) => status.name === 'A fazer')!.id
+  const todo = board.statuses.find((status) => status.name === 'To Do')!.id
   await post('/tasks', { boardId: casa.id, title: 'Lixar a parede', statusId: todo })
   return casa.id
 }
@@ -40,15 +40,15 @@ type Board = {
 }
 
 describe('C1: Ler um board', () => {
-  it('get_board("Casa") devolve os status e CASA-1 em "A fazer", com a prioridade', async () => {
+  it('get_board("Casa") devolve os status e CASA-1 em "To Do", com a prioridade', async () => {
     const { server, mcp } = await harness()
     await withCasa(server.url)
 
     const read = (await mcp.call('get_board', { board: 'casa' })).ok as Board
 
     expect(read.board).toMatchObject({ name: 'Casa', prefix: 'CASA' })
-    expect(read.statuses.map((status) => status.name)).toEqual(['Backlog', 'A fazer', 'Fazendo', 'Feito', 'Cancelado'])
-    expect(read.tasks).toEqual([expect.objectContaining({ key: 'CASA-1', title: 'Lixar a parede', status: 'A fazer', priority: 'sem' })])
+    expect(read.statuses.map((status) => status.name)).toEqual(['Backlog', 'To Do', 'In Progress', 'Review', 'Land', 'Done'])
+    expect(read.tasks).toEqual([expect.objectContaining({ key: 'CASA-1', title: 'Lixar a parede', status: 'To Do', priority: 'sem' })])
   })
 
   it('list_boards dá os boards, e um board que não existe é um erro que diz o nome', async () => {
@@ -61,18 +61,18 @@ describe('C1: Ler um board', () => {
 })
 
 describe('C2: Criar tarefa', () => {
-  it('create_task cria CASA-2 no topo de "A fazer", com "alta"', async () => {
+  it('create_task cria CASA-2 no topo de "To Do", com "alta"', async () => {
     const { server, mcp } = await harness()
     await withCasa(server.url)
 
-    const created = (await mcp.call('create_task', { board: 'Casa', title: 'Comprar tinta', status: 'A fazer', priority: 'alta' }))
+    const created = (await mcp.call('create_task', { board: 'Casa', title: 'Comprar tinta', status: 'To Do', priority: 'alta' }))
       .ok as { key: string; priority: string }
 
     expect(created).toMatchObject({ key: 'CASA-2', priority: 'alta' })
     const read = (await mcp.call('get_board', { board: 'Casa' })).ok as Board
     expect(read.tasks.map((task) => [task.key, task.status, task.priority])).toEqual([
-      ['CASA-2', 'A fazer', 'alta'],
-      ['CASA-1', 'A fazer', 'sem'],
+      ['CASA-2', 'To Do', 'alta'],
+      ['CASA-1', 'To Do', 'sem'],
     ])
   })
 
@@ -87,17 +87,17 @@ describe('C2: Criar tarefa', () => {
 })
 
 describe('C3: Mover de status', () => {
-  it('update_task(CASA-2, "Feito") põe no topo de "Feito", com a conclusão carimbada (RN3)', async () => {
+  it('update_task(CASA-2, "Done") põe no topo de "Done", com a conclusão carimbada (RN3)', async () => {
     const { server, mcp } = await harness()
     await withCasa(server.url)
     await mcp.call('create_task', { board: 'Casa', title: 'Comprar tinta' })
-    await mcp.call('update_task', { key: 'CASA-1', status: 'Feito' })
+    await mcp.call('update_task', { key: 'CASA-1', status: 'Done' })
 
-    const moved = (await mcp.call('update_task', { key: 'casa-2', status: 'feito' })).ok as Board['tasks'][number]
+    const moved = (await mcp.call('update_task', { key: 'casa-2', status: 'done' })).ok as Board['tasks'][number]
 
-    expect(moved).toMatchObject({ key: 'CASA-2', status: 'Feito', completedAt: expect.any(String) })
+    expect(moved).toMatchObject({ key: 'CASA-2', status: 'Done', completedAt: expect.any(String) })
     const read = (await mcp.call('get_board', { board: 'Casa' })).ok as Board
-    expect(read.tasks.filter((task) => task.status === 'Feito').map((task) => task.key)).toEqual(['CASA-2', 'CASA-1'])
+    expect(read.tasks.filter((task) => task.status === 'Done').map((task) => task.key)).toEqual(['CASA-2', 'CASA-1'])
   })
 
   it('muda título, corpo e prioridade numa gravação, e apaga a tarefa', async () => {
