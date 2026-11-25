@@ -1,4 +1,4 @@
-version: 0.1.27
+version: 0.1.28
 
-- Board novo nasce com o fluxo Backlog, To Do, In Progress, Review, Land e Done, sem o Cancelado, que entra pelo "+ status" quando o board quiser. Os boards que já existem, o "Tasks" entre eles, ficam com os status que têm. (#64)
-- A semente do board "Tasks" (a da migration 10) fica separada da de board novo, para o fake em memória seguir igual ao SQLite. (#64)
+- O texto entre crases, entre `**` e entre `*`, e os links em markdown, aparecem formatados no Daily Log, no corpo das tarefas e nos comentários: código em fonte monoespaçada, negrito, itálico e link que abre numa aba nova. O bloco com o cursor mostra os marcadores para editar, e o markdown salvo não muda. (#66)
+- Só `http:`, `https:` e `mailto:` viram link; marcador sem par fica como foi escrito. (#66)

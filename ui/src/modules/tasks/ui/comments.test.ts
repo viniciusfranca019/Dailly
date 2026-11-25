@@ -222,3 +222,16 @@ describe('#45: os comentários de uma tarefa apagada', () => {
     expect(buttonIn(panel(host), 'Voltar ao board')).not.toBeNull()
   })
 })
+
+describe('LAB-5 C2: Negrito aparece formatado num comentário', () => {
+  it('"Jornal" aparece em negrito, sem os **', async () => {
+    const store = await storeWithT1()
+    await store.addComment(T1, '**Jornal** é o nome novo')
+    const host = await mount(portOver(store))
+    await openT1(host)
+
+    expect(section(host)?.querySelector('li strong')?.textContent).toBe('Jornal')
+    expect(listed(host)[0]).toContain('Jornal é o nome novo')
+    expect(listed(host)[0]).not.toContain('**')
+  })
+})

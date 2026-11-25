@@ -1,6 +1,7 @@
 # Directory Update Log
 
 ## 2026-11-25
+* **Update**: [Editor de blocos](/features/whiteboard.md) desenha código, negrito, itálico e link inline, e o bloco com o cursor mostra o texto cru (card LAB-5).
 * **Update**: [Tasks, status do board](/features/tasks-status.md) e [Tasks, boards](/features/tasks-boards.md): board novo nasce com Backlog, To Do, In Progress, Review, Land e Done, sem Cancelado (card LAB-7).
 
 ## 2026-11-24

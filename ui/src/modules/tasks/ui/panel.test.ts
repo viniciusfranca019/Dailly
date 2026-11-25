@@ -338,3 +338,34 @@ describe('gate #22, rodada 2: um Esc de outro controle é desse controle', () =>
     expect(field<HTMLSelectElement>(host, 'Prioridade').value).toBe('2')
   })
 })
+
+describe('LAB-5: markdown inline no corpo da tarefa', () => {
+  it('C1, C3: código, itálico e link aparecem formatados, sem os marcadores', async () => {
+    const store = await storeWith([['Comprar café', 'todo']])
+    await store.update({ prefix: 'T', key: 1 }, { body: 'rode `make dev` antes\n*rascunho* e [docs](https://example.com)' })
+    const host = await mount(portOver(store))
+
+    await open(host, 'T-1')
+
+    const body = panel(host)!
+    expect(body.querySelector('code.wb-code')?.textContent).toBe('make dev')
+    expect(body.querySelector('em')?.textContent).toBe('rascunho')
+    expect(body.querySelector<HTMLAnchorElement>('a.wb-link')?.getAttribute('href')).toBe('https://example.com')
+    expect(body.textContent).not.toContain('`')
+  })
+
+  it('C5: editar outro bloco e salvar grava o corpo com os marcadores', async () => {
+    const store = await storeWith([['Comprar café', 'todo']])
+    await store.update({ prefix: 'T', key: 1 }, { body: '**a** e `b`\noutro' })
+    const host = await mount(portOver(store))
+    await open(host, 'T-1')
+
+    const second = panel(host)!.querySelectorAll<HTMLElement>(`[${TEXT_ATTR}]`)[1]!
+    second.focus()
+    second.textContent = 'outro editado'
+    second.dispatchEvent(new Event('input', { bubbles: true }))
+    await save(host)
+
+    expect((await store.board('tasks'))!.tasks[0]?.body).toBe('**a** e `b`\noutro editado')
+  })
+})
