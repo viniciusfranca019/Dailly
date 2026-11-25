@@ -71,6 +71,13 @@ export class TaskNotFoundError extends Error {
 
 export class InvalidWindowError extends Error {
   override readonly name = 'InvalidWindowError'
+  constructor(
+    message: string,
+    /** The field to fix, so a form or a route never reads it from the message. */
+    readonly field: 'windowStart' | 'windowEnd' = 'windowEnd',
+  ) {
+    super(message)
+  }
 }
 
 export class InvalidFocusLevelError extends Error {
@@ -105,12 +112,12 @@ export class TaskInProgramFocusError extends Error {
 const DATE = /^(\d{4})-(\d{2})-(\d{2})$/
 
 /** A calendar date that exists, as `YYYY-MM-DD`. */
-function parseDate(value: string | null | undefined): string | null {
+function parseDate(value: string | null | undefined, field: 'windowStart' | 'windowEnd'): string | null {
   if (value === undefined || value === null || value.trim() === '') return null
   const match = DATE.exec(value.trim())
   const date = match ? new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]))) : null
   if (!match || !date || date.toISOString().slice(0, 10) !== match[0]) {
-    throw new InvalidWindowError('a data da janela é AAAA-MM-DD')
+    throw new InvalidWindowError('a data da janela é AAAA-MM-DD', field)
   }
   return match[0]
 }
@@ -125,8 +132,8 @@ export function parseNewProgram(input: {
 }): NewProgram {
   const name = input.name.trim()
   if (name === '') throw new NameRequiredError()
-  const windowStart = parseDate(input.windowStart)
-  const windowEnd = parseDate(input.windowEnd)
+  const windowStart = parseDate(input.windowStart, 'windowStart')
+  const windowEnd = parseDate(input.windowEnd, 'windowEnd')
   if (windowStart !== null && windowEnd !== null && windowEnd < windowStart) {
     throw new InvalidWindowError('o fim da janela vem depois do início')
   }

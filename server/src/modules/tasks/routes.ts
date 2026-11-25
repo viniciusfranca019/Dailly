@@ -417,8 +417,7 @@ export function registerTaskRoutes(app: FastifyInstance, store: TaskStore): void
     } catch (error) {
       if (error instanceof NameRequiredError) return reply.code(400).send({ errors: [{ field: 'name', message: error.message }] })
       if (error instanceof InvalidWindowError) {
-        const field = error.message.startsWith('o fim') ? 'windowEnd' : 'windowStart'
-        return reply.code(400).send({ errors: [{ field, message: error.message }] })
+        return reply.code(400).send({ errors: [{ field: error.field, message: error.message }] })
       }
       throw error
     }

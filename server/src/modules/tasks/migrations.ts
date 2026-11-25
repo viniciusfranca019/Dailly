@@ -194,7 +194,9 @@ export const TASKS_MIGRATIONS: readonly Migration[] = [
     // LAB-9: programs and focus. Additive: `tasks` and `entries` are not touched.
     // A program keeps its tasks (RN1), and `entry_id` as the members' key is
     // what holds a task to one program. Focus names a program or a task, never
-    // both; deleting either takes its rows with it.
+    // both. `entry_id` points at `entries`, not at `tasks`, for migration 9's
+    // reason: a later copy-and-rename of `tasks` would cascade and empty these
+    // tables. Deleting a task deletes its Entry, so its rows still go with it.
     version: 11,
     up: `
       CREATE TABLE task_programs (
@@ -207,14 +209,14 @@ export const TASKS_MIGRATIONS: readonly Migration[] = [
         created_order INTEGER NOT NULL
       );
       CREATE TABLE task_program_members (
-        entry_id TEXT PRIMARY KEY REFERENCES tasks(entry_id) ON DELETE CASCADE,
+        entry_id TEXT PRIMARY KEY REFERENCES entries(id) ON DELETE CASCADE,
         program_id TEXT NOT NULL REFERENCES task_programs(id) ON DELETE CASCADE,
         joined_order INTEGER NOT NULL
       );
       CREATE INDEX idx_task_program_members_program ON task_program_members(program_id, joined_order);
       CREATE TABLE task_focus (
         program_id TEXT UNIQUE REFERENCES task_programs(id) ON DELETE CASCADE,
-        entry_id TEXT UNIQUE REFERENCES tasks(entry_id) ON DELETE CASCADE,
+        entry_id TEXT UNIQUE REFERENCES entries(id) ON DELETE CASCADE,
         level TEXT NOT NULL CHECK (level IN ('P0', 'P1', 'P2')),
         set_order INTEGER NOT NULL,
         CHECK ((program_id IS NULL) <> (entry_id IS NULL))
