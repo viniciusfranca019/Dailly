@@ -294,3 +294,49 @@ describe('C7: Tirar do foco', () => {
     expect(labeled<HTMLSelectElement>(programCard(host, 'Dailly v1'), 'Foco de Dailly v1').value).toBe('')
   })
 })
+
+describe('gate LAB-9 PR 2, iteration 2', () => {
+  it('the task panel closes when the screen goes to Programas or Foco, so its program line is never stale', async () => {
+    const store = await world()
+    const host = await mount(store)
+    set(labeled<HTMLSelectElement>(host, 'Board'), (await store.boards())[1]!.id)
+    await settle()
+    ;[...host.querySelectorAll<HTMLElement>('section li')].find((li) => li.textContent?.includes('LAB-5'))!.click()
+    await settle()
+    expect(host.querySelector('[role="dialog"]')).not.toBeNull()
+
+    await show(host, 'Programas')
+
+    expect(host.querySelector('[role="dialog"]')).toBeNull()
+  })
+
+  it('a failed "Tirar do foco" says why, and Foco claims no empty level when its read failed', async () => {
+    const store = await world()
+    const program = await store.createProgram({ name: 'Dailly v1', objective: '', windowStart: null, windowEnd: null, exitWhen: '' })
+    await store.setFocus({ program: program.id }, 'P0')
+    const real = programsOver(store)
+    const refusing = { ...real, setFocus: async () => Promise.reject(new Error('não consegui tirar do foco')) }
+    const host = document.createElement('div')
+    document.body.append(host)
+    app = createApp(Tasks, { deps: { ...testSharedDeps(), tasks: tasksOver(store), programs: refusing } })
+    app.mount(host)
+    await settle()
+    await show(host, 'Foco')
+
+    button(labeled(host, 'Foco P0'), 'Tirar Dailly v1 do foco').click()
+    await settle()
+    expect(host.querySelector('[role="alert"]')?.textContent?.trim()).toBe('não consegui tirar do foco')
+
+    app.unmount()
+    host.remove()
+    const broken = { ...real, focus: async () => Promise.reject(new Error('não consegui ler o foco')) }
+    const again = document.createElement('div')
+    document.body.append(again)
+    app = createApp(Tasks, { deps: { ...testSharedDeps(), tasks: tasksOver(store), programs: broken } })
+    app.mount(again)
+    await settle()
+    await show(again, 'Foco')
+    expect(again.querySelector('[role="alert"]')?.textContent?.trim()).toBe('não consegui ler o foco')
+    expect(again.textContent).not.toContain('nada aqui')
+  })
+})

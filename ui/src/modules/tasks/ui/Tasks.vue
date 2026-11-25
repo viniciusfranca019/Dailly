@@ -21,7 +21,7 @@ import StatusDelete from './statuses/StatusDelete.vue'
 import StatusForm from './statuses/StatusForm.vue'
 import StatusGroup from './list/StatusGroup.vue'
 import { usePanelWidth } from './panel-width.js'
-import { useTasksView } from './view.js'
+import { useTasksView, type TasksView } from './view.js'
 
 /**
  * Tasks: the board and the list over the same read (RN4), and the capture
@@ -67,6 +67,12 @@ const moveError = ref<string | null>(null)
 const grabbed = ref<number | null>(null)
 const { view, choose } = useTasksView()
 const VIEW_NAMES = { board: 'Board', list: 'Lista', programs: 'Programas', focus: 'Foco' } as const
+
+/** The panel belongs to the board and the list: Programas and Foco cross boards, and it would go stale over them. */
+function pickView(next: TasksView): void {
+  if (next === 'programs' || next === 'focus') close()
+  choose(next)
+}
 /**
  * The panel's width lives with the page, not with the panel (card #44): the
  * panel is remounted for every task, and without storage (C5) the width must
@@ -472,7 +478,7 @@ async function drop(statusId: string, beforeKey: number | null): Promise<void> {
           :aria-pressed="view === option ? 'true' : 'false'"
           class="rounded px-2 py-0.5 text-xs"
           :class="view === option ? 'bg-white/10 text-gray-100' : 'text-[#747e8f] hover:text-gray-200'"
-          @click="choose(option)"
+          @click="pickView(option)"
         >
           {{ VIEW_NAMES[option] }}
         </button>

@@ -4,7 +4,7 @@ title: Tasks, programas e foco
 description: Um programa junta tarefas de qualquer board sob um objetivo e uma janela; o foco põe um programa ou uma tarefa avulsa em P0, P1 ou P2. Duas visões do Tasks, Programas e Foco, e a linha do programa no painel da tarefa.
 tags: [tasks, programa, foco, prioridade]
 status: stable
-since: 0.1.29
+since: 0.1.30
 generated: { by: regulus/claude-opus-5-5, at: 2026-11-25T12:00:00-03:00 }
 ---
 
@@ -57,7 +57,7 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-25T12:00:00-03:00 }
 
 # Entregue
 
-No card LAB-9, em 2026-11-25, numa pilha de dois PRs (API, depois telas).
+No card LAB-9, em 2026-11-25, numa pilha de dois PRs: a API em 0.1.29 (#65), as telas em 0.1.30.
 
 # Limites
 

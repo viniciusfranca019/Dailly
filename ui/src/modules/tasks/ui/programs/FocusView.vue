@@ -14,6 +14,8 @@ const board = ref<FocusBoard>({ P0: [], P1: [], P2: [] })
 const failed = ref<string | null>(null)
 /** Until the first read answers: the empty state would say something false. */
 const loading = ref(true)
+/** The last read of the focus failed: no level is shown, since none is known. */
+const failedRead = ref(false)
 const key = ref('')
 const level = ref<FocusLevel>('P0')
 const refusal = ref<string | null>(null)
@@ -25,8 +27,10 @@ async function load(): Promise<void> {
   try {
     board.value = await props.programs.focus()
     failed.value = null
+    failedRead.value = false
   } catch (cause) {
     failed.value = reason(cause, 'não consegui ler o foco')
+    failedRead.value = true
   }
   loading.value = false
 }
@@ -45,12 +49,15 @@ async function put(): Promise<void> {
 }
 
 async function takeOut(item: FocusItem): Promise<void> {
+  let refused: string | null = null
   try {
     await props.programs.setFocus(item.kind === 'program' ? { program: item.id } : { task: item.key }, null)
   } catch (cause) {
-    failed.value = reason(cause, 'não consegui tirar do foco')
+    refused = reason(cause, 'não consegui tirar do foco')
   }
   await load()
+  // After the read, which clears `failed`: the refusal is what the click has to say.
+  if (refused) failed.value = refused
 }
 </script>
 
@@ -59,7 +66,7 @@ async function takeOut(item: FocusItem): Promise<void> {
     <p v-if="loading" class="text-sm text-[#747e8f]">Carregando o foco…</p>
     <p v-if="failed" role="alert" class="text-sm text-red-300">{{ failed }}</p>
 
-    <template v-if="!loading">
+    <template v-if="!loading && !failedRead">
     <section
       v-for="name in FOCUS_LEVELS"
       :key="name"

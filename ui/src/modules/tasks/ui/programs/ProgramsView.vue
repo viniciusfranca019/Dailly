@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { InvalidWindowError, NameRequiredError, parseNewProgram } from '@dailly/tasks-core'
+import { FOCUS_LEVELS, InvalidWindowError, NameRequiredError, isFocusLevel, parseNewProgram } from '@dailly/tasks-core'
 import type { FocusLevel, ProgramWithTasks, ProgramsPort } from '@shared'
 import { onMounted, ref } from 'vue'
 import { shownWindow } from './window.js'
@@ -73,7 +73,7 @@ async function addTask(program: ProgramWithTasks): Promise<void> {
 }
 
 async function setFocus(program: ProgramWithTasks, value: string): Promise<void> {
-  const level = value === '' ? null : (value as FocusLevel)
+  const level: FocusLevel | null = isFocusLevel(value) ? value : null
   try {
     await props.programs.setFocus({ program: program.id }, level)
     refusals.value = { ...refusals.value, [program.id]: '' }
@@ -148,7 +148,7 @@ const FIELDS = [
           @change="setFocus(program, ($event.target as HTMLSelectElement).value)"
         >
           <option value="" class="bg-[#0b101b]">fora de foco</option>
-          <option v-for="level in ['P0', 'P1', 'P2']" :key="level" :value="level" class="bg-[#0b101b]">{{ level }}</option>
+          <option v-for="level in FOCUS_LEVELS" :key="level" :value="level" class="bg-[#0b101b]">{{ level }}</option>
         </select>
       </header>
       <p v-if="program.objective" class="text-xs text-gray-300">{{ program.objective }}</p>
