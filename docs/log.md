@@ -1,5 +1,8 @@
 # Directory Update Log
 
+## 2026-11-24
+* **Creation**: [Tasks, filtro por label](/features/tasks-filtro-por-label.md), sem card. `LabelFilter` entra na capacidade `labels`, usado pelo Daily Log e pelo Tasks.
+
 ## 2026-11-09
 * **Creation**: [Imagem Docker do dailly](/features/imagem.md) (card #61). [Arquitetura](/conventions/architecture.md) revê a ADR 0012: na imagem, o Fastify serve a UI.
 * **Update**: [MCP do dailly](/features/mcp.md) ganha o Daily Log e as labels (card #58).

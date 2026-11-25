@@ -1,4 +1,5 @@
-version: 0.1.25
+version: 0.1.26
 
-- Imagem Docker do dailly (#61): `make image` builda `dailly:<versão>` a partir da `main` por `git archive`, sem registry. Um container serve a tela e a API na mesma origem (`/` e `/api`), guarda o diário num volume (`/data`) e traz o MCP (`docker exec -i <container> dailly-mcp`). `make image-check` prova os cenários com Docker de verdade.
-- O servidor serve a `ui/dist` quando recebe `DAILLY_UI_DIR`, com o `@fastify/static`, atrás da mesma guarda de Host; `DAILLY_HOST` muda o bind (só a imagem usa). O `make dev` e o `make start` não mudam.
+- Filtro por label no Tasks: acima do board e da lista, as labels globais viram botões; ligar uma mostra só as tarefas com ela, ligar outra soma (OU), e todas as colunas continuam. "Limpar filtro" volta o board inteiro; um filtro que esconde tudo diz "nenhuma tarefa com esse filtro". O filtro sobrevive à troca de board e some ao recarregar, como o do Daily Log.
+- Criar pelo + com o filtro ligado faz a tarefa nascer com as labels dele: `POST /tasks` (e o `TaskStore`) aceita `labelIds` opcional, numa gravação só, e recusa com 400 uma label que não existe, sem gastar a chave.
+- Os botões de filtro por label viram `LabelFilter`, na capacidade `labels`, usado pelo Daily Log e pelo Tasks.

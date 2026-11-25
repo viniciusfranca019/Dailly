@@ -17,7 +17,7 @@ uma linha do manifest; o shell não muda. O porquê está em
 a ADR 0006) e do Requests (era a ADR 0011).
 
 **Módulo ou capacidade.** O que não tem port nem conhece o produto é
-capacidade, não módulo: as labels (`ui/src/capabilities/labels`, o seletor e a
+capacidade, não módulo: as labels (`ui/src/capabilities/labels`, o seletor, o filtro e a
 paleta) e o whiteboard (`ui/src/capabilities/whiteboard` +
 `@dailly/whiteboard-core`) recebe e devolve markdown e não sabe o que é uma
 `Entry`. Uma capacidade é usada por módulos e nunca importa um.

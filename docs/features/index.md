@@ -23,6 +23,7 @@ importam e onde mora no código. O Analyse ainda é só uma tela-esqueleto atrá
 * [Tasks, criar rápido com C](/features/tasks-criar-rapido.md) - título, status e prioridade num formulário flutuante, de qualquer tela, no último board usado
 * [Tasks, status do board](/features/tasks-status.md) - status com cor em cada board: adicionar, renomear e apagar levando as tarefas
 * [Tasks, vários boards](/features/tasks-boards.md) - boards com prefixo próprio, a troca entre eles e a chave <PREFIXO>-<n> congelada
+* [Tasks, filtro por label](/features/tasks-filtro-por-label.md) - ligar labels acima do board e da lista, OU entre elas, e criar com o filtro herda as labels
 
 ## O app
 * [Imagem Docker do dailly](/features/imagem.md) - make image builda da main, sem registry; um container serve tela, API e MCP, com o diário num volume
