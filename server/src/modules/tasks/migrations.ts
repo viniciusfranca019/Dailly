@@ -190,4 +190,35 @@ export const TASKS_MIGRATIONS: readonly Migration[] = [
       CREATE INDEX idx_tasks_board_status_rank ON tasks(board_id, status_id, rank);
     `,
   },
+  {
+    // LAB-9: programs and focus. Additive: `tasks` and `entries` are not touched.
+    // A program keeps its tasks (RN1), and `entry_id` as the members' key is
+    // what holds a task to one program. Focus names a program or a task, never
+    // both; deleting either takes its rows with it.
+    version: 11,
+    up: `
+      CREATE TABLE task_programs (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        objective TEXT NOT NULL DEFAULT '',
+        window_start TEXT,
+        window_end TEXT,
+        exit_when TEXT NOT NULL DEFAULT '',
+        created_order INTEGER NOT NULL
+      );
+      CREATE TABLE task_program_members (
+        entry_id TEXT PRIMARY KEY REFERENCES tasks(entry_id) ON DELETE CASCADE,
+        program_id TEXT NOT NULL REFERENCES task_programs(id) ON DELETE CASCADE,
+        joined_order INTEGER NOT NULL
+      );
+      CREATE INDEX idx_task_program_members_program ON task_program_members(program_id, joined_order);
+      CREATE TABLE task_focus (
+        program_id TEXT UNIQUE REFERENCES task_programs(id) ON DELETE CASCADE,
+        entry_id TEXT UNIQUE REFERENCES tasks(entry_id) ON DELETE CASCADE,
+        level TEXT NOT NULL CHECK (level IN ('P0', 'P1', 'P2')),
+        set_order INTEGER NOT NULL,
+        CHECK ((program_id IS NULL) <> (entry_id IS NULL))
+      );
+    `,
+  },
 ]
