@@ -17,6 +17,13 @@ import {
   StatusNotFoundError,
   TitleRequiredError,
   parseKey,
+  InvalidWindowError,
+  TaskInOtherProgramError,
+  TaskInProgramFocusError,
+  TaskNotFoundError,
+  isFocusLevel,
+  parseNewProgram,
+  type FocusTarget,
   type BoardPatch,
   type Priority,
   type TaskPatch,
@@ -381,5 +388,88 @@ export function registerTaskRoutes(app: FastifyInstance, store: TaskStore): void
       return reply.code(404).send({ error: 'tarefa não encontrada' })
     }
     return reply.code(204).send()
+  })
+  // LAB-9: programs and focus. A program keeps its tasks (RN1), so a task's
+  // own routes and answers do not change; its program is a read of its own.
+  app.get('/programs', async () => store.programs())
+
+  app.post('/programs', async (request, reply) => {
+    const body = request.body
+    const TEXT_FIELDS = ['objective', 'windowStart', 'windowEnd', 'exitWhen'] as const
+    if (
+      !isRecord(body) ||
+      typeof body.name !== 'string' ||
+      TEXT_FIELDS.some((field) => body[field] !== undefined && body[field] !== null && typeof body[field] !== 'string')
+    ) {
+      return reply.code(400).send({
+        errors: [{ field: '', message: 'o corpo deve ter name, e objective, windowStart, windowEnd e exitWhen como texto' }],
+      })
+    }
+    try {
+      const program = parseNewProgram({
+        name: body.name,
+        objective: body.objective as string | undefined,
+        windowStart: body.windowStart as string | null | undefined,
+        windowEnd: body.windowEnd as string | null | undefined,
+        exitWhen: body.exitWhen as string | undefined,
+      })
+      return reply.code(201).send(await store.createProgram(program))
+    } catch (error) {
+      if (error instanceof NameRequiredError) return reply.code(400).send({ errors: [{ field: 'name', message: error.message }] })
+      if (error instanceof InvalidWindowError) {
+        return reply.code(400).send({ errors: [{ field: error.field, message: error.message }] })
+      }
+      throw error
+    }
+  })
+
+  app.post('/programs/:id/tasks', async (request, reply) => {
+    const body = request.body
+    const key = isRecord(body) && typeof body.key === 'string' ? parseKey(body.key.trim().toUpperCase()) : null
+    if (key === null) return reply.code(400).send({ errors: [{ field: 'key', message: 'a chave é como LAB-5' }] })
+    try {
+      const program = await store.addToProgram((request.params as { id: string }).id, key)
+      if (!program) return reply.code(404).send({ error: 'programa não encontrado' })
+      return program
+    } catch (error) {
+      if (error instanceof TaskNotFoundError) return reply.code(404).send(TASK_NOT_FOUND)
+      if (error instanceof TaskInOtherProgramError) return reply.code(409).send({ error: error.message })
+      throw error
+    }
+  })
+
+  app.get('/tasks/:key/program', async (request, reply) => {
+    const key = parseKey((request.params as { key: string }).key.toUpperCase())
+    const found = key === null ? null : await store.programOf(key)
+    if (!found) return reply.code(404).send(TASK_NOT_FOUND)
+    return found
+  })
+
+  app.get('/focus', async () => store.focus())
+
+  app.put('/focus', async (request, reply) => {
+    const body = request.body
+    if (!isRecord(body) || (body.program === undefined) === (body.task === undefined)) {
+      return reply.code(400).send({ errors: [{ field: '', message: 'o corpo diz program ou task, um dos dois' }] })
+    }
+    const level = body.level
+    if (level !== null && !isFocusLevel(level)) {
+      return reply.code(400).send({ errors: [{ field: 'level', message: 'o foco é P0, P1 ou P2' }] })
+    }
+    let target: FocusTarget
+    if (typeof body.program === 'string') target = { program: body.program }
+    else {
+      const key = typeof body.task === 'string' ? parseKey(body.task.trim().toUpperCase()) : null
+      if (key === null) return reply.code(400).send({ errors: [{ field: 'task', message: 'a chave é como LAB-5' }] })
+      target = { task: key }
+    }
+    try {
+      const found = await store.setFocus(target, level)
+      if (!found) return reply.code(404).send({ error: 'program' in target ? 'programa não encontrado' : TASK_NOT_FOUND.error })
+      return reply.code(204).send()
+    } catch (error) {
+      if (error instanceof TaskInProgramFocusError) return reply.code(409).send({ error: error.message })
+      throw error
+    }
   })
 }

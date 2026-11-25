@@ -1,6 +1,7 @@
 import type { Board, BoardPatch, NewBoard } from './board.js'
 import type { TaskComment } from './comment.js'
 import type { Placement } from './move.js'
+import type { FocusBoard, FocusLevel, FocusTarget, NewProgram, Program, ProgramWithTasks } from './program.js'
 import type { TaskSearchResult } from './search.js'
 import type { NewStatus, StatusPatch } from './status.js'
 import type { Priority, Task, TaskKey, TaskStatus } from './task.js'
@@ -111,6 +112,27 @@ export interface TaskStore {
    * first, then the most recent, at most `SEARCH_LIMIT`. Empty text finds none.
    */
   search(text: string): Promise<readonly TaskSearchResult[]>
+  /** Every program with its tasks, by creation (LAB-9). */
+  programs(): Promise<readonly ProgramWithTasks[]>
+  /** Born out of focus and with no task. The input is already parsed (`parseNewProgram`). */
+  createProgram(input: NewProgram): Promise<Program>
+  /**
+   * The task joins the program, after the ones already there; joining the same
+   * program again changes nothing. A task with a focus of its own loses it: the
+   * program's now holds for it. `null` when no program has that id. Throws
+   * `TaskNotFoundError` or `TaskInOtherProgramError`; nothing changes then.
+   */
+  addToProgram(programId: string, key: TaskKey): Promise<ProgramWithTasks | null>
+  /** The task's program, or `{ program: null }` when it has none; `null` when no task has that key. */
+  programOf(key: TaskKey): Promise<{ readonly program: Program | null } | null>
+  /** Each level's programs and tasks, in the order they were put there. */
+  focus(): Promise<FocusBoard>
+  /**
+   * Put a program or a task with no program at a level, or out of focus with
+   * `null`. A new level puts it last in that level. `false` when the target does
+   * not exist. Throws `TaskInProgramFocusError` for a task of a program.
+   */
+  setFocus(target: FocusTarget, level: FocusLevel | null): Promise<boolean>
 }
 
 export type CommentDeletion = 'deleted' | 'task-not-found' | 'comment-not-found'

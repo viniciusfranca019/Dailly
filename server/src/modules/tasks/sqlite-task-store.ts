@@ -29,7 +29,16 @@ import {
   normalizePrefix,
   normalizeTitle,
   rankBetween,
+  TaskInOtherProgramError,
+  TaskInProgramFocusError,
+  TaskNotFoundError,
   type Board,
+  type FocusItem,
+  type FocusLevel,
+  type FocusTarget,
+  type Program,
+  type ProgramTask,
+  type ProgramWithTasks,
   type NewTask,
   type Priority,
   type StatusCategory,
@@ -165,6 +174,105 @@ export function sqliteTaskStore({ db, newId, now }: SqliteTaskStoreDeps): TaskSt
   const reserve = (prefix: string, boardId: string): void => {
     db.prepare('INSERT OR IGNORE INTO task_board_prefixes (prefix, board_id) VALUES (?, ?)').run(prefix, boardId)
   }
+
+
+  /** LAB-9: programs and focus. */
+  interface ProgramRow {
+    id: string
+    name: string
+    objective: string
+    window_start: string | null
+    window_end: string | null
+    exit_when: string
+    focus: FocusLevel | null
+  }
+  const SELECT_PROGRAM = `SELECT p.id, p.name, p.objective, p.window_start, p.window_end, p.exit_when, f.level AS focus
+    FROM task_programs p LEFT JOIN task_focus f ON f.program_id = p.id`
+  const toProgram = (row: ProgramRow): Program => ({
+    id: row.id,
+    name: row.name,
+    objective: row.objective,
+    windowStart: row.window_start,
+    windowEnd: row.window_end,
+    exitWhen: row.exit_when,
+    focus: row.focus,
+  })
+  const findProgram = (id: string) => db.prepare(`${SELECT_PROGRAM} WHERE p.id = ?`).get(id) as ProgramRow | undefined
+  const keyTextOf = (entryId: string) => {
+    const row = db.prepare('SELECT key_prefix, key FROM tasks WHERE entry_id = ?').get(entryId) as
+      | { key_prefix: string; key: number }
+      | undefined
+    return row ? `${row.key_prefix}-${row.key}` : ''
+  }
+  const programTasks = (programId: string): ProgramTask[] =>
+    (
+      db
+        .prepare(
+          `SELECT t.key_prefix, t.key, t.title, t.board_id, s.name AS status
+             FROM task_program_members m
+             JOIN tasks t ON t.entry_id = m.entry_id
+             JOIN task_statuses s ON s.id = t.status_id
+            WHERE m.program_id = ?
+            ORDER BY m.joined_order`,
+        )
+        .all(programId) as { key_prefix: string; key: number; title: string; board_id: string; status: string }[]
+    ).map((row) => ({ key: `${row.key_prefix}-${row.key}`, title: row.title, status: row.status, boardId: row.board_id }))
+  const withTasks = (row: ProgramRow): ProgramWithTasks => ({ ...toProgram(row), tasks: programTasks(row.id) })
+  const nextSetOrder = (table: 'task_programs' | 'task_program_members' | 'task_focus', column: string): number =>
+    (db.prepare(`SELECT COALESCE(MAX(${column}), 0) + 1 AS next FROM ${table}`).get() as { next: number }).next
+  const programOfEntry = (entryId: string) =>
+    db
+      .prepare(`${SELECT_PROGRAM} JOIN task_program_members m ON m.program_id = p.id WHERE m.entry_id = ?`)
+      .get(entryId) as ProgramRow | undefined
+
+  const addToProgram = db.transaction((programId: string, key: TaskKey): ProgramWithTasks | null => {
+    const program = findProgram(programId)
+    if (!program) return null
+    const entry = entryOf(key)
+    if (entry === undefined) throw new TaskNotFoundError()
+    const owner = programOfEntry(entry)
+    if (owner && owner.id !== programId) throw new TaskInOtherProgramError(keyTextOf(entry), owner.name)
+    if (!owner) {
+      db.prepare('INSERT INTO task_program_members (entry_id, program_id, joined_order) VALUES (?, ?, ?)').run(
+        entry,
+        programId,
+        nextSetOrder('task_program_members', 'joined_order'),
+      )
+      // The program's focus now holds for the task (rule 2 of focus).
+      db.prepare('DELETE FROM task_focus WHERE entry_id = ?').run(entry)
+    }
+    return withTasks(findProgram(programId)!)
+  })
+
+  const setFocus = db.transaction((target: FocusTarget, level: FocusLevel | null): boolean => {
+    let column: 'program_id' | 'entry_id'
+    let id: string
+    if ('program' in target) {
+      if (!findProgram(target.program)) return false
+      column = 'program_id'
+      id = target.program
+    } else {
+      const entry = entryOf(target.task)
+      if (entry === undefined) return false
+      const owner = programOfEntry(entry)
+      if (owner) throw new TaskInProgramFocusError(keyTextOf(entry), owner.name)
+      column = 'entry_id'
+      id = entry
+    }
+    const current = db.prepare(`SELECT level FROM task_focus WHERE ${column} = ?`).get(id) as
+      | { level: FocusLevel }
+      | undefined
+    if ((current?.level ?? null) === level) return true
+    db.prepare(`DELETE FROM task_focus WHERE ${column} = ?`).run(id)
+    if (level !== null) {
+      db.prepare(`INSERT INTO task_focus (${column}, level, set_order) VALUES (?, ?, ?)`).run(
+        id,
+        level,
+        nextSetOrder('task_focus', 'set_order'),
+      )
+    }
+    return true
+  })
 
   const createBoard = db.transaction((name: string, prefix: string): Board => {
     claim(prefix, null)
@@ -431,6 +539,69 @@ export function sqliteTaskStore({ db, newId, now }: SqliteTaskStoreDeps): TaskSt
       if (entry === undefined) return 'task-not-found'
       const { changes } = db.prepare('DELETE FROM task_comments WHERE id = ? AND entry_id = ?').run(id, entry)
       return changes > 0 ? 'deleted' : 'comment-not-found'
+    },
+    async programs() {
+      return (db.prepare(`${SELECT_PROGRAM} ORDER BY p.created_order`).all() as ProgramRow[]).map(withTasks)
+    },
+
+    async createProgram(input) {
+      const program: Program = { id: newId(), ...input, focus: null }
+      db.prepare(
+        `INSERT INTO task_programs (id, name, objective, window_start, window_end, exit_when, created_order)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      ).run(
+        program.id,
+        program.name,
+        program.objective,
+        program.windowStart,
+        program.windowEnd,
+        program.exitWhen,
+        nextSetOrder('task_programs', 'created_order'),
+      )
+      return program
+    },
+
+    async addToProgram(programId, key) {
+      return addToProgram(programId, key)
+    },
+
+    async programOf(key) {
+      const entry = entryOf(key)
+      if (entry === undefined) return null
+      const row = programOfEntry(entry)
+      return { program: row ? toProgram(row) : null }
+    },
+
+    async focus() {
+      const rows = db
+        .prepare(
+          `SELECT f.level, p.id AS program_id, p.name AS program_name, t.key_prefix, t.key, t.title
+             FROM task_focus f
+             LEFT JOIN task_programs p ON p.id = f.program_id
+             LEFT JOIN tasks t ON t.entry_id = f.entry_id
+            ORDER BY f.set_order`,
+        )
+        .all() as {
+        level: FocusLevel
+        program_id: string | null
+        program_name: string | null
+        key_prefix: string | null
+        key: number | null
+        title: string | null
+      }[]
+      const board: Record<FocusLevel, FocusItem[]> = { P0: [], P1: [], P2: [] }
+      for (const row of rows) {
+        board[row.level].push(
+          row.program_id !== null
+            ? { kind: 'program', id: row.program_id, name: row.program_name ?? '' }
+            : { kind: 'task', key: `${row.key_prefix}-${row.key}`, title: row.title ?? '' },
+        )
+      }
+      return board
+    },
+
+    async setFocus(target, level) {
+      return setFocus(target, level)
     },
   }
 }

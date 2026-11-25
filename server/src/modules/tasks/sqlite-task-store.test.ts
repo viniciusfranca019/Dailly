@@ -114,3 +114,25 @@ describe('sqliteTaskStore — the comments go with the task (card #45)', () => {
     expect(db.prepare('SELECT count(*) AS total FROM task_comments').get()).toEqual({ total: 0 })
   })
 })
+
+describe('sqliteTaskStore — programs survive a rebuild of tasks (LAB-9)', () => {
+  it('keeps the members and the focus when a later migration copies and renames `tasks`', async () => {
+    const db = migrated()
+    const store = sqliteTaskStore({ db, ...deps() })
+    await store.create({ boardId: 'tasks', title: 'um', statusId: 'todo' })
+    await store.create({ boardId: 'tasks', title: 'dois', statusId: 'todo' })
+    const program = await store.createProgram({ name: 'Dailly v1', objective: '', windowStart: null, windowEnd: null, exitWhen: '' })
+    await store.addToProgram(program.id, { prefix: 'T', key: 1 })
+    await store.setFocus({ task: { prefix: 'T', key: 2 } }, 'P1')
+
+    // The copy-and-rename migrations 8 and 10 use, with foreign keys on.
+    db.transaction(() => {
+      db.exec('CREATE TABLE tasks_copy AS SELECT * FROM tasks')
+      db.exec('DROP TABLE tasks')
+      db.exec('ALTER TABLE tasks_copy RENAME TO tasks')
+    })()
+
+    expect((await store.programs())[0]?.tasks.map((task) => task.key)).toEqual(['T-1'])
+    expect((await store.focus()).P1).toEqual([{ kind: 'task', key: 'T-2', title: 'dois' }])
+  })
+})

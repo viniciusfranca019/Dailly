@@ -24,6 +24,7 @@ import {
   StatusNotFoundError,
   TitleRequiredError,
 } from '../task.js'
+import { TaskInOtherProgramError, TaskInProgramFocusError, TaskNotFoundError } from '../program.js'
 import type { TaskStore } from '../task-store.js'
 
 /**
@@ -631,6 +632,160 @@ export function taskStoreContract(
       await store.delete(T(1))
 
       expect(await store.update(T(1), { title: 'x' })).toBeNull()
+    })
+  })
+  describe(`${label} — programas e foco (LAB-9)`, () => {
+    const NEW = { objective: '', windowStart: null, windowEnd: null, exitWhen: '' }
+    /** "Dailly v1", plus LAB-5 on a board "Labs" and VDT-2 on a board "VDT". */
+    const world = async () => {
+      const store = make()
+      const labs = await store.createBoard({ name: 'Labs', prefix: 'LAB' })
+      const vdt = await store.createBoard({ name: 'VDT', prefix: 'VDT' })
+      const todoOf = async (boardId: string) => (await store.board(boardId))!.statuses[1]!.id
+      for (let n = 0; n < 5; n += 1) await store.create({ boardId: labs.id, title: `lab ${n + 1}`, statusId: await todoOf(labs.id) })
+      for (let n = 0; n < 2; n += 1) await store.create({ boardId: vdt.id, title: `vdt ${n + 1}`, statusId: await todoOf(vdt.id) })
+      const dailly = await store.createProgram({
+        name: 'Dailly v1',
+        objective: 'fechar a v1',
+        windowStart: '2026-11-25',
+        windowEnd: '2026-12-19',
+        exitWhen: 'os cards dailly v1 em Done',
+      })
+      const todo = (await store.board(labs.id))!.statuses[1]!.name
+      return { store, labs, vdt, dailly, todo }
+    }
+    const LAB = (key: number) => ({ prefix: 'LAB', key })
+    const VDT = (key: number) => ({ prefix: 'VDT', key })
+
+    it('C1: um programa criado aparece na lista, com objetivo, janela e "sai quando", sem tarefas e fora de foco', async () => {
+      const { store, dailly } = await world()
+
+      expect(dailly).toMatchObject({
+        name: 'Dailly v1',
+        objective: 'fechar a v1',
+        windowStart: '2026-11-25',
+        windowEnd: '2026-12-19',
+        exitWhen: 'os cards dailly v1 em Done',
+        focus: null,
+      })
+      expect(await store.programs()).toEqual([{ ...dailly, tasks: [] }])
+    })
+
+    it('C3: tarefas de boards diferentes entram num programa, na ordem em que entraram', async () => {
+      const { store, dailly, labs, vdt, todo } = await world()
+
+      await store.addToProgram(dailly.id, LAB(5))
+      const read = await store.addToProgram(dailly.id, VDT(2))
+
+      expect(read?.tasks).toEqual([
+        { key: 'LAB-5', title: 'lab 5', status: todo, boardId: labs.id },
+        { key: 'VDT-2', title: 'vdt 2', status: todo, boardId: vdt.id },
+      ])
+      expect((await store.programOf(LAB(5)))?.program?.name).toBe('Dailly v1')
+      expect((await store.programOf(VDT(2)))?.program?.name).toBe('Dailly v1')
+      expect(await store.programOf(LAB(1))).toEqual({ program: null })
+      expect(await store.programOf(LAB(99))).toBeNull()
+    })
+
+    it('C3: pôr de novo no mesmo programa não duplica', async () => {
+      const { store, dailly } = await world()
+      await store.addToProgram(dailly.id, LAB(5))
+      expect((await store.addToProgram(dailly.id, LAB(5)))?.tasks).toHaveLength(1)
+    })
+
+    it('C3: programa ou tarefa que não existe', async () => {
+      const { store, dailly } = await world()
+      expect(await store.addToProgram('nope', LAB(5))).toBeNull()
+      await expect(store.addToProgram(dailly.id, LAB(99))).rejects.toThrow(TaskNotFoundError)
+    })
+
+    it('C4: uma tarefa fica em um programa só', async () => {
+      const { store, dailly } = await world()
+      const other = await store.createProgram({ name: 'Outro', ...NEW })
+      await store.addToProgram(dailly.id, LAB(5))
+
+      await expect(store.addToProgram(other.id, LAB(5))).rejects.toThrow(
+        new TaskInOtherProgramError('LAB-5', 'Dailly v1').message,
+      )
+      expect((await store.programOf(LAB(5)))?.program?.name).toBe('Dailly v1')
+      expect((await store.programs()).find((program) => program.id === other.id)?.tasks).toEqual([])
+    })
+
+    it('C5: programa e tarefa avulsa entram em foco, e a tarefa do programa herda o nível', async () => {
+      const { store, dailly } = await world()
+      await store.addToProgram(dailly.id, LAB(5))
+
+      expect(await store.setFocus({ program: dailly.id }, 'P0')).toBe(true)
+      expect(await store.setFocus({ task: LAB(1) }, 'P1')).toBe(true)
+
+      expect(await store.focus()).toEqual({
+        P0: [{ kind: 'program', id: dailly.id, name: 'Dailly v1' }],
+        P1: [{ kind: 'task', key: 'LAB-1', title: 'lab 1' }],
+        P2: [],
+      })
+      expect((await store.programOf(LAB(5)))?.program?.focus).toBe('P0')
+    })
+
+    it('C5: mudar o nível move o item, e cada nível guarda a ordem em que os itens entraram', async () => {
+      const { store, dailly } = await world()
+      await store.setFocus({ task: LAB(1) }, 'P1')
+      await store.setFocus({ task: LAB(2) }, 'P1')
+      await store.setFocus({ program: dailly.id }, 'P1')
+      await store.setFocus({ task: LAB(1) }, 'P0')
+
+      const focus = await store.focus()
+      expect(focus.P0.map((item) => (item.kind === 'task' ? item.key : item.name))).toEqual(['LAB-1'])
+      expect(focus.P1.map((item) => (item.kind === 'task' ? item.key : item.name))).toEqual(['LAB-2', 'Dailly v1'])
+    })
+
+    it('C6: tarefa de programa não entra no foco sozinha', async () => {
+      const { store, dailly } = await world()
+      await store.addToProgram(dailly.id, LAB(5))
+
+      await expect(store.setFocus({ task: LAB(5) }, 'P0')).rejects.toThrow(
+        new TaskInProgramFocusError('LAB-5', 'Dailly v1').message,
+      )
+      expect((await store.focus()).P0).toEqual([])
+    })
+
+    it('C6: a tarefa avulsa em foco que entra num programa deixa o foco dela, porque passa a valer o do programa', async () => {
+      const { store, dailly } = await world()
+      await store.setFocus({ task: LAB(5) }, 'P1')
+
+      await store.addToProgram(dailly.id, LAB(5))
+
+      expect((await store.focus()).P1).toEqual([])
+    })
+
+    it('C7: tirar do foco some da lista de foco e o programa continua, com as tarefas', async () => {
+      const { store, dailly } = await world()
+      await store.addToProgram(dailly.id, LAB(5))
+      await store.setFocus({ program: dailly.id }, 'P0')
+
+      expect(await store.setFocus({ program: dailly.id }, null)).toBe(true)
+
+      expect(await store.focus()).toEqual({ P0: [], P1: [], P2: [] })
+      const [program] = await store.programs()
+      expect(program).toMatchObject({ name: 'Dailly v1', focus: null })
+      expect(program?.tasks.map((task) => task.key)).toEqual(['LAB-5'])
+    })
+
+    it('foco de algo que não existe é false', async () => {
+      const { store } = await world()
+      expect(await store.setFocus({ program: 'nope' }, 'P0')).toBe(false)
+      expect(await store.setFocus({ task: LAB(99) }, 'P0')).toBe(false)
+    })
+
+    it('apagar a tarefa a tira do programa e do foco', async () => {
+      const { store, dailly } = await world()
+      await store.addToProgram(dailly.id, LAB(5))
+      await store.setFocus({ task: LAB(1) }, 'P2')
+
+      await store.delete(LAB(5))
+      await store.delete(LAB(1))
+
+      expect((await store.programs())[0]?.tasks).toEqual([])
+      expect((await store.focus()).P2).toEqual([])
     })
   })
 }
