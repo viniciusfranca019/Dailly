@@ -9,6 +9,7 @@
 import {
   isCollapsible,
   parse,
+  rawOffsetOf,
   visibleBlocksInOrder,
   walk,
   type Block,
@@ -17,12 +18,13 @@ import {
 import { ACTION_ATTR, BLOCK_ID_ATTR, TEXT_ATTR, actionAttrs, type BlockAction } from './actions.js'
 import { getCaretOffset, hasSelection, insertTextAtCaret, setCaret } from './caret.js'
 import { el } from './dom.js'
+import { renderInlineMarkdown } from './inline.js'
 import { createDefaultRendererRegistry } from './renderers/index.js'
 import type { RendererRegistry, RenderContext } from './registry.js'
 
 export interface MountOptions {
   readonly renderers?: RendererRegistry
-  /** Swap in a real inline-markdown renderer later; default is plain text. */
+  /** How a block's text is drawn; default: inline markdown (code, bold, italic, links). */
   readonly renderInline?: (text: string, doc: Document) => Node
   /** Set false for a read-only board. Default: editable, like Notion. */
   readonly editable?: boolean
@@ -44,7 +46,7 @@ export function mountWhiteboard(
 ): WhiteboardHandle {
   const renderers = options.renderers ?? createDefaultRendererRegistry()
   const doc = container.ownerDocument
-  const renderInline = options.renderInline ?? ((text: string, d: Document) => d.createTextNode(text))
+  const renderInline = options.renderInline ?? renderInlineMarkdown
   const editable = options.editable ?? true
 
   // While the user types we let the DOM keep the text it already shows and
@@ -444,11 +446,68 @@ export function mountWhiteboard(
     }
   }
 
+  /**
+   * The block with the caret shows its raw text, markers and all (LAB-5): every
+   * offset the keys and the store work with is a raw one, and `commitText` reads
+   * the text back from the DOM. Swapped on focus, synchronously, so `focus()`
+   * followed by `setCaret` lands in the raw text.
+   *
+   * A caret already inside the formatted text (a click) is carried to the same
+   * character, now and once more on the next task: the browser finishes placing
+   * a click's caret after the focus events, on nodes this swap just replaced, and
+   * would leave it at the start. Focus that comes from the keys (`focusBlock`,
+   * the arrows) never has its caret inside, so `setCaret` after `focus()` rules.
+   */
+  const onFocusIn = (event: Event) => {
+    const text = (event.target as Element | null)?.closest?.<HTMLElement>(`[${TEXT_ATTR}]`)
+    if (!text || !container.contains(text) || text.hasAttribute(RAW_ATTR)) return
+    const id = blockIdOf(text)
+    const block = id ? store.find(id) : undefined
+    if (!block) return
+
+    const doc = text.ownerDocument
+    const selection = doc.getSelection()
+    const caretInside = !!selection && selection.rangeCount > 0 && text.contains(selection.getRangeAt(0).startContainer)
+    const target = caretInside ? rawOffsetOf(block.text, getCaretOffset(text)) : undefined
+    text.replaceChildren(doc.createTextNode(block.text))
+    text.setAttribute(RAW_ATTR, '')
+    if (target === undefined) return
+
+    setCaret(text, target)
+    doc.defaultView?.setTimeout(() => {
+      if (doc.activeElement === text && text.hasAttribute(RAW_ATTR)) setCaret(text, target)
+    }, 0)
+  }
+
+  /** The caret left: the block is drawn formatted again, from what the store holds. */
+  const onFocusOut = (event: Event) => {
+    const text = (event.target as Element | null)?.closest?.<HTMLElement>(`[${TEXT_ATTR}]`)
+    if (!text || !container.contains(text) || !text.hasAttribute(RAW_ATTR)) return
+    const id = blockIdOf(text)
+    const block = id ? store.find(id) : undefined
+    text.removeAttribute(RAW_ATTR)
+    if (block) text.replaceChildren(renderInline(block.text, text.ownerDocument))
+  }
+
+  /** In an editable block a click edits; Ctrl/Cmd+click on a link opens it instead. */
+  const onMouseDown = (event: Event) => {
+    const mouse = event as MouseEvent
+    if (!mouse.ctrlKey && !mouse.metaKey) return
+    const link = (event.target as Element | null)?.closest?.<HTMLAnchorElement>('a.wb-link')
+    if (!link || !container.contains(link)) return
+    event.preventDefault()
+    const href = link.getAttribute('href')
+    if (href) container.ownerDocument.defaultView?.open(href, '_blank', 'noopener,noreferrer')
+  }
+
   container.addEventListener('click', onClick)
   if (editable) {
     container.addEventListener('keydown', onKeyDown)
     container.addEventListener('input', onInput)
     container.addEventListener('paste', onPaste)
+    container.addEventListener('focusin', onFocusIn)
+    container.addEventListener('focusout', onFocusOut)
+    container.addEventListener('mousedown', onMouseDown)
   }
 
   const draw = () => {
@@ -468,10 +527,16 @@ export function mountWhiteboard(
       container.removeEventListener('keydown', onKeyDown)
       container.removeEventListener('input', onInput)
       container.removeEventListener('paste', onPaste)
+      container.removeEventListener('focusin', onFocusIn)
+      container.removeEventListener('focusout', onFocusOut)
+      container.removeEventListener('mousedown', onMouseDown)
       container.replaceChildren()
     },
   }
 }
+
+/** Marks the text element of the block being edited, which shows its raw text. */
+const RAW_ATTR = 'data-wb-raw'
 
 /** `plaintext-only` keeps the browser from pasting markup into a block. */
 const CONTENTEDITABLE_VALUE = detectContentEditableValue()

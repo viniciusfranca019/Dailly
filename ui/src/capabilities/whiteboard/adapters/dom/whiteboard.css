@@ -133,3 +133,17 @@
   content: '';
   display: inline-block;
 }
+
+/* Inline markdown (LAB-5): what the markers asked for, the markers gone. */
+.wb-code {
+  font-family: var(--wb-code-font, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.9em;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--wb-code-bg, rgba(135, 131, 120, 0.15));
+}
+.wb-link {
+  color: var(--wb-link, inherit);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
