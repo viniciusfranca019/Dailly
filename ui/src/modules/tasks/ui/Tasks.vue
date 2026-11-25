@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { placeAt } from '@dailly/tasks-core'
+import { parseKey, placeAt } from '@dailly/tasks-core'
 import type { Board, Label, SharedDeps, StatusColor, Task, TaskBoard, TaskKey, TaskStatus } from '@shared'
 import { findByName, nextColor, normalizeLabelName } from '@dailly/domain'
 import type { StatusCategory } from '@dailly/tasks-core'
@@ -15,11 +15,13 @@ import type { Draft } from '../model/draft.js'
 import { useLastBoard } from './board-choice.js'
 import BoardForm from './boards/BoardForm.vue'
 import TaskPanel from './detail/TaskPanel.vue'
+import FocusView from './programs/FocusView.vue'
+import ProgramsView from './programs/ProgramsView.vue'
 import StatusDelete from './statuses/StatusDelete.vue'
 import StatusForm from './statuses/StatusForm.vue'
 import StatusGroup from './list/StatusGroup.vue'
 import { usePanelWidth } from './panel-width.js'
-import { useTasksView } from './view.js'
+import { useTasksView, type TasksView } from './view.js'
 
 /**
  * Tasks: the board and the list over the same read (RN4), and the capture
@@ -64,6 +66,13 @@ const moveError = ref<string | null>(null)
  */
 const grabbed = ref<number | null>(null)
 const { view, choose } = useTasksView()
+const VIEW_NAMES = { board: 'Board', list: 'Lista', programs: 'Programas', focus: 'Foco' } as const
+
+/** The panel belongs to the board and the list: Programas and Foco cross boards, and it would go stale over them. */
+function pickView(next: TasksView): void {
+  if (next === 'programs' || next === 'focus') close()
+  choose(next)
+}
 /**
  * The panel's width lives with the page, not with the panel (card #44): the
  * panel is remounted for every task, and without storage (C5) the width must
@@ -149,7 +158,19 @@ async function load(): Promise<void> {
 async function openRequested(): Promise<void> {
   const request = takeOpen()
   if (!request) return
-  if (request.boardId !== current.value) {
+  await showTask(request.boardId, request.prefix, request.key)
+}
+
+/**
+ * Bring a task's board on the screen and open its panel: the search's request
+ * (card #47) and a task picked in Programas (LAB-9). The boards are read again
+ * when the board is another, since it may be new; the panel opens only when the
+ * board read has that task, by prefix and number.
+ */
+async function showTask(boardId: string, prefix: string, key: number): Promise<void> {
+  // The panel belongs to the board and the list, never over Programas or Foco.
+  if (view.value === 'programs' || view.value === 'focus') choose('board')
+  if (boardId !== current.value) {
     try {
       await readBoards()
     } catch (cause) {
@@ -157,17 +178,17 @@ async function openRequested(): Promise<void> {
       read.value = { state: 'failed', message: message(cause, 'não consegui ler os boards') }
       return
     }
-    if (boards.value.some((board) => board.id === request.boardId)) {
-      current.value = request.boardId
-      lastBoard.remember(request.boardId)
+    if (boards.value.some((board) => board.id === boardId)) {
+      current.value = boardId
+      lastBoard.remember(boardId)
       composing.value = null
       moveError.value = null
       close()
     }
   }
   await load()
-  if (read.value.state === 'ready' && read.value.board.tasks.some((task) => task.key === request.key && task.keyPrefix === request.prefix)) {
-    open(request.key)
+  if (read.value.state === 'ready' && read.value.board.tasks.some((task) => task.key === key && task.keyPrefix === prefix)) {
+    open(key)
   }
 }
 
@@ -304,6 +325,31 @@ const panelTask = computed(() => openedTask.value ?? (opened.value === null ? un
 function open(key: number): void {
   opened.value = key
   lastOpened.value = read.value.state === 'ready' ? read.value.board.tasks.find((task) => task.key === key) : undefined
+  void loadProgramLine()
+}
+
+/** The open task's program, as the panel shows it (LAB-9); nothing when it has none or it cannot be read. */
+const programLine = ref<string | null>(null)
+async function loadProgramLine(): Promise<void> {
+  programLine.value = null
+  const task = panelTask.value
+  if (!task) return
+  try {
+    const found = await props.deps.programs.programOf({ prefix: task.keyPrefix, key: task.key })
+    const program = found?.program
+    if (program && panelTask.value === task) {
+      programLine.value = program.focus ? `foco ${program.focus} · ${program.name}` : program.name
+    }
+  } catch {
+    // Sem a leitura do programa, o painel abre sem a linha dele.
+  }
+}
+
+/** A task picked in the Programas view (LAB-9): its board in the board view, and its panel. */
+async function openFromProgram(task: { key: string; boardId: string }): Promise<void> {
+  const parsed = parseKey(task.key)
+  if (!parsed) return
+  await showTask(task.boardId, parsed.prefix, parsed.key)
 }
 
 function close(): void {
@@ -424,18 +470,18 @@ async function drop(statusId: string, beforeKey: number | null): Promise<void> {
         +
       </button>
       <span class="text-[#1e2638]">/</span>
-      <span class="text-gray-300">{{ view === 'board' ? 'Board' : 'Lista' }}</span>
+      <span class="text-gray-300">{{ VIEW_NAMES[view] }}</span>
       <div class="ml-auto flex rounded-md border border-[#1e2638] p-0.5" role="group" aria-label="Visualização">
         <button
-          v-for="option in (['board', 'list'] as const)"
+          v-for="option in (['board', 'list', 'programs', 'focus'] as const)"
           :key="option"
           type="button"
           :aria-pressed="view === option ? 'true' : 'false'"
           class="rounded px-2 py-0.5 text-xs"
           :class="view === option ? 'bg-white/10 text-gray-100' : 'text-[#747e8f] hover:text-gray-200'"
-          @click="choose(option)"
+          @click="pickView(option)"
         >
-          {{ option === 'board' ? 'Board' : 'Lista' }}
+          {{ VIEW_NAMES[option] }}
         </button>
       </div>
     </nav>
@@ -476,7 +522,9 @@ async function drop(statusId: string, beforeKey: number | null): Promise<void> {
     />
 
     <div class="min-h-0 flex-1 overflow-auto px-6 pb-6">
-      <p v-if="read.state === 'loading'" class="text-sm text-[#747e8f]">Carregando as tarefas…</p>
+      <ProgramsView v-if="view === 'programs'" :programs="deps.programs" @open="openFromProgram" />
+      <FocusView v-else-if="view === 'focus'" :programs="deps.programs" />
+      <p v-else-if="read.state === 'loading'" class="text-sm text-[#747e8f]">Carregando as tarefas…</p>
 
       <p
         v-else-if="read.state === 'failed'"
@@ -570,6 +618,7 @@ async function drop(statusId: string, beforeKey: number | null): Promise<void> {
         :labels="labels"
         :labels-read="labelsRead"
         :choose-label="chooseLabel"
+        :program="programLine"
         :zone="deps.zone"
         @resize="panelWidth.follow"
         @resized="panelWidth.settle"

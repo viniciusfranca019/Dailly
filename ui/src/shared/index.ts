@@ -34,3 +34,14 @@ export type {
 } from './tasks.js'
 export type { Label, LabelColor, LabelsPort } from './labels.js'
 export type { PropertiesPort, PropertyDef, PropertyType, PropertyValue } from './properties.js'
+export type {
+  FocusBoard,
+  FocusItem,
+  FocusLevel,
+  FocusTargetRef,
+  NewProgram,
+  Program,
+  ProgramTask,
+  ProgramWithTasks,
+  ProgramsPort,
+} from './programs.js'

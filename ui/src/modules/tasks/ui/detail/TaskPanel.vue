@@ -45,6 +45,8 @@ const props = defineProps<{
   labelsRead: boolean
   /** The id of the label with that name, the existing one or a new one; `null` for an empty name. */
   chooseLabel: (name: string) => Promise<string | null>
+  /** The task's program (LAB-9): "Dailly v1", or "foco P0 · Dailly v1"; nothing when it has none. */
+  program?: string | null
 }>()
 const emit = defineEmits<{
   close: []
@@ -247,6 +249,7 @@ function onKeydown(event: KeyboardEvent): void {
       </div>
 
       <template v-else>
+        <p v-if="program" aria-label="Programa da tarefa" class="mb-2 text-xs text-[#747e8f]">{{ program }}</p>
         <input
           ref="titleField"
           v-model="title"

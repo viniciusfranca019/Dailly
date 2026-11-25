@@ -1,6 +1,8 @@
 import { ref } from 'vue'
 
-export type TasksView = 'board' | 'list'
+/** Board and list read one board; Programas and Foco cross every board (LAB-9). */
+export type TasksView = 'board' | 'list' | 'programs' | 'focus'
+const VIEWS: readonly TasksView[] = ['board', 'list', 'programs', 'focus']
 
 const KEY = 'dailly.tasks.view'
 
@@ -13,7 +15,8 @@ const KEY = 'dailly.tasks.view'
 export function useTasksView(storage: () => Storage | undefined = () => globalThis.localStorage) {
   const read = (): TasksView => {
     try {
-      return storage()?.getItem(KEY) === 'list' ? 'list' : 'board'
+      const stored = storage()?.getItem(KEY)
+      return VIEWS.find((view) => view === stored) ?? 'board'
     } catch {
       return 'board'
     }

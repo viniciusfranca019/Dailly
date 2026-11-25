@@ -14,9 +14,11 @@ import {
 import type { Folder, SavedRequest } from '@dailly/requests-core'
 import { inMemoryRequestStore } from '@dailly/requests-core/testing'
 import { UTC, type TimeZone } from '@dailly/periods'
+import { parseKey, type TaskStore } from '@dailly/tasks-core'
 import {
   ExecutionFailedError,
   VaultRefusedError,
+  type ProgramsPort,
   type RequestsPort,
   type SharedDeps,
   type VaultPort,
@@ -255,5 +257,26 @@ export function testPropertiesPort(seed: readonly PropertyDef[] = []): import('.
       defs.set(key, def)
       return def
     },
+  }
+}
+
+/**
+ * Programs and focus (LAB-9) over a task store, the in-memory one in tests:
+ * the same promises as the API, the store's refusals thrown as they are.
+ */
+export function programsOver(store: TaskStore): ProgramsPort {
+  const keyOf = (text: string) => {
+    const key = parseKey(text.trim().toUpperCase())
+    if (!key) throw new Error('a chave é como LAB-5')
+    return key
+  }
+  return {
+    programs: () => store.programs(),
+    createProgram: (input) => store.createProgram(input),
+    addToProgram: (programId, key) => store.addToProgram(programId, keyOf(key)),
+    programOf: (key) => store.programOf(key),
+    focus: () => store.focus(),
+    setFocus: (target, level) =>
+      store.setFocus('program' in target ? { program: target.program } : { task: keyOf(target.task) }, level),
   }
 }

@@ -1,4 +1,3 @@
-version: 0.1.29
+version: 0.1.30
 
-- Programas e foco na API do Tasks (LAB-9, primeira parte, sem tela ainda): `POST /programs` cria um programa com objetivo, janela e "sai quando"; `POST /programs/:id/tasks` põe nele tarefas de qualquer board, uma tarefa em um programa só; `PUT /focus` põe um programa ou uma tarefa avulsa em P0, P1 ou P2, ou tira do foco; `GET /programs`, `GET /focus` e `GET /tasks/:key/program` leem. (#65)
-- Migration 11, aditiva: as tabelas de programa, de membros e de foco, sem mexer em tarefas nem em entries. (#65)
+- O Tasks ganha as visões Programas e Foco (LAB-9): criar um programa com objetivo, janela e "sai quando", pôr nele tarefas de qualquer board pela chave e escolher o nível de foco dele; ver P0, P1 e P2, pôr uma tarefa avulsa em foco e tirar do foco. O painel de uma tarefa de programa diz o programa e o nível. (#67)

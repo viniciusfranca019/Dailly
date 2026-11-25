@@ -6,6 +6,7 @@ import { httpLabelsClient } from '../adapters/http-labels-client.js'
 import { httpPropertiesClient } from '../adapters/http-properties-client.js'
 import { httpRequestsClient } from '../adapters/http-requests-client.js'
 import { httpTasksClient } from '../adapters/http-tasks-client.js'
+import { httpProgramsClient } from '../adapters/http-programs-client.js'
 import { httpVaultClient } from '../adapters/http-vault-client.js'
 import { mountShell } from './mount.js'
 import { MODULES } from './modules.js'
@@ -60,7 +61,7 @@ async function boot(): Promise<void> {
           vault: httpVaultClient({ config }),
         },
         // The Daily Log's labels: one client, the same labels on entries and tasks (RN13).
-        tasks: { tasks: httpTasksClient({ config }), labels },
+        tasks: { tasks: httpTasksClient({ config }), labels, programs: httpProgramsClient({ config }) },
       },
     },
   })
