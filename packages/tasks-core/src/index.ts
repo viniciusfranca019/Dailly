@@ -57,3 +57,24 @@ export {
 } from './task.js'
 export type { Priority, StatusCategory, Task, TaskKey, TaskStatus } from './task.js'
 export type { CommentDeletion, NewTask, TaskBoard, TaskPatch, TaskStore } from './task-store.js'
+
+export {
+  FOCUS_LEVELS,
+  InvalidFocusLevelError,
+  InvalidWindowError,
+  TaskInOtherProgramError,
+  TaskInProgramFocusError,
+  TaskNotFoundError,
+  isFocusLevel,
+  parseNewProgram,
+} from './program.js'
+export type {
+  FocusBoard,
+  FocusItem,
+  FocusLevel,
+  FocusTarget,
+  NewProgram,
+  Program,
+  ProgramTask,
+  ProgramWithTasks,
+} from './program.js'

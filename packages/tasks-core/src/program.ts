@@ -1,4 +1,5 @@
 import { NameRequiredError } from './board.js'
+import type { TaskKey } from './task.js'
 
 /**
  * Programs and focus (LAB-9), from the Workstation's activity model: a program
@@ -57,8 +58,16 @@ export type FocusItem =
 /** Each level's items, in the order they were put there. */
 export type FocusBoard = Readonly<Record<FocusLevel, readonly FocusItem[]>>
 
-/** What focus is set on: a program by id, or a task by its whole key. */
-export type FocusTarget = { readonly program: string } | { readonly task: string }
+/** What focus is set on: a program by id, or a task by its key. */
+export type FocusTarget = { readonly program: string } | { readonly task: TaskKey }
+
+/** The task a program was asked to take does not exist. */
+export class TaskNotFoundError extends Error {
+  override readonly name = 'TaskNotFoundError'
+  constructor() {
+    super('tarefa não encontrada')
+  }
+}
 
 export class InvalidWindowError extends Error {
   override readonly name = 'InvalidWindowError'

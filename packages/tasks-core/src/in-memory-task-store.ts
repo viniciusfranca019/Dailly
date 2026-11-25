@@ -8,6 +8,16 @@ import {
 } from './board.js'
 import { normalizeCommentBody, type TaskComment } from './comment.js'
 import { completionAfterMove, ranksOnTop } from './move.js'
+import {
+  TaskInOtherProgramError,
+  TaskInProgramFocusError,
+  TaskNotFoundError,
+  type FocusItem,
+  type FocusLevel,
+  type Program,
+  type ProgramTask,
+  type ProgramWithTasks,
+} from './program.js'
 import { SEARCH_LIMIT, matchesTitle, searchKey, type TaskSearchResult } from './search.js'
 import {
   InvalidMoveToError,
@@ -88,6 +98,30 @@ export function inMemoryTaskStore({ newId, now, labels = () => [] }: InMemoryTas
     const owner = prefixes.get(prefix)
     if (owner !== undefined && owner !== boardId) throw new PrefixTakenError(prefix)
   }
+
+  /** LAB-9: the programs, their members by task id, and what is in focus. */
+  const programs: Program[] = []
+  const members = new Map<string, { programId: string; order: number }>()
+  let focusItems: { kind: 'program' | 'task'; id: string; level: FocusLevel; order: number }[] = []
+  let order = 0
+  const dropFocus = (kind: 'program' | 'task', id: string) => {
+    focusItems = focusItems.filter((item) => !(item.kind === kind && item.id === id))
+  }
+  const levelOf = (kind: 'program' | 'task', id: string) =>
+    focusItems.find((item) => item.kind === kind && item.id === id)?.level ?? null
+  const withFocus = (program: Program): Program => ({ ...program, focus: levelOf('program', program.id) })
+  const keyText = (task: Task) => `${task.keyPrefix}-${task.key}`
+  const programTasks = (programId: string): ProgramTask[] =>
+    [...members.entries()]
+      .filter(([, member]) => member.programId === programId)
+      .sort(([, a], [, b]) => a.order - b.order)
+      .flatMap(([taskId]) => {
+        const task = tasks.find((candidate) => candidate.id === taskId)
+        if (!task) return []
+        const status = statuses.find((candidate) => candidate.id === task.statusId)
+        return [{ key: keyText(task), title: task.title, status: status?.name ?? '', boardId: task.boardId }]
+      })
+  const programWithTasks = (program: Program): ProgramWithTasks => ({ ...withFocus(program), tasks: programTasks(program.id) })
 
   return {
     async boards() {
@@ -189,7 +223,11 @@ export function inMemoryTaskStore({ newId, now, labels = () => [] }: InMemoryTas
       const index = tasks.findIndex((task) => same(task, key))
       if (index < 0) return false
       const [removed] = tasks.splice(index, 1)
-      if (removed) comments.delete(removed.id)
+      if (removed) {
+        comments.delete(removed.id)
+        members.delete(removed.id)
+        dropFocus('task', removed.id)
+      }
       return true
     },
 
@@ -291,6 +329,78 @@ export function inMemoryTaskStore({ newId, now, labels = () => [] }: InMemoryTas
         own.filter((comment) => comment.id !== id),
       )
       return 'deleted'
+    },
+    async programs() {
+      return programs.map(programWithTasks)
+    },
+
+    async createProgram(input) {
+      const program: Program = { id: newId(), ...input, focus: null }
+      programs.push(program)
+      return program
+    },
+
+    async addToProgram(programId, key) {
+      const program = programs.find((candidate) => candidate.id === programId)
+      if (!program) return null
+      const task = tasks.find((candidate) => same(candidate, key))
+      if (!task) throw new TaskNotFoundError()
+      const current = members.get(task.id)
+      if (current && current.programId !== programId) {
+        const owner = programs.find((candidate) => candidate.id === current.programId)
+        throw new TaskInOtherProgramError(keyText(task), owner?.name ?? '')
+      }
+      if (!current) {
+        members.set(task.id, { programId, order: (order += 1) })
+        dropFocus('task', task.id)
+      }
+      return programWithTasks(program)
+    },
+
+    async programOf(key) {
+      const task = tasks.find((candidate) => same(candidate, key))
+      if (!task) return null
+      const member = members.get(task.id)
+      const program = member ? programs.find((candidate) => candidate.id === member.programId) : undefined
+      return { program: program ? withFocus(program) : null }
+    },
+
+    async focus() {
+      const board: Record<FocusLevel, FocusItem[]> = { P0: [], P1: [], P2: [] }
+      for (const item of [...focusItems].sort((a, b) => a.order - b.order)) {
+        if (item.kind === 'program') {
+          const program = programs.find((candidate) => candidate.id === item.id)
+          if (program) board[item.level].push({ kind: 'program', id: program.id, name: program.name })
+        } else {
+          const task = tasks.find((candidate) => candidate.id === item.id)
+          if (task) board[item.level].push({ kind: 'task', key: keyText(task), title: task.title })
+        }
+      }
+      return board
+    },
+
+    async setFocus(target, level) {
+      let kind: 'program' | 'task'
+      let id: string
+      if ('program' in target) {
+        if (!programs.some((program) => program.id === target.program)) return false
+        kind = 'program'
+        id = target.program
+      } else {
+        const task = tasks.find((candidate) => same(candidate, target.task))
+        if (!task) return false
+        const member = members.get(task.id)
+        if (member) {
+          const owner = programs.find((program) => program.id === member.programId)
+          throw new TaskInProgramFocusError(keyText(task), owner?.name ?? '')
+        }
+        kind = 'task'
+        id = task.id
+      }
+      if (levelOf(kind, id) === level) return true
+      dropFocus(kind, id)
+      if (level !== null) focusItems.push({ kind, id, level, order: (order += 1) })
+      return true
     },
   }
 }
