@@ -21,9 +21,9 @@ const patchBoard = (id: string, payload: unknown) =>
   app.inject({ method: 'PATCH', url: `/boards/${id}`, payload: payload as object })
 const createTask = (payload: unknown) => app.inject({ method: 'POST', url: '/tasks', payload: payload as object })
 const read = async (boardId: string) => (await app.inject({ method: 'GET', url: `/tasks?boardId=${boardId}` })).json()
-/** A board's own "A fazer": since F5 (#43) each board has statuses of its own. */
+/** A board's own "To Do": since F5 (#43) each board has statuses of its own. */
 const todoOf = async (boardId: string): Promise<string> =>
-  (await read(boardId)).statuses.find((status: { name: string }) => status.name === 'A fazer').id
+  (await read(boardId)).statuses.find((status: { name: string }) => status.name === 'To Do').id
 const keys = (board: { tasks: { keyPrefix: string; key: number }[] }) =>
   board.tasks.map((task) => `${task.keyPrefix}-${task.key}`)
 
@@ -34,7 +34,7 @@ describe('GET /boards', () => {
 })
 
 describe('POST /boards', () => {
-  it('C1: creates "Casa", listed after "Tasks", empty, with the five statuses', async () => {
+  it('C1: creates "Casa", listed after "Tasks", empty, with the six statuses (LAB-7)', async () => {
     const response = await createBoard({ name: 'Casa', prefix: 'CASA' })
 
     expect(response.statusCode).toBe(201)
@@ -45,10 +45,11 @@ describe('POST /boards', () => {
     expect(board.tasks).toEqual([])
     expect(board.statuses.map((status: { name: string }) => status.name)).toEqual([
       'Backlog',
-      'A fazer',
-      'Fazendo',
-      'Feito',
-      'Cancelado',
+      'To Do',
+      'In Progress',
+      'Review',
+      'Land',
+      'Done',
     ])
   })
 

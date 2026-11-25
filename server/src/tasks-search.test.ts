@@ -17,7 +17,7 @@ describe('GET /tasks/search', () => {
     const casa = (await app.inject({ method: 'POST', url: '/boards', payload: { name: 'Casa', prefix: 'CASA' } })).json()
     const todo = (await app.inject({ method: 'GET', url: `/tasks?boardId=${casa.id}` }))
       .json()
-      .statuses.find((status: { name: string }) => status.name === 'A fazer').id
+      .statuses.find((status: { name: string }) => status.name === 'To Do').id
     await app.inject({ method: 'POST', url: '/tasks', payload: { boardId: 'tasks', title: 'Comprar café', statusId: 'todo' } })
     await app.inject({ method: 'POST', url: '/tasks', payload: { boardId: casa.id, title: 'Café da manhã', statusId: todo } })
 
