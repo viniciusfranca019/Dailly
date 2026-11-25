@@ -33,7 +33,7 @@ async function seeded(): Promise<{ store: TaskStore; casa: string }> {
   let n = 0
   const store = inMemoryTaskStore({ newId: () => `id-${(n += 1)}`, now: () => '2026-11-06T12:00:00.000Z' })
   const casa = (await store.createBoard({ name: 'Casa', prefix: 'CASA' })).id
-  const todo = (await store.board(casa))!.statuses.find((status) => status.name === 'A fazer')!.id
+  const todo = (await store.board(casa))!.statuses.find((status) => status.name === 'To Do')!.id
   for (const title of ['Café da manhã de domingo', 'dois', 'Trocar a lâmpada']) await store.create({ boardId: casa, title, statusId: todo })
   await store.updateBoard(casa, { prefix: 'LAR' })
   for (const title of ['Comprar café', 'dois', 'Pagar o condomínio']) {
