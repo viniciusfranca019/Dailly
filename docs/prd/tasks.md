@@ -151,7 +151,7 @@ RN15: Os atalhos de uma letra (C) só valem fora de um campo de texto, e Ctrl+K 
 ## Fora de escopo
 
 ```
-Não tem projeto, épico, programa, ciclo nem sub-tarefa, porque são agregados que vêm depois, e o átomo não carrega campo para nenhum deles (RN1)
+Não tem projeto, épico, ciclo nem sub-tarefa, porque são agregados que vêm depois, e o átomo não carrega campo para nenhum deles (RN1). O programa já veio, no LAB-9, guardando ele as tarefas: [Tasks, programas e foco](/features/tasks-programas-e-foco.md)
 Não tem responsável nem time, porque o dailly é o diário de uma pessoa só
 Não reordena colunas arrastando, porque a ordem vem da categoria e da criação (RN11); criar, renomear, colorir e apagar status entraram na v2 (J6), já que o dono pediu e a categoria fixa (RN2) mantém o Analyse a salvo
 Não tem filtros compostos nem visualizações salvas, porque dependem de propriedades, que são a Fase 2 do Daily Log; as labels entraram na v2 (J9, RN13) e a Fase 2 parte delas

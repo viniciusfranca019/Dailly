@@ -1,5 +1,8 @@
 # Directory Update Log
 
+## 2026-11-25
+* **Creation**: [Tasks, programas e foco](/features/tasks-programas-e-foco.md) (card LAB-9). O [PRD do Tasks](/prd/tasks.md) deixa de listar o programa entre os agregados que vêm depois.
+
 ## 2026-11-24
 * **Creation**: [Tasks, filtro por label](/features/tasks-filtro-por-label.md), sem card. `LabelFilter` entra na capacidade `labels`, usado pelo Daily Log e pelo Tasks.
 
