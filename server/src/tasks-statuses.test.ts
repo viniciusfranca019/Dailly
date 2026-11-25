@@ -33,18 +33,19 @@ const createTask = async (title: string, statusId: string) =>
   (await app.inject({ method: 'POST', url: '/tasks', payload: { boardId: casa.id, title, statusId } })).json()
 
 describe('POST /boards/:id/statuses', () => {
-  it('C1: answers 201, and the status sits after "Fazendo" and before "Feito", with its color', async () => {
+  it('C1: answers 201, and the status sits after "Land" and before "Done", with its color', async () => {
     const response = await add({ name: 'Revisão', category: 'started', color: 'purple' })
 
     expect(response.statusCode).toBe(201)
     expect(response.json()).toMatchObject({ name: 'Revisão', category: 'started', color: 'purple', boardId: casa.id })
     expect((await statuses()).map((status) => status.name)).toEqual([
       'Backlog',
-      'A fazer',
-      'Fazendo',
+      'To Do',
+      'In Progress',
+      'Review',
+      'Land',
       'Revisão',
-      'Feito',
-      'Cancelado',
+      'Done',
     ])
   })
 
@@ -53,10 +54,10 @@ describe('POST /boards/:id/statuses', () => {
     expect(empty.statusCode).toBe(400)
     expect(empty.json()).toEqual({ errors: [{ field: 'name', message: 'o nome é obrigatório' }] })
 
-    const taken = await add({ name: 'Feito', category: 'completed', color: 'blue' })
+    const taken = await add({ name: 'Done', category: 'completed', color: 'blue' })
     expect(taken.statusCode).toBe(409)
-    expect(taken.json()).toEqual({ error: 'já existe um status "Feito" neste board' })
-    expect(await statuses()).toHaveLength(5)
+    expect(taken.json()).toEqual({ error: 'já existe um status "Done" neste board' })
+    expect(await statuses()).toHaveLength(6)
   })
 
   it('refuses a color outside the palette, an unknown category or an extra field with 400, and an unknown board with 404', async () => {
@@ -66,21 +67,21 @@ describe('POST /boards/:id/statuses', () => {
     const missing = await add({ name: 'x', category: 'started', color: 'purple' }, 'nope')
     expect(missing.statusCode).toBe(404)
     expect(missing.json()).toEqual({ error: 'board não encontrado' })
-    expect(await statuses()).toHaveLength(5)
+    expect(await statuses()).toHaveLength(6)
   })
 
-  it('C3: a board created after has only the five, and "Casa" keeps "Revisão"', async () => {
+  it('C3: a board created after has only the six, and "Casa" keeps "Revisão"', async () => {
     await add({ name: 'Revisão', category: 'started', color: 'purple' })
     const lar = (await app.inject({ method: 'POST', url: '/boards', payload: { name: 'Lar', prefix: 'LAR' } })).json()
 
-    expect((await statuses(lar.id)).map((status) => status.name)).toEqual(['Backlog', 'A fazer', 'Fazendo', 'Feito', 'Cancelado'])
+    expect((await statuses(lar.id)).map((status) => status.name)).toEqual(['Backlog', 'To Do', 'In Progress', 'Review', 'Land', 'Done'])
     expect((await statuses()).map((status) => status.name)).toContain('Revisão')
   })
 })
 
 describe('PATCH /statuses/:id', () => {
   it('C4: renames and recolors, and the task in it keeps its "concluída em"', async () => {
-    const done = await named('Feito')
+    const done = await named('Done')
     const task = await createTask('um', done.id)
     const before = (await app.inject({ method: 'GET', url: `/tasks?boardId=${casa.id}` })).json().tasks
 
@@ -93,13 +94,13 @@ describe('PATCH /statuses/:id', () => {
   })
 
   it('refuses the category, an empty body, a taken name and an unknown id', async () => {
-    const done = await named('Feito')
+    const done = await named('Done')
     const patch = (id: string, payload: unknown) =>
       app.inject({ method: 'PATCH', url: `/statuses/${id}`, payload: payload as object })
 
     expect((await patch(done.id, { category: 'started' })).statusCode).toBe(400)
     expect((await patch(done.id, {})).statusCode).toBe(400)
-    expect((await patch(done.id, { name: 'Fazendo' })).statusCode).toBe(409)
+    expect((await patch(done.id, { name: 'In Progress' })).statusCode).toBe(409)
     expect((await patch(done.id, { color: 'magenta' })).json().errors[0].field).toBe('color')
     const missing = await patch('nope', { name: 'x' })
     expect(missing.statusCode).toBe(404)
@@ -120,18 +121,18 @@ describe('DELETE /statuses/:id', () => {
   })
 
   it('C6: refuses the last status of the board with 409', async () => {
-    for (const status of await statuses()) if (status.name !== 'A fazer') await remove(status.id)
+    for (const status of await statuses()) if (status.name !== 'To Do') await remove(status.id)
 
-    const response = await remove((await named('A fazer')).id)
+    const response = await remove((await named('To Do')).id)
 
     expect(response.statusCode).toBe(409)
     expect(response.json()).toEqual({ error: 'o board precisa de ao menos um status' })
-    expect((await statuses()).map((status) => status.name)).toEqual(['A fazer'])
+    expect((await statuses()).map((status) => status.name)).toEqual(['To Do'])
   })
 
   it('C7: moves the tasks on top of the destination, in their order, stamped (RN12, RN3)', async () => {
     const review = (await add({ name: 'Revisão', category: 'started', color: 'purple' })).json()
-    const done = await named('Feito')
+    const done = await named('Done')
     await createTask('três', done.id)
     await createTask('dois', review.id)
     await createTask('um', review.id)

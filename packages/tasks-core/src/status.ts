@@ -45,10 +45,25 @@ export interface StatusPatch {
 }
 
 /**
- * What every board is born with (RN11): name, category and color, no id. The
- * migration seeds it in every board, and so does a new board.
+ * What every new board is born with (RN11, LAB-7): name, category and color, no
+ * id. It is the flow the boards in use run on; there is no canceled status, which
+ * a board adds with "+ status" when it wants one.
  */
 export const STATUS_SEED: readonly NewStatus[] = [
+  { name: 'Backlog', category: 'backlog', color: 'gray' },
+  { name: 'To Do', category: 'unstarted', color: 'gray' },
+  { name: 'In Progress', category: 'started', color: 'yellow' },
+  { name: 'Review', category: 'started', color: 'orange' },
+  { name: 'Land', category: 'started', color: 'purple' },
+  { name: 'Done', category: 'completed', color: 'blue' },
+]
+
+/**
+ * The statuses of the "Tasks" board, as migration 10 left them (RN10). Kept apart
+ * from `STATUS_SEED` because that board existed before the seed changed, and
+ * boards that already exist never change with it.
+ */
+export const TASKS_BOARD_STATUSES: readonly NewStatus[] = [
   { name: 'Backlog', category: 'backlog', color: 'gray' },
   { name: 'A fazer', category: 'unstarted', color: 'gray' },
   { name: 'Fazendo', category: 'started', color: 'yellow' },
@@ -59,9 +74,9 @@ export const STATUS_SEED: readonly NewStatus[] = [
 /** The ids the v1 statuses had; they stay the "Tasks" board's (RN10), where `tasks.status_id` points. */
 export const SEED_STATUS_IDS = ['backlog', 'todo', 'doing', 'done', 'canceled'] as const
 
-/** The seed of one board, with the ids given, in its order. */
+/** The "Tasks" board's statuses, with the ids given, in its order. */
 export function seedStatusesFor(boardId: string, ids: readonly string[]): TaskStatus[] {
-  return STATUS_SEED.map((seed, index) => ({ ...seed, id: ids[index] as string, boardId, position: index }))
+  return TASKS_BOARD_STATUSES.map((seed, index) => ({ ...seed, id: ids[index] as string, boardId, position: index }))
 }
 
 /** A stored status before it is ordered: its creation order inside the board. */
