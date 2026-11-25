@@ -468,7 +468,10 @@ export function mountWhiteboard(
     const doc = text.ownerDocument
     const selection = doc.getSelection()
     const caretInside = !!selection && selection.rangeCount > 0 && text.contains(selection.getRangeAt(0).startContainer)
-    const target = caretInside ? rawOffsetOf(block.text, getCaretOffset(text)) : undefined
+    const clicked = pendingClick?.text === text ? pendingClick.visible : undefined
+    pendingClick = undefined
+    const visible = caretInside ? getCaretOffset(text) : clicked
+    const target = visible !== undefined ? rawOffsetOf(block.text, visible) : undefined
     text.replaceChildren(doc.createTextNode(block.text))
     text.setAttribute(RAW_ATTR, '')
     if (target === undefined) return
@@ -483,16 +486,37 @@ export function mountWhiteboard(
   const onFocusOut = (event: Event) => {
     const text = (event.target as Element | null)?.closest?.<HTMLElement>(`[${TEXT_ATTR}]`)
     if (!text || !container.contains(text) || !text.hasAttribute(RAW_ATTR)) return
+    // The window lost the focus, not the block: it is still the active element
+    // and comes back with its caret, so it stays raw.
+    if (text.ownerDocument.activeElement === text) return
     const id = blockIdOf(text)
     const block = id ? store.find(id) : undefined
     text.removeAttribute(RAW_ATTR)
     if (block) text.replaceChildren(renderInline(block.text, text.ownerDocument))
   }
 
+  /**
+   * Where a click lands in a formatted block, read from the point under the
+   * mouse: some engines focus on mousedown before they place the caret, so the
+   * selection says nothing yet when the block turns raw.
+   */
+  let pendingClick: { text: HTMLElement; visible: number } | undefined
+
   /** In an editable block a click edits; Ctrl/Cmd+click on a link opens it instead. */
   const onMouseDown = (event: Event) => {
     const mouse = event as MouseEvent
-    if (!mouse.ctrlKey && !mouse.metaKey) return
+    if (!mouse.ctrlKey && !mouse.metaKey) {
+      pendingClick = undefined
+      const text = (event.target as Element | null)?.closest?.<HTMLElement>(`[${TEXT_ATTR}]`)
+      if (!text || !container.contains(text) || text.hasAttribute(RAW_ATTR)) return
+      const point = caretAtPoint(text.ownerDocument, mouse.clientX, mouse.clientY)
+      if (!point || !text.contains(point.node)) return
+      const probe = text.ownerDocument.createRange()
+      probe.selectNodeContents(text)
+      probe.setEnd(point.node, point.offset)
+      pendingClick = { text, visible: probe.toString().length }
+      return
+    }
     const link = (event.target as Element | null)?.closest?.<HTMLAnchorElement>('a.wb-link')
     if (!link || !container.contains(link)) return
     event.preventDefault()
@@ -533,6 +557,18 @@ export function mountWhiteboard(
       container.replaceChildren()
     },
   }
+}
+
+/** The DOM position under a point, through whichever API the engine has. */
+function caretAtPoint(doc: Document, x: number, y: number): { node: Node; offset: number } | undefined {
+  const withApis = doc as Document & {
+    caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null
+    caretRangeFromPoint?: (x: number, y: number) => Range | null
+  }
+  const position = withApis.caretPositionFromPoint?.(x, y)
+  if (position) return { node: position.offsetNode, offset: position.offset }
+  const range = withApis.caretRangeFromPoint?.(x, y)
+  return range ? { node: range.startContainer, offset: range.startOffset } : undefined
 }
 
 /** Marks the text element of the block being edited, which shows its raw text. */

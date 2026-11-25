@@ -194,6 +194,49 @@ describe('inline markdown (LAB-5)', () => {
     expect(probe.toString()).toBe('a **bo')
   })
 
+  it('a window that loses the focus keeps the caret where it was', () => {
+    const { texts } = mountOn('hello world')
+    const text = texts()[0]!
+    text.focus()
+    const range = document.createRange()
+    range.setStart(text.firstChild!, 5)
+    range.collapse(true)
+    document.getSelection()!.removeAllRanges()
+    document.getSelection()!.addRange(range)
+
+    // The window blurs: focusout fires, but the block is still the active element.
+    text.dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
+    text.dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
+
+    const selection = document.getSelection()!.getRangeAt(0)
+    expect(selection.startContainer.textContent).toBe('hello world')
+    expect(selection.startOffset).toBe(5)
+  })
+
+  it('C4: a click is carried to the raw text even when the browser focuses before placing the caret', async () => {
+    const { texts } = mountOn('a **bold** c')
+    const text = texts()[0]!
+    const boldText = text.querySelector('strong')!.firstChild as Text
+    // Chromium focuses on mousedown and only then places the caret; the point
+    // under the mouse is what tells where the click was.
+    const atPoint = document.createRange()
+    atPoint.setStart(boldText, 2)
+    const original = (document as { caretRangeFromPoint?: unknown }).caretRangeFromPoint
+    ;(document as unknown as { caretRangeFromPoint: () => Range }).caretRangeFromPoint = () => atPoint
+    document.getSelection()!.removeAllRanges()
+
+    boldText.parentElement!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: 10, clientY: 10 }))
+    text.focus()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    ;(document as { caretRangeFromPoint?: unknown }).caretRangeFromPoint = original
+
+    const selection = document.getSelection()!.getRangeAt(0)
+    const probe = document.createRange()
+    probe.selectNodeContents(text)
+    probe.setEnd(selection.startContainer, selection.startOffset)
+    expect(probe.toString()).toBe('a **bo')
+  })
+
   it('C5: editing another block keeps the markers in the markdown', () => {
     const { doc, texts } = mountOn('**a** e `b`\noutro')
     const second = texts()[1]!

@@ -128,6 +128,24 @@ describe('the composer', () => {
     expect(host.querySelector('.wb-block--heading')).not.toBeNull()
   })
 
+  it('LAB-5 C5: the toolbar keeps the inline markers when the button takes the focus', async () => {
+    const { host } = mount()
+    await settle()
+    host.querySelector<HTMLElement>(`[${TEXT_ATTR}]`)!.focus()
+    type(host, '**a** b')
+    await settle()
+
+    // A real browser moves the focus to the button, so the block is drawn formatted.
+    allAt(host, 'tool')[0]!.focus()
+    allAt(host, 'tool')[0]!.click()
+    await settle()
+
+    // The toolbar gives the focus back to the block, which then shows its raw text.
+    const heading = host.querySelector<HTMLElement>('.wb-block--heading [data-wb-text]')!
+    heading.focus()
+    expect(heading.textContent).toBe('**a** b')
+  })
+
   it('Ctrl+S registers what is written', async () => {
     const deps = testDailyLogDeps({ now: NOW })
     const { host } = mount(deps)

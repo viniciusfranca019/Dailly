@@ -97,7 +97,10 @@ function currentBlock(): { id: string; text: string } | undefined {
       ? active
       : [...host.querySelectorAll<HTMLElement>(`[${TEXT_ATTR}]`)].pop()
   const id = element?.closest('[data-wb-id]')?.getAttribute('data-wb-id')
-  return id ? { id, text: element?.textContent ?? '' } : undefined
+  // The text comes from the model, not from the DOM: a block without the caret
+  // is drawn formatted, without its inline markers (LAB-5).
+  const block = id ? store.find(id) : undefined
+  return id && block ? { id, text: block.text } : undefined
 }
 
 function applyTool(prefix: string): void {
