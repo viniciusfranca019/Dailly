@@ -788,4 +788,84 @@ export function taskStoreContract(
       expect((await store.focus()).P2).toEqual([])
     })
   })
+
+  describe(`${label} — comentários em programa (programa-comentarios)`, () => {
+    const NEW = { objective: '', windowStart: null, windowEnd: null, exitWhen: '' }
+    const world = async () => {
+      const store = make()
+      const dailly = await store.createProgram({ name: 'Dailly v1', ...NEW })
+      const outro = await store.createProgram({ name: 'Outro', ...NEW })
+      return { store, dailly, outro }
+    }
+
+    it('C1: comenta o programa, e lê os comentários do mais antigo ao mais novo', async () => {
+      const { store, dailly } = await world()
+
+      const first = await store.addProgramComment(dailly.id, 'liguei pro encanador')
+      const second = await store.addProgramComment(dailly.id, '  ele vem quinta \n')
+
+      expect(second).toMatchObject({ body: 'ele vem quinta', createdAt: expect.any(String) })
+      expect(second?.id).not.toBe(first?.id)
+      expect((await store.programComments(dailly.id))?.map((comment) => comment.body)).toEqual([
+        'liguei pro encanador',
+        'ele vem quinta',
+      ])
+    })
+
+    it('C2: recusa o comentário vazio e não grava nada', async () => {
+      const { store, dailly } = await world()
+
+      for (const body of ['', '   ', '\n \n']) {
+        await expect(store.addProgramComment(dailly.id, body)).rejects.toThrow(CommentRequiredError)
+      }
+      expect(await store.programComments(dailly.id)).toEqual([])
+    })
+
+    it('C3: o programa que não existe não tem comentário, e nada é gravado', async () => {
+      const { store, dailly } = await world()
+      const kept = await store.addProgramComment(dailly.id, 'fica')
+
+      expect(await store.programComments('nope')).toBeNull()
+      expect(await store.addProgramComment('nope', 'x')).toBeNull()
+      expect(await store.addProgramComment('nope', '   ')).toBeNull()
+      expect(await store.deleteProgramComment('nope', kept!.id)).toBe('program-not-found')
+      expect(await store.programComments(dailly.id)).toEqual([kept])
+    })
+
+    it('C4: apaga o comentário do programa; o de outro programa ou de uma tarefa não é achado', async () => {
+      const { store, dailly, outro } = await world()
+      await store.create({ boardId: IN, title: 'um', statusId: 'todo' })
+      const kept = await store.addProgramComment(dailly.id, 'liguei pro encanador')
+      const gone = await store.addProgramComment(dailly.id, 'ele vem quinta')
+      const ofOther = await store.addProgramComment(outro.id, 'do outro')
+      const ofTask = await store.addComment(T(1), 'da tarefa')
+
+      expect(await store.deleteProgramComment(dailly.id, gone!.id)).toBe('deleted')
+      expect(await store.programComments(dailly.id)).toEqual([kept])
+      expect(await store.deleteProgramComment(dailly.id, gone!.id)).toBe('comment-not-found')
+      expect(await store.deleteProgramComment(dailly.id, ofOther!.id)).toBe('comment-not-found')
+      expect(await store.deleteProgramComment(dailly.id, ofTask!.id)).toBe('comment-not-found')
+      expect(await store.programComments(outro.id)).toEqual([ofOther])
+      expect(await store.comments(T(1))).toEqual([ofTask])
+    })
+
+    it('C5: o comentário do programa não aparece nos comentários das tarefas dele', async () => {
+      const { store, dailly } = await world()
+      await store.create({ boardId: IN, title: 'um', statusId: 'todo' })
+      await store.addToProgram(dailly.id, T(1))
+
+      await store.addProgramComment(dailly.id, 'ele vem quinta')
+
+      expect(await store.comments(T(1))).toEqual([])
+    })
+
+    it('C4: um comentário de tarefa não é apagado pelo programa, nem o do programa pela tarefa', async () => {
+      const { store, dailly } = await world()
+      await store.create({ boardId: IN, title: 'um', statusId: 'todo' })
+      const ofProgram = await store.addProgramComment(dailly.id, 'do programa')
+
+      expect(await store.deleteComment(T(1), ofProgram!.id)).toBe('comment-not-found')
+      expect(await store.programComments(dailly.id)).toEqual([ofProgram])
+    })
+  })
 }

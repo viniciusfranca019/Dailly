@@ -218,6 +218,8 @@ export function sqliteTaskStore({ db, newId, now }: SqliteTaskStoreDeps): TaskSt
         .all(programId) as { key_prefix: string; key: number; title: string; board_id: string; status: string }[]
     ).map((row) => ({ key: `${row.key_prefix}-${row.key}`, title: row.title, status: row.status, boardId: row.board_id }))
   const withTasks = (row: ProgramRow): ProgramWithTasks => ({ ...toProgram(row), tasks: programTasks(row.id) })
+  const programExists = (programId: string): boolean =>
+    db.prepare('SELECT 1 FROM task_programs WHERE id = ?').get(programId) !== undefined
   const nextSetOrder = (table: 'task_programs' | 'task_program_members' | 'task_focus', column: string): number =>
     (db.prepare(`SELECT COALESCE(MAX(${column}), 0) + 1 AS next FROM ${table}`).get() as { next: number }).next
   const programOfEntry = (entryId: string) =>
@@ -540,6 +542,33 @@ export function sqliteTaskStore({ db, newId, now }: SqliteTaskStoreDeps): TaskSt
       const { changes } = db.prepare('DELETE FROM task_comments WHERE id = ? AND entry_id = ?').run(id, entry)
       return changes > 0 ? 'deleted' : 'comment-not-found'
     },
+    async programComments(programId) {
+      if (!programExists(programId)) return null
+      const rows = db
+        .prepare('SELECT id, body, created_at FROM task_program_comments WHERE program_id = ? ORDER BY created_at, id')
+        .all(programId) as CommentRow[]
+      return rows.map(toComment)
+    },
+
+    async addProgramComment(programId, body) {
+      // The program first, as for a task: a body for a program that is gone is moot.
+      if (!programExists(programId)) return null
+      const comment: TaskComment = { id: newId(), body: normalizeCommentBody(body), createdAt: now() }
+      db.prepare('INSERT INTO task_program_comments (id, program_id, body, created_at) VALUES (?, ?, ?, ?)').run(
+        comment.id,
+        programId,
+        comment.body,
+        comment.createdAt,
+      )
+      return comment
+    },
+
+    async deleteProgramComment(programId, id) {
+      if (!programExists(programId)) return 'program-not-found'
+      const { changes } = db.prepare('DELETE FROM task_program_comments WHERE id = ? AND program_id = ?').run(id, programId)
+      return changes > 0 ? 'deleted' : 'comment-not-found'
+    },
+
     async programs() {
       return (db.prepare(`${SELECT_PROGRAM} ORDER BY p.created_order`).all() as ProgramRow[]).map(withTasks)
     },
