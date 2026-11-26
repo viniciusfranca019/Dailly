@@ -1,7 +1,7 @@
 # Directory Update Log
 
 ## 2026-11-26
-* **Update**: [Tasks, programas e foco](/features/tasks-programas-e-foco.md) ganha comentários no programa (migration 12), na visão Programas e pela API; [MCP do dailly](/features/mcp.md) ganha `list_programs` e as tools de comentário do programa (programa-comentarios). [Módulos](/conventions/modules.md) registra o 11 e o 12 do tasks.
+* **Update**: [Tasks, programas e foco](/features/tasks-programas-e-foco.md) ganha comentários no programa (migration 12), na visão Programas e pela API; [MCP do dailly](/features/mcp.md) ganha `list_programs` e as tools de comentário do programa (programa-comentarios). [Módulos](/conventions/modules.md) registra o 11 e o 12 do tasks; [Arquitetura](/conventions/architecture.md) lista o `programs.ts` do `mcp/`, e o [PRD do Tasks](/prd/tasks.md) anota o comentário do programa.
 
 ## 2026-11-25
 * **Update**: [Tasks, programas e foco](/features/tasks-programas-e-foco.md): filtros de programa e de foco no Board e na Lista; o de foco esconde as tarefas concluídas e canceladas.

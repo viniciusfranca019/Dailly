@@ -168,3 +168,20 @@ describe('sqliteTaskStore — migration 12 adds the program comments (programa-c
     expect(db.prepare('SELECT count(*) AS total FROM task_program_comments').get()).toEqual({ total: 0 })
   })
 })
+
+describe('sqliteTaskStore — program comments of the same instant (programa-comentarios)', () => {
+  it('stay in the order they were written, not in the order of their ids', async () => {
+    const db = migrated()
+    let id = 10
+    const store = sqliteTaskStore({ db, newId: () => `id-${(id -= 1)}`, now: () => '2026-11-26T12:00:00.000Z' })
+    const program = await store.createProgram({ name: 'Dailly v1', objective: '', windowStart: null, windowEnd: null, exitWhen: '' })
+
+    await store.addProgramComment(program.id, 'liguei pro encanador')
+    await store.addProgramComment(program.id, 'ele vem quinta')
+
+    expect((await store.programComments(program.id))?.map((comment) => comment.body)).toEqual([
+      'liguei pro encanador',
+      'ele vem quinta',
+    ])
+  })
+})
