@@ -88,6 +88,8 @@ function refuseBoard(error: unknown): { code: number; body: unknown } | null {
 }
 
 const TASK_NOT_FOUND = { error: 'tarefa não encontrada' }
+const PROGRAM_NOT_FOUND = { error: 'programa não encontrado' }
+const COMMENT_NOT_FOUND = { error: 'comentário não encontrado' }
 
 /** A comment's POST body: `body`, text, and nothing else (card #45's Latitude). */
 function parseComment(body: unknown): { text: string } | { errors: Invalid[] } {
@@ -378,7 +380,7 @@ export function registerTaskRoutes(app: FastifyInstance, store: TaskStore): void
     const key = parseKey(params.key)
     const outcome = key === null ? 'task-not-found' : await store.deleteComment(key, params.id)
     if (outcome === 'task-not-found') return reply.code(404).send(TASK_NOT_FOUND)
-    if (outcome === 'comment-not-found') return reply.code(404).send({ error: 'comentário não encontrado' })
+    if (outcome === 'comment-not-found') return reply.code(404).send(COMMENT_NOT_FOUND)
     return reply.code(204).send()
   })
 
@@ -423,13 +425,44 @@ export function registerTaskRoutes(app: FastifyInstance, store: TaskStore): void
     }
   })
 
+  // programa-comentarios: a program's own comments, the routes of a task's
+  // (card #45) with the program's id in place of the key.
+  app.get('/programs/:id/comments', async (request, reply) => {
+    const comments = await store.programComments((request.params as { id: string }).id)
+    if (!comments) return reply.code(404).send(PROGRAM_NOT_FOUND)
+    return comments
+  })
+
+  app.post('/programs/:id/comments', async (request, reply) => {
+    const parsed = parseComment(request.body)
+    if ('errors' in parsed) return reply.code(400).send({ errors: parsed.errors })
+    try {
+      const comment = await store.addProgramComment((request.params as { id: string }).id, parsed.text)
+      if (!comment) return reply.code(404).send(PROGRAM_NOT_FOUND)
+      return reply.code(201).send(comment)
+    } catch (error) {
+      if (error instanceof CommentRequiredError) {
+        return reply.code(400).send({ errors: [{ field: 'body', message: error.message }] })
+      }
+      throw error
+    }
+  })
+
+  app.delete('/programs/:id/comments/:commentId', async (request, reply) => {
+    const params = request.params as { id: string; commentId: string }
+    const outcome = await store.deleteProgramComment(params.id, params.commentId)
+    if (outcome === 'program-not-found') return reply.code(404).send(PROGRAM_NOT_FOUND)
+    if (outcome === 'comment-not-found') return reply.code(404).send(COMMENT_NOT_FOUND)
+    return reply.code(204).send()
+  })
+
   app.post('/programs/:id/tasks', async (request, reply) => {
     const body = request.body
     const key = isRecord(body) && typeof body.key === 'string' ? parseKey(body.key.trim().toUpperCase()) : null
     if (key === null) return reply.code(400).send({ errors: [{ field: 'key', message: 'a chave é como LAB-5' }] })
     try {
       const program = await store.addToProgram((request.params as { id: string }).id, key)
-      if (!program) return reply.code(404).send({ error: 'programa não encontrado' })
+      if (!program) return reply.code(404).send(PROGRAM_NOT_FOUND)
       return program
     } catch (error) {
       if (error instanceof TaskNotFoundError) return reply.code(404).send(TASK_NOT_FOUND)

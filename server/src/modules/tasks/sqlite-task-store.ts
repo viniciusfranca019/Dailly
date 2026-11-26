@@ -545,7 +545,7 @@ export function sqliteTaskStore({ db, newId, now }: SqliteTaskStoreDeps): TaskSt
     async programComments(programId) {
       if (!programExists(programId)) return null
       const rows = db
-        .prepare('SELECT id, body, created_at FROM task_program_comments WHERE program_id = ? ORDER BY created_at, id')
+        .prepare('SELECT id, body, created_at FROM task_program_comments WHERE program_id = ? ORDER BY created_at, rowid')
         .all(programId) as CommentRow[]
       return rows.map(toComment)
     },

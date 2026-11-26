@@ -338,7 +338,11 @@ export function inMemoryTaskStore({ newId, now, labels = () => [] }: InMemoryTas
     },
     async programComments(programId) {
       if (!programs.some((program) => program.id === programId)) return null
-      return oldestFirst(programComments.get(programId) ?? [])
+      // Kept in the order they were written; a stable sort by the stamp alone
+      // leaves two of the same instant in that order, as the SQLite rowid does.
+      return [...(programComments.get(programId) ?? [])].sort((a, b) =>
+        a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0,
+      )
     },
 
     async addProgramComment(programId, body) {

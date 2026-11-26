@@ -126,7 +126,8 @@ export interface TaskStore {
   /** The task's program, or `{ program: null }` when it has none; `null` when no task has that key. */
   programOf(key: TaskKey): Promise<{ readonly program: Program | null } | null>
   /**
-   * A program's own comments, oldest first, ties broken by id (programa-comentarios).
+   * A program's own comments, oldest first; two of the same instant stay in the
+   * order they were written (programa-comentarios).
    * `null` when no program has that id. They are not its tasks' comments.
    */
   programComments(programId: string): Promise<readonly TaskComment[] | null>
