@@ -12,6 +12,7 @@ import type { ProgramsPort } from '@shared'
 import type { ApiConfig } from './api.js'
 import { ApiError } from './errors.js'
 import { httpClient } from './http.js'
+import { parseComment } from './http-tasks-client.js'
 
 export interface HttpProgramsClientDeps {
   readonly config: ApiConfig
@@ -93,6 +94,8 @@ async function orGone<T>(call: () => Promise<T>, gone: T): Promise<T> {
   }
 }
 
+const commentsPath = (programId: string) => `/programs/${encodeURIComponent(programId)}/comments`
+
 /** Programs and focus over the local API (LAB-9), the payload parsed at the boundary. */
 export function httpProgramsClient(deps: HttpProgramsClientDeps): ProgramsPort {
   const call = httpClient(deps)
@@ -130,6 +133,25 @@ export function httpProgramsClient(deps: HttpProgramsClientDeps): ProgramsPort {
     async setFocus(target, level) {
       return orGone(async () => {
         await call('/focus', { method: 'PUT', body: JSON.stringify({ ...target, level }) })
+        return true
+      }, false)
+    },
+    async programComments(programId) {
+      return orGone(async () => {
+        const answer = await call(commentsPath(programId))
+        if (!Array.isArray(answer)) throw wrongShape('os comentários')
+        return answer.map(parseComment)
+      }, null)
+    },
+    async addProgramComment(programId, body) {
+      return orGone(
+        async () => parseComment(await call(commentsPath(programId), { method: 'POST', body: JSON.stringify({ body }) })),
+        null,
+      )
+    },
+    async deleteProgramComment(programId, id) {
+      return orGone(async () => {
+        await call(`${commentsPath(programId)}/${encodeURIComponent(id)}`, { method: 'DELETE' })
         return true
       }, false)
     },

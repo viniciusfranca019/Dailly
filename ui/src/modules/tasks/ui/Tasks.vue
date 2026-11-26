@@ -605,7 +605,7 @@ async function drop(statusId: string, beforeKey: number | null): Promise<void> {
     />
 
     <div class="min-h-0 flex-1 overflow-auto px-6 pb-6">
-      <ProgramsView v-if="view === 'programs'" :programs="deps.programs" @open="openFromProgram" />
+      <ProgramsView v-if="view === 'programs'" :programs="deps.programs" :zone="deps.zone" @open="openFromProgram" />
       <FocusView v-else-if="view === 'focus'" :programs="deps.programs" />
       <p v-else-if="read.state === 'loading'" class="text-sm text-[#747e8f]">Carregando as tarefas…</p>
 

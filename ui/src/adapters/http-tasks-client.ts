@@ -106,7 +106,8 @@ const parseBoardInfo = (value: unknown): Board => {
   return { id: value['id'], name: value['name'], prefix: value['prefix'] }
 }
 
-const parseComment = (value: unknown): TaskComment => {
+/** A comment, of a task or of a program: one shape, parsed in one place. */
+export const parseComment = (value: unknown): TaskComment => {
   if (
     !isRecord(value) ||
     typeof value['id'] !== 'string' ||

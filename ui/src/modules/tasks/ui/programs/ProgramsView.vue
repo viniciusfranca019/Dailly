@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import type { TimeZone } from '@dailly/periods'
 import { FOCUS_LEVELS, InvalidWindowError, NameRequiredError, isFocusLevel, parseNewProgram } from '@dailly/tasks-core'
 import type { FocusLevel, ProgramWithTasks, ProgramsPort } from '@shared'
 import { onMounted, ref } from 'vue'
+import TaskComments, { type CommentsAccess } from '../detail/TaskComments.vue'
 import { shownWindow } from './window.js'
 
 /**
@@ -9,8 +11,11 @@ import { shownWindow } from './window.js'
  * one, the program's focus level and a field to bring a task in by its key.
  * The new program is checked here with the core's own parse (C2), so the form
  * refuses before any call and keeps what was typed.
+ *
+ * Each program's own comments (programa-comentarios) open under its card, in
+ * the same list and editor as a task's: only the access changes.
  */
-const props = defineProps<{ programs: ProgramsPort }>()
+const props = defineProps<{ programs: ProgramsPort; zone: TimeZone }>()
 const emit = defineEmits<{ open: [task: { key: string; boardId: string }] }>()
 
 const list = ref<readonly ProgramWithTasks[]>([])
@@ -80,6 +85,27 @@ async function setFocus(program: ProgramWithTasks, value: string): Promise<void>
   } catch (cause) {
     refusals.value = { ...refusals.value, [program.id]: reason(cause, 'não consegui mudar o foco') }
   }
+  await load()
+}
+
+/** The programs whose comments are open. */
+const commentsOpen = ref<Record<string, boolean>>({})
+const accesses = new Map<string, CommentsAccess>()
+function commentsOf(programId: string): CommentsAccess {
+  let access = accesses.get(programId)
+  if (!access) {
+    access = {
+      list: () => props.programs.programComments(programId),
+      add: (body) => props.programs.addProgramComment(programId, body),
+      remove: (id) => props.programs.deleteProgramComment(programId, id),
+    }
+    accesses.set(programId, access)
+  }
+  return access
+}
+async function commentsGone(program: ProgramWithTasks): Promise<void> {
+  commentsOpen.value = { ...commentsOpen.value, [program.id]: false }
+  refusals.value = { ...refusals.value, [program.id]: 'programa não encontrado' }
   await load()
 }
 
@@ -178,6 +204,22 @@ const FIELDS = [
         <button type="submit" class="text-xs text-[#747e8f] hover:text-gray-200">Adicionar</button>
       </form>
       <p v-if="refusals[program.id]" role="alert" class="text-xs text-red-300">{{ refusals[program.id] }}</p>
+
+      <button
+        type="button"
+        :aria-label="`Comentários de ${program.name}`"
+        :aria-expanded="commentsOpen[program.id] ? 'true' : 'false'"
+        class="self-start text-xs text-[#747e8f] hover:text-gray-200"
+        @click="commentsOpen = { ...commentsOpen, [program.id]: !commentsOpen[program.id] }"
+      >
+        Comentários
+      </button>
+      <TaskComments
+        v-if="commentsOpen[program.id]"
+        :access="commentsOf(program.id)"
+        :zone="zone"
+        @gone="commentsGone(program)"
+      />
     </article>
   </section>
 </template>

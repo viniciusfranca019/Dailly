@@ -278,5 +278,8 @@ export function programsOver(store: TaskStore): ProgramsPort {
     focus: () => store.focus(),
     setFocus: (target, level) =>
       store.setFocus('program' in target ? { program: target.program } : { task: keyOf(target.task) }, level),
+    programComments: (programId) => store.programComments(programId),
+    addProgramComment: (programId, body) => store.addProgramComment(programId, body),
+    deleteProgramComment: async (programId, id) => (await store.deleteProgramComment(programId, id)) === 'deleted',
   }
 }
