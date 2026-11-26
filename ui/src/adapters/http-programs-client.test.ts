@@ -102,3 +102,40 @@ describe('httpProgramsClient (LAB-9)', () => {
     )
   })
 })
+
+describe('httpProgramsClient — comentários do programa (programa-comentarios)', () => {
+  const comment = { id: 'c1', body: 'ele vem quinta', createdAt: '2026-11-05T17:32:00.000Z' }
+
+  it('reads, posts and deletes under the program id, and 404 is gone', async () => {
+    const seen: { url?: string; init?: RequestInit } = {}
+    expect(await httpProgramsClient({ config, fetch: answering(200, [comment], seen) }).programComments('p 1')).toEqual([comment])
+    expect(seen.url).toBe('/api/programs/p%201/comments')
+
+    const posted: { url?: string; init?: RequestInit } = {}
+    expect(await httpProgramsClient({ config, fetch: answering(201, comment, posted) }).addProgramComment('p1', 'ele vem quinta')).toEqual(comment)
+    expect(posted.init?.method).toBe('POST')
+    expect(JSON.parse(String(posted.init?.body))).toEqual({ body: 'ele vem quinta' })
+
+    const deleted: { url?: string; init?: RequestInit } = {}
+    expect(await httpProgramsClient({ config, fetch: answering(204, null, deleted) }).deleteProgramComment('p1', 'c1')).toBe(true)
+    expect(deleted.url).toBe('/api/programs/p1/comments/c1')
+    expect(deleted.init?.method).toBe('DELETE')
+
+    const gone = httpProgramsClient({ config, fetch: answering(404, { error: 'programa não encontrado' }) })
+    expect(await gone.programComments('p9')).toBeNull()
+    expect(await gone.addProgramComment('p9', 'x')).toBeNull()
+    expect(await gone.deleteProgramComment('p9', 'c1')).toBe(false)
+  })
+
+  it('refuses a comment in a shape it does not know, and passes a 400 on as it comes', async () => {
+    await expect(
+      httpProgramsClient({ config, fetch: answering(200, [{ ...comment, body: 3 }]) }).programComments('p1'),
+    ).rejects.toThrow(ApiError)
+    await expect(
+      httpProgramsClient({
+        config,
+        fetch: answering(400, { errors: [{ field: 'body', message: 'o comentário é obrigatório' }] }),
+      }).addProgramComment('p1', '  '),
+    ).rejects.toThrow(ApiError)
+  })
+})

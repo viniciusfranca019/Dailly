@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { apiClient } from './api.js'
 import { registerDailyLogTools, type DailyLogDeps } from './daily-log.js'
 import { labelBook } from './labels.js'
+import { registerProgramTools } from './programs.js'
 import { registerTaskTools } from './tasks.js'
 
 /**
@@ -27,6 +28,7 @@ export function createDaillyMcp({ apiUrl, fetch, timeoutMs, dailyLog }: DaillyMc
   const api = apiClient(apiUrl, fetch, timeoutMs)
   const labels = labelBook(api)
   registerTaskTools(server, api, labels)
+  registerProgramTools(server, api)
   registerDailyLogTools(server, api, labels, dailyLog)
   return server
 }

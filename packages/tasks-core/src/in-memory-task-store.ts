@@ -94,6 +94,12 @@ export function inMemoryTaskStore({ newId, now, labels = () => [] }: InMemoryTas
   }
   /** By the task's id (the Entry's), gone with it, as `ON DELETE CASCADE`. */
   const comments = new Map<string, TaskComment[]>()
+  /** By the program's id. */
+  const programComments = new Map<string, TaskComment[]>()
+  const oldestFirst = (list: readonly TaskComment[]) =>
+    [...list].sort((a, b) =>
+      a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
+    )
 
   const same = (task: Task, { prefix, key }: TaskKey) => task.keyPrefix === prefix && task.key === key
   const claim = (prefix: string, boardId: string | null) => {
@@ -308,9 +314,7 @@ export function inMemoryTaskStore({ newId, now, labels = () => [] }: InMemoryTas
     async comments(key) {
       const task = tasks.find((candidate) => same(candidate, key))
       if (!task) return null
-      return [...(comments.get(task.id) ?? [])].sort(
-        (a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
-      )
+      return oldestFirst(comments.get(task.id) ?? [])
     },
 
     async addComment(key, body) {
@@ -332,6 +336,33 @@ export function inMemoryTaskStore({ newId, now, labels = () => [] }: InMemoryTas
       )
       return 'deleted'
     },
+    async programComments(programId) {
+      if (!programs.some((program) => program.id === programId)) return null
+      // Kept in the order they were written; a stable sort by the stamp alone
+      // leaves two of the same instant in that order, as the SQLite rowid does.
+      return [...(programComments.get(programId) ?? [])].sort((a, b) =>
+        a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0,
+      )
+    },
+
+    async addProgramComment(programId, body) {
+      if (!programs.some((program) => program.id === programId)) return null
+      const comment: TaskComment = { id: newId(), body: normalizeCommentBody(body), createdAt: now() }
+      programComments.set(programId, [...(programComments.get(programId) ?? []), comment])
+      return comment
+    },
+
+    async deleteProgramComment(programId, id) {
+      if (!programs.some((program) => program.id === programId)) return 'program-not-found'
+      const own = programComments.get(programId) ?? []
+      if (!own.some((comment) => comment.id === id)) return 'comment-not-found'
+      programComments.set(
+        programId,
+        own.filter((comment) => comment.id !== id),
+      )
+      return 'deleted'
+    },
+
     async programs() {
       return programs.map(programWithTasks)
     },

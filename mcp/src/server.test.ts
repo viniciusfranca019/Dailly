@@ -58,6 +58,10 @@ describe('C8: Requests não aparece', () => {
         'list_comments',
         'add_comment',
         'delete_comment',
+        'list_programs',
+        'list_program_comments',
+        'add_program_comment',
+        'delete_program_comment',
         'list_entries',
         'get_entry',
         'create_entry',
@@ -80,5 +84,9 @@ describe('C8: Requests não aparece', () => {
     expect(tools['list_entries']?.readOnlyHint).toBe(true)
     expect(tools['get_board']?.readOnlyHint).toBe(true)
     expect(tools['create_task']?.destructiveHint).toBe(false)
+    expect(tools['list_programs']?.readOnlyHint).toBe(true)
+    expect(tools['list_program_comments']?.readOnlyHint).toBe(true)
+    expect(tools['add_program_comment']?.destructiveHint).toBe(false)
+    expect(tools['delete_program_comment']?.destructiveHint).toBe(true)
   })
 })

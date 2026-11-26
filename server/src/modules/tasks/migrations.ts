@@ -3,7 +3,8 @@ import type { Migration } from '../../shell/module.js'
 /**
  * The Tasks slice of the `user_version`: 5 after Entries' 4 (the `kind` column
  * this facet hangs off), then 8 for the boards (F4, card #42), 9 for the
- * comments (F7, card #45) and 10 for the statuses of each board (F5, card #43).
+ * comments (F7, card #45), 10 for the statuses of each board (F5, card #43),
+ * 11 for programs and focus (LAB-9) and 12 for the comments of a program.
  *
  * - `task_statuses` is seeded with the five fixed statuses of the v1; the
  *   category has a CHECK because rules read it, never the name (RN2). The
@@ -221,6 +222,22 @@ export const TASKS_MIGRATIONS: readonly Migration[] = [
         set_order INTEGER NOT NULL,
         CHECK ((program_id IS NULL) <> (entry_id IS NULL))
       );
+    `,
+  },
+  {
+    // programa-comentarios: a program's own comments, the shape of
+    // `task_comments` (migration 9), not Entries, so they never reach the Daily
+    // Log (RN14). Additive: `task_comments` is not touched, and a program's
+    // comments go with it.
+    version: 12,
+    up: `
+      CREATE TABLE task_program_comments (
+        id         TEXT PRIMARY KEY,
+        program_id TEXT NOT NULL REFERENCES task_programs(id) ON DELETE CASCADE,
+        body       TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+      CREATE INDEX idx_task_program_comments_program_created ON task_program_comments(program_id, created_at);
     `,
   },
 ]

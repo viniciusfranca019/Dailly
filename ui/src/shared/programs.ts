@@ -1,4 +1,4 @@
-import type { FocusBoard, FocusLevel, NewProgram, Program, ProgramWithTasks, TaskKey } from '@dailly/tasks-core'
+import type { FocusBoard, FocusLevel, NewProgram, Program, ProgramWithTasks, TaskComment, TaskKey } from '@dailly/tasks-core'
 
 /** What focus is set on, as the screen names it: a program by id, or a task by its whole key. */
 export type FocusTargetRef = { readonly program: string } | { readonly task: string }
@@ -20,6 +20,12 @@ export interface ProgramsPort {
   focus(): Promise<FocusBoard>
   /** `false` when the target is gone; throws for a task of a program. */
   setFocus(target: FocusTargetRef, level: FocusLevel | null): Promise<boolean>
+  /** The program's own comments, oldest first (programa-comentarios); `null` when the program is gone. */
+  programComments(programId: string): Promise<readonly TaskComment[] | null>
+  /** `null` when the program is gone; throws on a refusal (an empty body). */
+  addProgramComment(programId: string, body: string): Promise<TaskComment | null>
+  /** `false` when the comment or its program was already gone. */
+  deleteProgramComment(programId: string, id: string): Promise<boolean>
 }
 
 export type { FocusBoard, FocusItem, FocusLevel, NewProgram, Program, ProgramTask, ProgramWithTasks } from '@dailly/tasks-core'

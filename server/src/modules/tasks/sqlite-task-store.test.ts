@@ -136,3 +136,52 @@ describe('sqliteTaskStore — programs survive a rebuild of tasks (LAB-9)', () =
     expect((await store.focus()).P1).toEqual([{ kind: 'task', key: 'T-2', title: 'dois' }])
   })
 })
+
+describe('sqliteTaskStore — migration 12 adds the program comments (programa-comentarios)', () => {
+  it('keeps the programs and the task comments a database at version 11 already had', async () => {
+    const db = new Database(':memory:')
+    db.pragma('foreign_keys = ON')
+    const slices = [...entriesModule.migrations, ...TASKS_MIGRATIONS].sort((a, b) => a.version - b.version)
+    for (const migration of slices.filter((one) => one.version <= 11)) db.exec(migration.up)
+    const before = sqliteTaskStore({ db, ...deps() })
+    await before.create({ boardId: 'tasks', title: 'um', statusId: 'todo' })
+    const taskComment = await before.addComment({ prefix: 'T', key: 1 }, 'liguei pro encanador')
+    const program = await before.createProgram({ name: 'Dailly v1', objective: '', windowStart: null, windowEnd: null, exitWhen: '' })
+
+    for (const migration of slices.filter((one) => one.version > 11)) db.exec(migration.up)
+    const after = sqliteTaskStore({ db, ...deps() })
+
+    expect(await after.comments({ prefix: 'T', key: 1 })).toEqual([taskComment])
+    expect((await after.programs()).map((one) => one.name)).toEqual(['Dailly v1'])
+    expect(await after.programComments(program.id)).toEqual([])
+    expect(await after.addProgramComment(program.id, 'ele vem quinta')).toMatchObject({ body: 'ele vem quinta' })
+  })
+
+  it('takes the comments with a program row that is deleted (ON DELETE CASCADE)', async () => {
+    const db = migrated()
+    const store = sqliteTaskStore({ db, ...deps() })
+    const program = await store.createProgram({ name: 'Dailly v1', objective: '', windowStart: null, windowEnd: null, exitWhen: '' })
+    await store.addProgramComment(program.id, 'ele vem quinta')
+
+    db.prepare('DELETE FROM task_programs WHERE id = ?').run(program.id)
+
+    expect(db.prepare('SELECT count(*) AS total FROM task_program_comments').get()).toEqual({ total: 0 })
+  })
+})
+
+describe('sqliteTaskStore — program comments of the same instant (programa-comentarios)', () => {
+  it('stay in the order they were written, not in the order of their ids', async () => {
+    const db = migrated()
+    let id = 10
+    const store = sqliteTaskStore({ db, newId: () => `id-${(id -= 1)}`, now: () => '2026-11-26T12:00:00.000Z' })
+    const program = await store.createProgram({ name: 'Dailly v1', objective: '', windowStart: null, windowEnd: null, exitWhen: '' })
+
+    await store.addProgramComment(program.id, 'liguei pro encanador')
+    await store.addProgramComment(program.id, 'ele vem quinta')
+
+    expect((await store.programComments(program.id))?.map((comment) => comment.body)).toEqual([
+      'liguei pro encanador',
+      'ele vem quinta',
+    ])
+  })
+})

@@ -57,7 +57,7 @@ export {
   parseKey,
 } from './task.js'
 export type { Priority, StatusCategory, Task, TaskKey, TaskStatus } from './task.js'
-export type { CommentDeletion, NewTask, TaskBoard, TaskPatch, TaskStore } from './task-store.js'
+export type { CommentDeletion, NewTask, ProgramCommentDeletion, TaskBoard, TaskPatch, TaskStore } from './task-store.js'
 
 export {
   FOCUS_LEVELS,

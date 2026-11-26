@@ -125,6 +125,19 @@ export interface TaskStore {
   addToProgram(programId: string, key: TaskKey): Promise<ProgramWithTasks | null>
   /** The task's program, or `{ program: null }` when it has none; `null` when no task has that key. */
   programOf(key: TaskKey): Promise<{ readonly program: Program | null } | null>
+  /**
+   * A program's own comments, oldest first; two of the same instant stay in the
+   * order they were written (programa-comentarios).
+   * `null` when no program has that id. They are not its tasks' comments.
+   */
+  programComments(programId: string): Promise<readonly TaskComment[] | null>
+  /**
+   * Stamped with the store's clock. `null` when no program has that id; throws
+   * `CommentRequiredError` for an empty body, and nothing is written then.
+   */
+  addProgramComment(programId: string, body: string): Promise<TaskComment | null>
+  /** A comment of another program, or of a task, is not found, as one that does not exist. */
+  deleteProgramComment(programId: string, id: string): Promise<ProgramCommentDeletion>
   /** Each level's programs and tasks, in the order they were put there. */
   focus(): Promise<FocusBoard>
   /**
@@ -136,3 +149,4 @@ export interface TaskStore {
 }
 
 export type CommentDeletion = 'deleted' | 'task-not-found' | 'comment-not-found'
+export type ProgramCommentDeletion = 'deleted' | 'program-not-found' | 'comment-not-found'
