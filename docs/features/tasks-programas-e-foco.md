@@ -1,8 +1,8 @@
 ---
 type: Feature
 title: Tasks, programas e foco
-description: Um programa junta tarefas de qualquer board sob um objetivo e uma janela; o foco põe um programa ou uma tarefa avulsa em P0, P1 ou P2. Duas visões do Tasks, Programas e Foco, e a linha do programa no painel da tarefa.
-tags: [tasks, programa, foco, prioridade]
+description: Um programa junta tarefas de qualquer board sob um objetivo e uma janela, e tem comentários próprios; o foco põe um programa ou uma tarefa avulsa em P0, P1 ou P2. Duas visões do Tasks, Programas e Foco, a linha do programa no painel da tarefa, e os programas no MCP.
+tags: [tasks, programa, foco, prioridade, comentários, mcp]
 status: stable
 since: 0.1.30
 generated: { by: regulus/claude-opus-5-5, at: 2026-11-25T12:00:00-03:00 }
@@ -18,6 +18,11 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-25T12:00:00-03:00 }
   tarefa (`LAB-5`) e a põe nele. A chave de uma tarefa da lista abre o painel dela, no
   board dela.
 - Cada programa tem o seletor de foco: fora de foco, P0, P1 ou P2.
+- **Comentários** em cada programa abre os comentários do próprio programa, do mais
+  antigo ao mais novo, com a data e a hora no fuso, e o editor no fim: o mesmo do painel
+  da tarefa ([Tasks, painel](/features/tasks-painel.md)). "Comentar" ou Ctrl+Enter envia;
+  vazio não é enviado; o envio que falha mostra o erro e deixa o texto no editor; o ✕
+  pede confirmação. É onde o dono comenta para a próxima sessão do programa ler.
 - **Foco** mostra P0, P1 e P2, cada um com o que está nele, na ordem em que entrou, e
   "Tirar do foco" em cada item. Uma tarefa sem programa entra pela chave e pelo nível.
 - O painel de uma tarefa de programa diz o programa ("Dailly v1"), e o nível quando o
@@ -52,6 +57,18 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-25T12:00:00-03:00 }
   `GET /focus` e `PUT /focus {program | task, level}` (`level: null` tira do foco).
   Recusa de formato é 400 com o campo; tarefa noutro programa e tarefa de programa em
   foco são 409; programa ou tarefa que não existe é 404.
+- **O comentário do programa é do programa** (programa-comentarios): mora em
+  `task_program_comments` (migration 12), com o formato e a regra do corpo do comentário
+  de tarefa, e vai junto com o programa. Não aparece nos comentários das tarefas dele nem
+  no Daily Log (RN14). Dois do mesmo instante ficam na ordem em que foram gravados.
+  `GET /programs/:id/comments`, `POST /programs/:id/comments {body}` (201) e
+  `DELETE /programs/:id/comments/:id` (204). Vazio é 400 ("o comentário é obrigatório"),
+  um campo além de `body` é 400 nomeando o campo; programa que não existe é 404
+  "programa não encontrado"; comentário que não existe, de outro programa ou de uma
+  tarefa é 404 "comentário não encontrado".
+- No [MCP](/features/mcp.md), `list_programs` dá o id de cada programa, e
+  `list_program_comments`, `add_program_comment` e `delete_program_comment` recebem esse
+  id, como as tools de tarefa recebem a chave: o nome pode mudar, o id não.
 - O filtro de foco esconde o que acabou pela categoria do status (`completed`,
   `canceled`), nunca pelo nome, então renomear "Done" não muda nada. O corte é feito na
   tela, sobre o board, os programas e o foco já lidos. Uma leitura de programas ou de
@@ -62,7 +79,8 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-25T12:00:00-03:00 }
 
 - `packages/tasks-core/src/program.ts` (modelo e recusas) e o `TaskStore`, com a suíte de
   contrato
-- `server/src/modules/tasks/` (migration 11, store SQLite, rotas)
+- `server/src/modules/tasks/` (migrations 11 e 12, store SQLite, rotas)
+- `mcp/src/programs.ts` (as tools de programa)
 - `ui/src/modules/tasks/model/scope-filter.ts` (os cortes dos filtros, sem DOM)
 - `ui/src/modules/tasks/ui/programs/`, `ui/src/shared/programs.ts`,
   `ui/src/adapters/http-programs-client.ts`
@@ -70,12 +88,15 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-25T12:00:00-03:00 }
 # Entregue
 
 No card LAB-9, em 2026-11-25, numa pilha de dois PRs: a API em 0.1.29 (#65), as telas em 0.1.30. Os filtros de
-programa e de foco em 0.1.31 (#68).
+programa e de foco em 0.1.31 (#68). Os comentários do programa e os programas no MCP em
+0.1.32, sem card (programa-comentarios, passo 18 do foco dailly-v1).
 
 # Limites
 
 - Não fecha nem arquiva programa, e não tem resultado, Ativo nem avaliação.
 - Não tira uma tarefa de um programa, e não tem programa dentro de programa.
-- Não está no MCP.
+- No MCP, só a leitura dos programas e os comentários deles: criar programa, pôr tarefa
+  e foco ficam na tela.
+- Comentário de programa não tem resposta, menção nem edição, como o de tarefa.
 - Uma tarefa criada com o filtro de programa ou de foco ligado não entra no programa nem no
   foco, então some da tela até o filtro ser limpo.

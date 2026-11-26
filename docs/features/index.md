@@ -23,7 +23,7 @@ importam e onde mora no código. O Analyse ainda é só uma tela-esqueleto atrá
 * [Tasks, criar rápido com C](/features/tasks-criar-rapido.md) - título, status e prioridade num formulário flutuante, de qualquer tela, no último board usado
 * [Tasks, status do board](/features/tasks-status.md) - status com cor em cada board: adicionar, renomear e apagar levando as tarefas
 * [Tasks, vários boards](/features/tasks-boards.md) - boards com prefixo próprio, a troca entre eles e a chave <PREFIXO>-<n> congelada
-* [Tasks, programas e foco](/features/tasks-programas-e-foco.md) - programa junta tarefas de todo board numa janela; foco P0/P1/P2 de um programa ou de uma tarefa avulsa
+* [Tasks, programas e foco](/features/tasks-programas-e-foco.md) - programa junta tarefas de todo board numa janela; foco P0/P1/P2 de um programa ou de uma tarefa avulsa; comentários no programa, também pelo MCP
 * [Tasks, filtro por label](/features/tasks-filtro-por-label.md) - ligar labels acima do board e da lista, OU entre elas, e criar com o filtro herda as labels
 
 ## O app

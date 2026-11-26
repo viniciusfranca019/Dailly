@@ -1,3 +1,4 @@
-version: 0.1.31
+version: 0.1.32
 
-- O Board e a Lista do Tasks ganham dois filtros ao lado do de label: por programa (as tarefas dos programas ligados, com todos os status) e por foco (P0, P1, P2: as avulsas e as tarefas dos programas do nível, sem as concluídas e canceladas). Os filtros se combinam, e "Limpar filtro" desliga os três. (#68)
+- Cada programa do Tasks ganha comentários próprios: na visão Programas, "Comentários" abre a lista, do mais antigo ao mais novo, e o editor, os mesmos do painel da tarefa. O comentário do programa não aparece nas tarefas dele nem no Daily Log. Na API, `GET`/`POST /programs/:id/comments` e `DELETE /programs/:id/comments/:id`, com a migration 12 (aditiva, roda sozinha ao abrir o banco).
+- O MCP ganha `list_programs` e `list_program_comments`, `add_program_comment` e `delete_program_comment`, para a próxima sessão de um programa ler o que foi comentado nele.

@@ -1,7 +1,7 @@
 ---
 type: Feature
 title: MCP do dailly
-description: Um servidor MCP por stdio para o Claude Code operar o dailly pela API local, como mais um cliente dela - tarefas e comentários do Tasks, registros do Daily Log e as labels globais.
+description: Um servidor MCP por stdio para o Claude Code operar o dailly pela API local, como mais um cliente dela - tarefas e comentários do Tasks, os programas e os comentários deles, registros do Daily Log e as labels globais.
 tags: [mcp, tasks, harness, claude-code]
 status: stable
 since: 0.1.23
@@ -18,6 +18,11 @@ generated: { by: regulus/claude-opus-5-5, at: 2026-11-09T15:30:00-03:00 }
   - **escrever:** `create_task`, `update_task` (título, corpo, prioridade e status,
     numa gravação), `delete_task`;
   - **comentários:** `list_comments`, `add_comment`, `delete_comment`.
+- Tools dos programas (programa-comentarios): `list_programs` (id, nome, objetivo, janela,
+  "sai quando", foco e as tarefas) e os comentários do próprio programa,
+  `list_program_comments`, `add_program_comment` e `delete_program_comment`, pelo id que
+  `list_programs` dá. É por elas que a próxima sessão de um programa lê o que foi
+  comentado nele ([Tasks, programas e foco](/features/tasks-programas-e-foco.md)).
 - Tools do Daily Log (card #58):
   - **ler:** `list_entries` (um período de dias, por padrão hoje, com filtro por labels e
     propriedades) e `get_entry`;
